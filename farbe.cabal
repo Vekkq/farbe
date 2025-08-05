@@ -1,0 +1,49 @@
+cabal-version:      3.0
+name:               farbe
+version:            0.1.0.0
+synopsis: A graphics library for rendering in windows.
+description: A fiercly simplified interface over OpenGL ES 2, providing an expression type for writing shaders.
+license:            BSD-2-Clause
+license-file:       LICENSE
+author:             Vekkq
+maintainer:         vekkq@vivaldi.net
+category:           Graphics
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+common warnings
+    ghc-options: -Wall
+library
+    import:         warnings
+
+    exposed-modules: Graphics.Farbe
+                   , Graphics.Farbe.Vec
+                   , Graphics.Farbe.Tuple
+                   , Graphics.Farbe.Window
+
+    build-depends: base ^>=4.20
+                 , containers^>=0.7
+                 , mtl^>=2.3
+                 , gl^>=0.9
+                 , GLFW-b^>=3.3
+                 , array^>=0.5
+
+    hs-source-dirs:   src
+    default-language: GHC2021
+
+test-suite farbe-test
+    import:           warnings
+    default-language: GHC2021
+    other-modules: STL
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+
+    main-is:          Main.hs
+
+    build-depends: base ^>=4.20.0.0
+                 , farbe
+                 , gl^>=0.9
+
+
