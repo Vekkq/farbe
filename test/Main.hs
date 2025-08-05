@@ -17,9 +17,10 @@ loadSTL s = readFileSTL' s >>= newGArray
 
 
 
+main = return ()
 
-main :: IO ()
-main = runWindowT "" (InWindow (600,400)) $ runGL $ do
+foo :: IO ()
+foo = runWindowT "" (InWindow (600,400)) $ runGL $ do
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
 

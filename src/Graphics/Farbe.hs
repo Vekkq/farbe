@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Graphics.Farbe where
-
-
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
@@ -12,7 +12,6 @@ import Graphics.Farbe.Window
 
 import qualified Data.Map as M
 import Data.Maybe
-import Data.Function
 import Data.Char
 import Data.List
 import Data.Ord (comparing)
@@ -35,13 +34,11 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer (WriterT, MonadWriter)
-import Control.Monad.Cont (ContT, MonadCont)
-import Control.Monad.Trans (lift)
+import Control.Monad.Cont (ContT)
 import Control.Monad.Except (ExceptT, MonadError)
-import Control.Monad.Zip (MonadZip)
 import Control.Monad.Fix (MonadFix)
 import Control.Applicative (Alternative)
-import Control.Monad.IO.Class
+import Control.Monad.RWS (RWST)
 
 -- ~ import Data.Typeable
 
@@ -83,7 +80,7 @@ instance MonadReader r m => MonadReader r (GL m) where
 	ask = lift $ ask
 	local f = withw $ mapReaderT (local f)
 		where
-		withw f = GL . f . unGL
+		withw g = GL . g . unGL
 
 class MonadIO m => MonadGL m where
 	glState :: m GLState
@@ -109,32 +106,30 @@ liftBuildShaderGL g = do
  	return a
 
 
--- ~ instance MonadGL m => MonadGL (ReaderT r m) where
-	-- ~ glState = lift glState
+instance MonadGL m => MonadGL (ReaderT r m) where
+	glState = lift glState
+	count = lift count
 
--- ~ instance MonadGL m => MonadGL (StateT s m) where
-	-- ~ glState = lift glState
 
--- ~ instance (MonadGL m, Monoid w) => MonadGL (WriterT w m) where
-	-- ~ glState = lift glState
+instance MonadGL m => MonadGL (StateT s m) where
+	glState = lift glState
+	count = lift count
 
--- ~ instance (MonadGL m, Monoid w) => MonadGL (RWST r w s m) where
-	-- ~ glState = lift glState
+instance (MonadGL m, Monoid w) => MonadGL (WriterT w m) where
+	glState = lift glState
+	count = lift count
 
--- ~ instance MonadGL m => MonadGL (Strict.StateT s m) where
-	-- ~ glState = lift glState
+instance (MonadGL m, Monoid w) => MonadGL (RWST r w s m) where
+	glState = lift glState
+	count = lift count
 
--- ~ instance (MonadGL m, Monoid w) => MonadGL (Strict.WriterT w m) where
-	-- ~ glState = lift glState
+instance MonadGL m => MonadGL (ContT c m) where
+	glState = lift glState
+	count = lift count
 
--- ~ instance (MonadGL m, Monoid w) => MonadGL (Strict.RWST r w s m) where
-	-- ~ glState = lift glState
-
--- ~ instance MonadGL m => MonadGL (ContT c m) where
-	-- ~ glState = lift glState
-
--- ~ instance MonadGL m => MonadGL (ExceptT e m) where
-	-- ~ glState = lift glState
+instance MonadGL m => MonadGL (ExceptT e m) where
+	glState = lift glState
+	count = lift count
 
 
 
@@ -146,26 +141,27 @@ type ShaderId = GLuint
 
 addShader :: MonadGL m => ShaderId -> GLenum -> BuildShader m () -> m (m ())
 addShader sp t shdr = do
-	(s, BuildShaderState _ hs es io) <- runStateT (unBuildShader shdr) $ emptyShaderState sp
+	-- ~ (BuildShaderState _ hs es io) <- execStateT (unBuildShader shdr) $ emptyShaderState sp
+	st <- execStateT (unBuildShader shdr) $ emptyShaderState sp
 	let str
 		=  "#version 100\n"
-		++ unlines (reverse hs)
+		++ unlines (reverse $ header st)
 		++ "\n\nvoid main(){\n"
-		++ unlines (map (("  "++) . (++";")) $ reverse es)
+		++ unlines (map (("  "++) . (++";")) $ reverse $ cExpr st)
 		++ "}"
 	liftIO $ bracket (newCAString str) free $ \cs -> do
-		shdr <- glCreateShader t
-		with cs $ \p -> glShaderSource shdr 1 p nullPtr
-		glCompileShader shdr
-		checkShaderError str shdr
+		i <- glCreateShader t
+		with cs $ \p -> glShaderSource i 1 p nullPtr
+		glCompileShader i
+		checkShaderError str i
 		putStrLn str
-		glAttachShader sp shdr
-	return $ liftGL io
+		glAttachShader sp i
+	return $ liftGL $ execOnUse st
 
-
-checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \err ->
+checkShaderError :: String -> GLuint -> IO ()
+checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 	bracket malloc free $ \errLength -> do
-		glGetShaderInfoLog shdr (2^10) errLength err
+		glGetShaderInfoLog shdr (2^10) errLength er
 		peekArray0 (CChar 0) err >>= \ce -> case map castCCharToChar ce of
 			"" -> return ()
 			e -> do
@@ -182,8 +178,6 @@ withPtr f = do
 
 withPtr_ :: Storable a => (Ptr a -> IO ()) -> IO a
 withPtr_ f = fst <$> withPtr f
-
-
 
 
 
@@ -211,6 +205,7 @@ calcAlloc a mm@(Pager imap c) size
 	where
 		start = fromMaybe (error "Pager: corrupted") $ uncurry (+) <$> M.lookupLE c imap
 
+align :: (Integral a) => a -> a -> a
 align a p
 	| a <= 0 = p
 	| mod p a == 0 = p
@@ -231,9 +226,9 @@ calcLength k mm = fromMaybe 0 $ M.lookup k $ imap mm
 calcRemove :: Integral n => n -> Pager n -> Pager n
 calcRemove k (Pager imap c) = Pager imap' c
 	where
-		imap' = if k /= min && k /= max then M.delete k imap else imap
-		min = fst $ fromJust $ M.lookupMin imap
-		max = fst $ fromJust $ M.lookupMax imap
+		imap' = if k /= min' && k /= max' then M.delete k imap else imap
+		min' = fst $ fromJust $ M.lookupMin imap
+		max' = fst $ fromJust $ M.lookupMax imap
 
 pagerSize :: Integral n => Pager n -> n
 pagerSize = fst . fromJust . M.lookupMax . imap
@@ -336,8 +331,6 @@ removeGArray (GArray _ i) = updateMan $ return . (,()) . calcRemove i
 -- RunOnce -------------------------------------------------------------------------------
 
 data RunOnce m a = RunOnce (m a) (MVar a)
-
-romap f (RunOnce m a) = RunOnce (fmap f m) a
 
 makeRunOnce :: (MonadIO m) => m2 a -> m (RunOnce m2 a)
 makeRunOnce ma = liftIO $ RunOnce ma <$> newEmptyMVar
@@ -455,12 +448,13 @@ instance MonadGL m => MonadGL (VaoM m) where
 	count = lift count
 
 
-
+genName :: Int -> String
 genName i = (map (:[]) ['a'..'z'] ++ map show [1..]) !! i
 
 generateName :: MonadGL m => String -> m String
 generateName t = count >>= return . (t++) . genName
 
+withString :: MonadIO m => String -> (CString -> IO a) -> m a
 withString n f = liftIO $ bracket (newCAString n) free f
 
 -- | Set a VAO. Since VAO setup has to run after shader setup, it wraps it.
@@ -485,7 +479,7 @@ instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
 
 instance AttrType (V3 Float) (V3 (Expr V Float)) where
 	setAttribute s a = do
-		e@(Expr (Val n)) <- setupAttribute1 s a
+		Expr (Val n) <- setupAttribute1 s a
 		return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z"]
 
 
@@ -586,7 +580,7 @@ addCExpr n sa = modify $ \s -> s { cExpr = (n ++ " = " ++ sa) : cExpr s }
 
 addHeader :: forall a m. (GLtype a, MonadGL m) => String -> a -> String -> BuildShader m ()
 addHeader i a n =
-	modify $ \s -> s { header = unwords [i, glCName (err :: a), n, ";"] : header s }
+	modify $ \s -> s { header = unwords [i, glCName a, n, ";"] : header s }
 
 addExec :: MonadGL m => GL IO () -> BuildShader m ()
 addExec io = modify $ \s -> s { execOnUse = execOnUse s >> io }
@@ -595,7 +589,7 @@ getBuildShaderId :: MonadState BuildShaderState m => m ShaderId
 getBuildShaderId = shaderId <$> get
 
 
-
+liftE2 :: (Ast -> Ast -> Ast) -> Expr e1 a1 -> Expr e2 a2 -> Expr e3 a3
 liftE2 f (Expr a) (Expr b) = Expr $ f a b
 
 instance Num a => Num (Expr e a) where
@@ -616,16 +610,19 @@ instance Fractional a => Fractional (Expr e a) where
 
 
 compose1 :: (MonadGL m, MonadIO m) => Ast -> BuildShader m String
-compose1 a = case a of
+compose1 ast = case ast of
 	Val s -> liftBuildShaderGL s
-	Fn s as@(p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
+	Fn s (p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
 		(compose1 p1) (compose1 p2)
 	Fn "if" (p1:p2:p3:[]) -> liftM3 (\a b c -> par $ a ++ "?" ++ b ++ ":" ++ c)
 		(compose1 p1) (compose1 p2) (compose1 p3)
 	Fn s as -> (s++) . par . intercalate ", " <$> mapM compose1 as
 	where
-		isOp (x:s) = not $ isAlpha x
+		isOp :: String -> Bool
+		isOp (x:_) = not $ isAlpha x
+		isOp [] = False
 
+par :: String -> String
 par s = "(" ++ s ++ ")"
 
 compose :: MonadGL m => String -> Expr e r -> BuildShader m ()
@@ -655,7 +652,7 @@ vec4 :: V4 (Expr e a) -> Expr e (V4 a)
 vec4 v = Expr $ Fn "vec4" $ map ast $ toList v
 
 
-compile :: forall a b v m. (AttrType a b, MonadGL m)
+compile :: forall a b m. (AttrType a b, MonadGL m)
 	=> (b -> V4 (Expr F Float))
 	-> m ([GArray a] -> m ())
 compile f = do
@@ -677,13 +674,13 @@ compile f = do
 
 
 
-same (x:y:xs) = x == y && same (y:xs)
-same _ = True
+-- ~ same (x:y:xs) = x == y && same (y:xs)
+-- ~ same _ = True
 
-findInStringDepth :: Int -> String -> String -> Bool
-findInStringDepth i s = any (isPrefixOf s) . take i . tails
+-- ~ findInStringDepth :: Int -> String -> String -> Bool
+-- ~ findInStringDepth i s = any (isPrefixOf s) . take i . tails
 
-vecRow = [".x", ".y", ".z", ".w"]
+-- ~ vecRow = [".x", ".y", ".z", ".w"]
 
 
 
