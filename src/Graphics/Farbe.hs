@@ -140,7 +140,7 @@ type VaoId = GLuint
 type ShaderId = GLuint
 
 
-addShader :: MonadGL m => ShaderId -> GLenum -> BuildShader m () -> m (m ())
+addShader :: MonadGL m => ShaderId -> GLenum -> BuildShader m () -> m (m (), m ())
 addShader sp t shdr = do
 	-- ~ (BuildShaderState _ hs es io) <- execStateT (unBuildShader shdr) $ emptyShaderState sp
 	st <- execStateT (unBuildShader shdr) $ emptyShaderState sp
@@ -155,9 +155,10 @@ addShader sp t shdr = do
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
 		checkShaderError str i
-		-- ~ putStrLn str
+		putStrLn str
 		glAttachShader sp i
-	return $ liftGL $ execOnUse st
+		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
+	return $ (liftGL $ execOnUse st, liftGL $ postBuild st)
 
 checkShaderError :: String -> GLuint -> IO ()
 checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
@@ -544,10 +545,11 @@ makeVarDefault c = do
 	vname <- generateName c
 	r <- makeRunOnce $ do
 		s <- getShaderId
-		l <- withString vname $ glGetUniformLocation s
-		wc <- makeRunWhenChanged glDefault (glUpload l)
-		when (l >= 0) $ addExec $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
 		addHeader "uniform" (err :: a) vname
+		postBuild $ liftIO $ do
+			l <- withString vname $ glGetUniformLocation s
+			wc <- makeRunWhenChanged glDefault (glUpload l)
+			when (l >= 0) $ addExec $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
 		return vname
 	return (Expr $ Val $ runOnce r, m)
 
@@ -561,12 +563,13 @@ data BuildShaderState = BuildShaderState
 	{ shaderId :: ShaderId
 	, header :: [String]
 	, cExpr :: [String]
+	, postBuild :: GL IO ()
 	, execOnUse :: GL IO ()
 	}
 
 
 emptyShaderState :: ShaderId -> BuildShaderState
-emptyShaderState i = BuildShaderState i [] [] (pure ())
+emptyShaderState i = BuildShaderState i [] [] (pure ()) (pure ())
 
 blankShader :: Monad m => BuildShader m r -> m r
 blankShader s = evalStateT (unBuildShader s) $ emptyShaderState 0
@@ -588,6 +591,9 @@ addCExpr n sa = modify $ \s -> s { cExpr = (n ++ " = " ++ sa) : cExpr s }
 addHeader :: forall a m. (GLtype a, MonadGL m) => String -> a -> String -> BuildShader m ()
 addHeader i a n =
 	modify $ \s -> s { header = unwords [i, glCNameWithPrec a, n, ";"] : header s }
+
+addPostBuild :: MonadGL m => GL IO () -> BuildShader m ()
+addPostBuild io = modify $ \s -> s { postBuild = postBuild s >> io }
 
 addExec :: MonadGL m => GL IO () -> BuildShader m ()
 addExec io = modify $ \s -> s { execOnUse = execOnUse s >> io }
@@ -665,12 +671,14 @@ instance GLtype a => Raster (Expr V a) (Expr F a) where
 		vert n = do
 			compose "gl_Position" $ vec4 v
 			compose n e
-			addHeader "varying" a n
+			addHeader "varying" a n -- borked for tuple types
 		frag = do
 			n <- generateName $ glShortName a
 			addHeader "in " a n
 			i <- getShaderId
-			lift $ addShader i GL_VERTEX_SHADER $ vert n
+			(p,exec) <- lift $ addShader i GL_VERTEX_SHADER $ vert n
+			addPostBuild p
+			addExec exec
 			return n
 		in Expr $ Val frag
 
@@ -685,8 +693,8 @@ compile :: forall a b m. (AttrType a b, MonadGL m)
 compile f = do
 	sp <- glCreateProgram
 	(i, exec) <- setAttributes sp (err :: a) $ \e -> do
-		exec <- addShader sp GL_FRAGMENT_SHADER $ compose "gl_FragColor" $ vec4 $ f e
-		glLinkProgram sp
+		(p,exec) <- addShader sp GL_FRAGMENT_SHADER $ compose "gl_FragColor" $ vec4 $ f e
+		p
 		return exec
 	return $ \garrs -> do
 		glBindVertexArray i
