@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module Graphics.Farbe where
 
@@ -154,7 +155,7 @@ addShader sp t shdr = do
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
 		checkShaderError str i
-		putStrLn str
+		-- ~ putStrLn str
 		glAttachShader sp i
 	return $ liftGL $ execOnUse st
 
@@ -162,7 +163,7 @@ checkShaderError :: String -> GLuint -> IO ()
 checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 	bracket malloc free $ \errLength -> do
 		glGetShaderInfoLog shdr (2^10) errLength er
-		peekArray0 (CChar 0) err >>= \ce -> case map castCCharToChar ce of
+		peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
 			"" -> return ()
 			e -> do
 				putStrLn str
@@ -385,6 +386,8 @@ class (Eq a, Storable a) => GLtype a where
 	glDefault :: a
 	glPrecision :: a -> String
 	glPrecision _ = "mediump"
+	glCNameWithPrec :: a -> String
+	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
 
 
 instance GLtype Int32 where
@@ -524,28 +527,32 @@ data Expr e a = Expr { ast :: Ast }
 
 -- Uploadable ----------------------------------------------------------------------------
 
-class GLtype a => Uploadable a e where
-	makeVar :: (MonadGL m) => m (e, a -> m ())
+makeFloat :: MonadGL m => m (Expr e Float, MVar Float)
+makeFloat = makeVar
+
+class GLtype a => Uploadable a e | e -> a where
+	makeVar :: MonadGL m => m (e, MVar a)
 
 
 instance Uploadable Float (Expr e Float) where
 	makeVar = makeVarDefault "f"
 
 
-makeVarDefault :: forall a m e.
-	(MonadGL m, GLtype a) => String -> m (Expr e a, a -> m ())
+makeVarDefault :: forall a m e . (MonadGL m, GLtype a) => String -> m (Expr e a, MVar a)
 makeVarDefault c = do
 	m <- liftIO $ newMVar glDefault
 	vname <- generateName c
 	r <- makeRunOnce $ do
-		s <- getBuildShaderId
+		s <- getShaderId
 		l <- withString vname $ glGetUniformLocation s
 		wc <- makeRunWhenChanged glDefault (glUpload l)
-		when (l >= 0) $ addExec $ liftIO (readMVar m) >>= runwc wc
+		when (l >= 0) $ addExec $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
 		addHeader "uniform" (err :: a) vname
 		return vname
-	return (Expr $ Val $ runOnce r, liftIO . void . swapMVar m)
+	return (Expr $ Val $ runOnce r, m)
 
+updateMVar :: MonadIO m => MVar a -> a -> m ()
+updateMVar m a = liftIO $ void $ swapMVar m a
 
 
 -- Shader building monad -----------------------------------------------------------------
@@ -580,14 +587,16 @@ addCExpr n sa = modify $ \s -> s { cExpr = (n ++ " = " ++ sa) : cExpr s }
 
 addHeader :: forall a m. (GLtype a, MonadGL m) => String -> a -> String -> BuildShader m ()
 addHeader i a n =
-	modify $ \s -> s { header = unwords [i, glCName a, n, ";"] : header s }
+	modify $ \s -> s { header = unwords [i, glCNameWithPrec a, n, ";"] : header s }
 
 addExec :: MonadGL m => GL IO () -> BuildShader m ()
 addExec io = modify $ \s -> s { execOnUse = execOnUse s >> io }
 
-getBuildShaderId :: MonadState BuildShaderState m => m ShaderId
-getBuildShaderId = shaderId <$> get
+getShaderId :: MonadState BuildShaderState m => m ShaderId
+getShaderId = shaderId <$> get
 
+liftE' :: String -> Expr e1 a1 -> Expr e2 a2
+liftE' s (Expr a) = Expr $ Fn s [a]
 
 liftE2 :: (Ast -> Ast -> Ast) -> Expr e1 a1 -> Expr e2 a2 -> Expr e3 a3
 liftE2 f (Expr a) (Expr b) = Expr $ f a b
@@ -605,6 +614,24 @@ instance Fractional a => Fractional (Expr e a) where
 	(/) = liftE2 (\a b -> Fn "/" [a,b])
 
 
+instance Floating a => Floating (Expr e a) where
+	pi = Expr $ Val $ return $ show pi
+	exp = liftE' "exp"
+	log = liftE' "log"
+	sqrt = liftE' "sqrt"
+	(**) = liftE2 (\a b -> Fn "^" [a,b])
+	sin = liftE' "sin"
+	cos = liftE' "cos"
+	tan = liftE' "tan"
+	asin = liftE' "asin"
+	acos = liftE' "acos"
+	atan = liftE' "atan"
+	sinh = liftE' "sinh"
+	cosh = liftE' "cosh"
+	tanh = liftE' "tanh"
+	asinh = liftE' "asinh"
+	acosh = liftE' "acosh"
+	atanh = liftE' "atanh"
 
 
 
@@ -641,8 +668,8 @@ instance GLtype a => Raster (Expr V a) (Expr F a) where
 			addHeader "varying" a n
 		frag = do
 			n <- generateName $ glShortName a
-			addHeader ("in " ++ glPrecision a) a n
-			i <- getBuildShaderId
+			addHeader "in " a n
+			i <- getShaderId
 			lift $ addShader i GL_VERTEX_SHADER $ vert n
 			return n
 		in Expr $ Val frag

@@ -199,18 +199,18 @@ toErr err@(e,s) = case e of
 
 
 -- | Process and fetch events.
-processEvents :: MonadWindow m => m [Event]
-processEvents = do
+processEvents' :: MonadWindow m => m [Event]
+processEvents' = do
 	eq <- eventQueue
 	liftIO $ W.pollEvents
 	reverse <$> mlRemoveAll eq >>= eventsOnLocked
 
 -- | Process and fetch events.
 --   Delivers Events to a function.
---   The function is not run, when window is signaled to be closed.
-processEvents' :: MonadWindow m => ([Event] -> m ()) -> m ()
-processEvents' f = do
-	es <- processEvents
+--   The function is run until window is signaled to be closed.
+processEvents :: MonadWindow m => ([Event] -> m ()) -> m ()
+processEvents f = do
+	es <- processEvents'
 	w <- glfwWindow
 	b <- liftIO $ W.windowShouldClose w
 	when (not $ b || elem EventClose es) $ f es
