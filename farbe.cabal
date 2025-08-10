@@ -13,7 +13,7 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 library
-    import:         warnings
+--    import:         warnings
 
     exposed-modules: Graphics.Farbe
                    , Graphics.Farbe.Vec
@@ -31,7 +31,7 @@ library
     default-language: GHC2021
 
 test-suite farbe-test
-    import:           warnings
+--    import:           warnings
     default-language: GHC2021
     other-modules: STL
 

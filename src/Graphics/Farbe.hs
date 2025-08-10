@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE IncoherentInstances #-}
 
 module Graphics.Farbe where
 
@@ -34,7 +35,7 @@ import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Writer (WriterT, MonadWriter)
+import Control.Monad.Writer
 import Control.Monad.Cont (ContT)
 import Control.Monad.Except (ExceptT, MonadError)
 import Control.Monad.Fix (MonadFix)
@@ -58,6 +59,12 @@ data GLState = GLState
 	-- add hook that will receive render status
 	}
 
+newtype GL m a = GL { unGL :: ReaderT GLState m a }
+	deriving
+		( Functor, Applicative, Monad, Alternative
+		, MonadWriter w, MonadState s, MonadError e, MonadIO
+		, MonadFix, MonadPlus, MonadWindow
+		)
 
 runGL :: MonadIO m => GL m a -> m a
 runGL (GL m) = do
@@ -65,14 +72,6 @@ runGL (GL m) = do
 	counter <- liftIO $ newMVar 0
 	runReaderT m $ GLState counter vbom
 
-
-
-newtype GL m a = GL { unGL :: ReaderT GLState m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative
-		, MonadWriter w, MonadState s, MonadError e, MonadIO
-		, MonadFix, MonadPlus, MonadWindow
-		)
 
 instance MonadTrans GL where
 	lift = GL . lift
@@ -83,15 +82,42 @@ instance MonadReader r m => MonadReader r (GL m) where
 		where
 		withw g = GL . g . unGL
 
+instance Monad m => Semigroup (GL m a) where
+	(<>) = (>>)
+
+instance Monad m => Monoid (GL m a) where
+	mempty = return $ error ""
+
+
 class MonadIO m => MonadGL m where
 	glState :: m GLState
-	count :: m Int
+
+count :: MonadGL m => m Int
+count = do
+		c <- counter <$> glState
+		liftIO $ modifyMVar c (\i -> return (succ i, i))
 
 instance MonadIO m => MonadGL (GL m) where
 	glState = GL ask
-	count = do
-		c <- counter <$> glState
-		liftIO $ modifyMVar c (\i -> return (succ i, i))
+
+instance MonadGL m => MonadGL (ReaderT r m) where
+	glState = lift glState
+
+
+instance MonadGL m => MonadGL (StateT s m) where
+	glState = lift glState
+
+instance (MonadGL m, Monoid w) => MonadGL (WriterT w m) where
+	glState = lift glState
+
+instance (MonadGL m, Monoid w) => MonadGL (RWST r w s m) where
+	glState = lift glState
+
+instance MonadGL m => MonadGL (ContT c m) where
+	glState = lift glState
+
+instance MonadGL m => MonadGL (ExceptT e m) where
+	glState = lift glState
 
 
 liftGL :: (MonadGL m, MonadIO m) => GL IO a -> m a
@@ -99,66 +125,404 @@ liftGL gl = do
 	r <- glState
 	liftIO $ runReaderT (unGL gl) r
 
-liftBuildShaderGL :: MonadGL m => BuildShader (GL IO) a -> BuildShader m a
-liftBuildShaderGL g = do
-	s <- get
-	(a,s') <- liftGL $ runStateT (unBuildShader g) s
-	put s'
- 	return a
+
+-- Tasks ---------------------------------------------------------------------------------
+
+newtype PostShaderBuildsM m a = PostShaderBuildsM { unpsp :: WriterT (GL IO ()) m a }
+	deriving
+		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL)
+
+class Monad m => PostShaderBuilds m where
+	postShaderBuilds :: GL IO () -> m ()
+
+instance Monad m => PostShaderBuilds (PostShaderBuildsM m) where
+	postShaderBuilds = PostShaderBuildsM . tell
+
+runPostShaderBuilds :: MonadGL m => PostShaderBuildsM m a -> m a
+runPostShaderBuilds p = do
+	(a,w) <- runWriterT $ unpsp p
+	liftGL w
+	return a
 
 
-instance MonadGL m => MonadGL (ReaderT r m) where
+newtype PreRenderM m a = PreRenderM { unprp :: WriterT (GL IO ()) m a }
+	deriving
+		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL)
+
+
+class Monad m => PreRender m where
+	preRender :: GL IO () -> m ()
+
+instance Monad m => PreRender (PreRenderM m) where
+	preRender :: GL IO () -> PreRenderM m ()
+	preRender = PreRenderM . tell
+
+instance PostShaderBuilds m => PostShaderBuilds (PreRenderM m) where
+	postShaderBuilds = lift . postShaderBuilds
+
+collectPreRender :: MonadGL m => PreRenderM m a -> m (a, m ())
+collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
+
+fmap2 f = fmap (fmap f)
+
+
+-- Shader building monad -----------------------------------------------------------------
+
+data BuildShaderState = BuildShaderState
+	{ shaderId :: Shader
+	, header :: [String]
+	, cExpr :: [String]
+	}
+
+emptyShaderState :: Shader -> BuildShaderState
+emptyShaderState i = BuildShaderState i [] []
+
+-- ~ blankShader :: Monad m => BuildShaderM m r -> m r
+-- ~ blankShader s = evalStateT (unBuildShaderM s) $ emptyShaderState 0
+
+newtype BuildShaderM m r = BuildShaderM { unBuildShaderM :: StateT BuildShaderState m r }
+	deriving
+		( Functor, Applicative, Monad, Alternative
+		, MonadIO, MonadTrans
+		)
+
+runBuildShader :: Shader -> BuildShaderM m a -> m (a, BuildShaderState)
+runBuildShader i b = runStateT (unBuildShaderM b) $ emptyShaderState i
+
+
+instance MonadGL m => MonadGL (BuildShaderM m) where
 	glState = lift glState
-	count = lift count
+
+instance PostShaderBuilds m => PostShaderBuilds (BuildShaderM m) where
+	postShaderBuilds = lift . postShaderBuilds
+
+instance PreRender m => PreRender (BuildShaderM m) where
+	preRender = lift . preRender
 
 
-instance MonadGL m => MonadGL (StateT s m) where
+class (MonadGL m, PostShaderBuilds m, PreRender m) => BuildShader m where
+	buildShaderState :: (BuildShaderState -> (a, BuildShaderState)) -> m a
+
+instance (MonadGL m, PostShaderBuilds m, PreRender m) => BuildShader (BuildShaderM m) where
+	buildShaderState = BuildShaderM . state
+
+addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m ()
+addHeader i a n = buildShaderState $ \s -> ((),) $
+		s { header = unwords [i, glCNameWithPrec a, n, ";"] : header s }
+
+addCExpr :: BuildShader m => String -> String -> m ()
+addCExpr n sa = buildShaderState $ \s -> ((),) $
+	s { cExpr = (n ++ " = " ++ sa) : cExpr s }
+
+getShader :: BuildShader m => m Shader
+getShader = buildShaderState $ \s -> (shaderId s, s)
+
+
+-- Expr ----------------------------------------------------------------------------------
+
+data Ast
+	= Val { val :: BuildShaderM (PreRenderM (PostShaderBuildsM (GL IO))) String }
+	| Fn { fnName :: String, fnAst :: [Ast] }
+
+emptyValStack :: BuildShaderM (PreRenderM (PostShaderBuildsM (GL IO))) ()
+emptyValStack = return ()
+
+foo :: GLtype a => a -> BuildShaderM (PreRenderM (PostShaderBuildsM (GL IO))) ()
+foo a = do
+		addHeader "attribute" a undefined
+
+
+liftBuildShaderExtGL
+	:: (MonadGL m, BuildShader m, PreRender m, PostShaderBuilds m)
+	=> BuildShaderM (PreRenderM (PostShaderBuildsM (GL IO))) a
+	-> m a
+liftBuildShaderExtGL g = do
+	b <- buildShaderState $ \s -> (s,s)
+	(((a, b'), pre), post) <- liftGL $ runWriterT $ unpsp $ runWriterT $ unprp $ runStateT (unBuildShaderM g) b
+	buildShaderState $ \_ -> (b',b')
+	preRender pre
+	postShaderBuilds post
+	return a
+
+
+data V -- | Vertex shader signifier.
+data F -- | Fragment/pixel shader signifier.
+
+
+-- | Expression for shaders.
+-- | e states the environment, which is either vertex or fragment shader.
+data Expr e a = Expr { ast :: Ast }
+
+-- AttribM -------------------------------------------------------------------------------
+
+newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
+	deriving
+		(Functor, Applicative, Monad, MonadTrans, MonadIO)
+
+-- ~ instance MonadState s m => MonadState s (AttribM m) where
+	-- ~ get = lift get
+	-- ~ put s = lift $ put s
+
+class Monad m => Attrib m where
+	offset :: m Int
+	advanceBy :: Storable s => s -> m ()
+
+instance Monad m => Attrib (AttribM m) where
+	offset = AttribM get
+	advanceBy a = AttribM $ modify (sizeOf a +)
+
+instance MonadGL m => MonadGL (AttribM m) where
 	glState = lift glState
-	count = lift count
 
-instance (MonadGL m, Monoid w) => MonadGL (WriterT w m) where
-	glState = lift glState
-	count = lift count
+instance PostShaderBuilds m => PostShaderBuilds (AttribM m) where
+	postShaderBuilds = lift . postShaderBuilds
 
-instance (MonadGL m, Monoid w) => MonadGL (RWST r w s m) where
-	glState = lift glState
-	count = lift count
+instance PreRender m => PreRender (AttribM m) where
+	preRender = lift . preRender
 
-instance MonadGL m => MonadGL (ContT c m) where
-	glState = lift glState
-	count = lift count
+instance BuildShader m => BuildShader (AttribM m) where
+	buildShaderState = lift . buildShaderState
 
-instance MonadGL m => MonadGL (ExceptT e m) where
-	glState = lift glState
-	count = lift count
+instance (Monad m) => MonadFail m where
+		fail = return . error
+
+
+genName :: Int -> String
+genName i = (map (:[]) ['a'..'z'] ++ map show [1..]) !! i
+
+generateName :: MonadGL m => String -> m String
+generateName t = count >>= return . (t++) . genName
+
+withString :: MonadIO m => String -> (CString -> IO a) -> m a
+withString n f = liftIO $ bracket (newCAString n) free f
+
+type Vao = GLuint
+
+-- | Make VAO
+setAttributes :: (BuildShader m, AttrType a b) => Shader -> a -> m (Vao, b)
+setAttributes s a = do
+	i <- glGenVertexArray
+	glBindVertexArray i
+	e <- evalStateT (unAttrib $ setAttribute s a) 0
+	return (i, e)
+
+class Storable a => AttrType a b where
+	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
+
+instance AttrType Int32 (Expr V Int32) where setAttribute = setupAttribute1
+instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
+
+instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
+	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
+
+instance AttrType (V3 Float) (V3 (Expr V Float)) where
+	setAttribute s a = do
+		Expr (Val n) <- setupAttribute1 s a
+		return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z"]
+
+
+setupAttribute1
+	:: (GLtype a, BuildShader m, Attrib m)
+	=> Shader
+	-> a
+	-> m (Expr V a)
+setupAttribute1 s a = do
+	n <- generateName $ "v" ++ glShortName a
+	o <- offset
+	postShaderBuilds $ withString n $ \c -> do
+		p <- fromIntegral <$> glGetAttribLocation s c
+		glVertexAttribPointer p
+			(glComponents a)
+			(glType a)
+			(glNormalized a)
+			0
+			(intPtrToPtr $ IntPtr o)
+		glEnableVertexAttribArray p
+	advanceBy a
+	initExpr <- makeRunOnce $ do
+		addHeader "attribute" a n
+		return n
+	return $ (Expr $ Val $ runOnce initExpr)
+
+-- Uploadable ----------------------------------------------------------------------------
+
+-- ~ makeFloat :: MonadGL m => m (Expr e Float, MVar Float)
+-- ~ makeFloat = makeVar
+
+class GLtype a => Uploadable a e | e -> a where
+	makeVar :: MonadGL m => m (e, MVar a)
+
+
+instance Uploadable Float (Expr e Float) where
+	makeVar = makeVarDefault "f"
+
+-- ~ makeVarDefault = undefined
+
+makeVarDefault :: forall a m e . (MonadGL m, GLtype a) => String -> m (Expr e a, MVar a)
+makeVarDefault c = do
+	m <- liftIO $ newMVar glDefault
+	vname <- generateName c
+	r <- makeRunOnce $ do
+		s <- getShader
+		addHeader "uniform" (err :: a) vname
+		postShaderBuilds $ do
+			l <- withString vname $ glGetUniformLocation s
+			wc <- makeRunWhenChanged glDefault (glUpload l)
+			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
+		return vname
+	return (Expr $ Val $ runOnce r, m)
+
+updateMVar :: MonadIO m => MVar a -> a -> m ()
+updateMVar m a = liftIO $ void $ swapMVar m a
+
+
+
+liftE :: String -> Expr e1 a1 -> Expr e2 a2
+liftE s (Expr a) = Expr $ Fn s [a]
+
+liftE2 :: String -> Expr e1 a1 -> Expr e2 a2 -> Expr e3 a3
+liftE2 s (Expr a) (Expr b) = Expr $ Fn s [a,b]
+
+instance Num a => Num (Expr e a) where
+	(+) = liftE2 "+"
+	(*) = liftE2 "*"
+	(-) = liftE2 "-"
+	abs = undefined
+	signum = undefined
+	fromInteger = Expr . Val . return . ($ []) . showFFloat Nothing . fromInteger
+
+instance Fractional a => Fractional (Expr e a) where
+	fromRational = Expr . Val . return . ($ []) . showFFloat Nothing . fromRat
+	(/) = liftE2 "/"
+
+
+instance Floating a => Floating (Expr e a) where
+	pi = Expr $ Val $ return $ show pi
+	exp = liftE "exp"
+	log = liftE "log"
+	sqrt = liftE "sqrt"
+	(**) = liftE2 "^"
+	sin = liftE "sin"
+	cos = liftE "cos"
+	tan = liftE "tan"
+	asin = liftE "asin"
+	acos = liftE "acos"
+	atan = liftE "atan"
+	sinh = liftE "sinh"
+	cosh = liftE "cosh"
+	tanh = liftE "tanh"
+	asinh = liftE "asinh"
+	acosh = liftE "acosh"
+	atanh = liftE "atanh"
+
+
+
+
+compose1 :: (MonadGL m, BuildShader m) => Ast -> m String
+compose1 ast = case ast of
+	Val s -> liftBuildShaderExtGL s
+	Fn s (p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
+		(compose1 p1) (compose1 p2)
+	Fn "if" (p1:p2:p3:[]) -> liftM3 (\a b c -> par $ a ++ "?" ++ b ++ ":" ++ c)
+		(compose1 p1) (compose1 p2) (compose1 p3)
+	Fn s as -> (s++) . par . intercalate ", " <$> mapM compose1 as
+	where
+		isOp :: String -> Bool
+		isOp (x:_) = not $ isAlpha x
+		isOp [] = False
+
+par :: String -> String
+par s = "(" ++ s ++ ")"
+
+-- ~ compose :: MonadGL m => String -> Expr e r -> BuildShaderM m ()
+-- ~ compose s e = (compose1 $ ast e) >>= addCExpr s
+
+class Raster v f where
+	raster :: (V4 (Expr V Float), v) -> f
+
+
+-- ~ instance GLtype a => Raster (Expr V a) (Expr F a) where
+	-- ~ raster (v,e) = let
+		-- ~ a = err :: a
+		-- ~ vert n = do
+			-- ~ compose "gl_Position" $ vec4 v
+			-- ~ compose n e
+			-- ~ addHeader "varying" a n -- borked for tuple types
+		-- ~ frag = do
+			-- ~ n <- generateName $ glShortName a
+			-- ~ addHeader "in" a n
+			-- ~ i <- getShader
+			-- ~ addShader i GL_VERTEX_SHADER $ vert n
+			-- ~ postShaderBuilds p
+			-- ~ preRender exec
+			-- ~ return n
+		-- ~ in Expr $ Val frag
+
+
+vec4 :: V4 (Expr e a) -> Expr e (V4 a)
+vec4 v = Expr $ Fn "vec4" $ map ast $ toList v
+
+
+-- ~ compile :: forall a b m. (AttrType a b, MonadGL m)
+	-- ~ => (b -> V4 (Expr F Float))
+	-- ~ -> m ([GArray a] -> m ())
+-- ~ compile f = do
+	-- ~ sp <- glCreateProgram
+	-- ~ (exec,vao) <- collectPreRender $ runPostShaderBuilds $ do
+		-- ~ (i,e) <- setAttributes sp (err :: a)
+		-- ~ let shdr = compose "gl_FragColor" $ vec4 $ f e
+		-- ~ addShader sp GL_FRAGMENT_SHADER shdr
+		-- ~ return i
+	-- ~ return $ \garrs -> do
+		-- ~ glBindVertexArray vao
+		-- ~ glUseProgram sp
+		-- ~ exec
+		-- ~ drawArrays garrs
+
+
+
+-- Ast optimizations ---------------------------------------------------------------------
+-- without context probably quickly to break stuff
+
+
+
+-- ~ same (x:y:xs) = x == y && same (y:xs)
+-- ~ same _ = True
+
+-- ~ findInStringDepth :: Int -> String -> String -> Bool
+-- ~ findInStringDepth i s = any (isPrefixOf s) . take i . tails
+
+-- ~ vecRow = [".x", ".y", ".z", ".w"]
+
+
+
 
 
 
 -- Shader compilation --------------------------------------------------------------------
 
-type VaoId = GLuint
-type ShaderId = GLuint
+type Shader = GLuint
 
 
-addShader :: MonadGL m => ShaderId -> GLenum -> BuildShader m () -> m (m (), m ())
-addShader sp t shdr = do
-	-- ~ (BuildShaderState _ hs es io) <- execStateT (unBuildShader shdr) $ emptyShaderState sp
-	st <- execStateT (unBuildShader shdr) $ emptyShaderState sp
-	let str
-		=  "#version 100\n"
-		++ unlines (reverse $ header st)
-		++ "\n\nvoid main(){\n"
-		++ unlines (map (("  "++) . (++";")) $ reverse $ cExpr st)
-		++ "}"
-	liftIO $ bracket (newCAString str) free $ \cs -> do
-		i <- glCreateShader t
-		with cs $ \p -> glShaderSource i 1 p nullPtr
-		glCompileShader i
-		checkShaderError str i
-		putStrLn str
-		glAttachShader sp i
-		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
-	return $ (liftGL $ execOnUse st, liftGL $ postBuild st)
+-- ~ addShader :: MonadGL m => Shader -> GLenum -> BuildShaderM m () -> m ()
+-- ~ addShader sp t shdr = do
+	-- ~ (BuildShaderState _ hs es io) <- execStateT (unBuildShaderM shdr) $ emptyShaderState sp
+	-- ~ st <- execStateT (unBuildShaderM shdr) $ emptyShaderState sp
+	-- ~ let str
+		-- ~ =  "#version 100\n"
+		-- ~ ++ unlines (reverse $ header st)
+		-- ~ ++ "\n\nvoid main(){\n"
+		-- ~ ++ unlines (map (("  "++) . (++";")) $ reverse $ cExpr st)
+		-- ~ ++ "}"
+	-- ~ postShaderBuilds $ liftIO $ bracket (newCAString str) free $ \cs -> do
+		-- ~ i <- glCreateShader t
+		-- ~ with cs $ \p -> glShaderSource i 1 p nullPtr
+		-- ~ glCompileShader i
+		-- ~ checkShaderError str i
+		-- ~ putStrLn str
+		-- ~ glAttachShader sp i
+		-- ~ when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
+
 
 checkShaderError :: String -> GLuint -> IO ()
 checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
@@ -183,7 +547,53 @@ withPtr_ f = fst <$> withPtr f
 
 
 
--- Buffer allocation calculations --------------------------------------------------------
+-- GL type information -------------------------------------------------------------------
+
+class (Eq a, Storable a) => GLtype a where
+	glCName :: a -> String
+	glType :: a -> GLenum
+	glComponents :: a -> GLint
+	glComponents _ = 1
+	glNormalized :: a -> GLboolean
+	glNormalized _ = GL_FALSE
+	glShortName :: a -> String
+	glShortName a = take 1 $ glCName a
+	glUpload :: MonadIO m => GLint -> a -> m ()
+	glDefault :: a
+	glPrecision :: a -> String
+	glPrecision _ = "mediump"
+	glCNameWithPrec :: a -> String
+	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
+
+
+instance GLtype Int32 where
+	glCName _ = "int"
+	glType _ = GL_INT
+	glUpload = glUniform1i
+	glDefault = 0
+
+instance GLtype Float where
+	glCName _ = "float"
+	glType _ = GL_FLOAT
+	glUpload = glUniform1f
+	glDefault = 0
+
+instance GLtype (V3 Float) where
+	glCName _ = "vec3"
+	glType _ = GL_FLOAT
+	glComponents _ = 3
+	glUpload i (V3 a b c) = glUniform3f i a b c
+	glDefault = V3 0 0 0
+
+instance GLtype (V4 Float) where
+	glCName _ = "vec4"
+	glType _ = GL_FLOAT
+	glComponents _ = 4
+	glUpload i (V4 a b c d) = glUniform4f i a b c d
+	glDefault = V4 0 0 0 0
+
+
+-- Pager - calculations for Buffer allocation --------------------------------------------
 
 data Pager n = Pager
 	{ imap :: M.Map n n -- | position - length
@@ -236,14 +646,12 @@ pagerSize :: Integral n => Pager n -> n
 pagerSize = fst . fromJust . M.lookupMax . imap
 
 
-
 -- VBO manager ---------------------------------------------------------------------------
 
 data VBOMan = VBOMan
 	{ pager :: Pager GLintptr
 	, vboIndex :: GLuint
 	}
-
 
 initVBOMan :: GLintptr -> IO VBOMan
 initVBOMan s = do
@@ -270,7 +678,7 @@ vboAlloc a i = updateMan $ \mn -> return $ fromMaybe e $ calcAlloc a mn i
 	where e = error "VBOMan: total size limit reached"
 	-- a buffer may be extendable afterall, when copying out all data
 	-- and adding it with a bigger call to glbufferdata again.
-	-- this requires a higher opengl es version.
+	-- this requires OES_mapbuffer .
 
 vboUpdate :: (MonadGL m, Storable a) => GArray a -> StorableArray Int a -> m ()
 vboUpdate (GArray s i) a =
@@ -329,7 +737,6 @@ removeGArray (GArray _ i) = updateMan $ return . (,()) . calcRemove i
 
 
 
-
 -- RunOnce -------------------------------------------------------------------------------
 
 data RunOnce m a = RunOnce (m a) (MVar a)
@@ -371,351 +778,4 @@ glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
 
 glBindVertexArray :: MonadIO m => GLuint -> m ()
 glBindVertexArray = liftIO . glBindVertexArrayOES
-
--- GL type information -------------------------------------------------------------------
-
-class (Eq a, Storable a) => GLtype a where
-	glCName :: a -> String
-	glType :: a -> GLenum
-	glComponents :: a -> GLint
-	glComponents _ = 1
-	glNormalized :: a -> GLboolean
-	glNormalized _ = GL_FALSE
-	glShortName :: a -> String
-	glShortName a = take 1 $ glCName a
-	glUpload :: MonadIO m => GLint -> a -> m ()
-	glDefault :: a
-	glPrecision :: a -> String
-	glPrecision _ = "mediump"
-	glCNameWithPrec :: a -> String
-	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
-
-
-instance GLtype Int32 where
-	glCName _ = "int"
-	glType _ = GL_INT
-	glUpload = glUniform1i
-	glDefault = 0
-
-instance GLtype Float where
-	glCName _ = "float"
-	glType _ = GL_FLOAT
-	glUpload = glUniform1f
-	glDefault = 0
-
-instance GLtype (V3 Float) where
-	glCName _ = "vec3"
-	glType _ = GL_FLOAT
-	glComponents _ = 3
-	glUpload i (V3 a b c) = glUniform3f i a b c
-	glDefault = V3 0 0 0
-
-instance GLtype (V4 Float) where
-	glCName _ = "vec4"
-	glType _ = GL_FLOAT
-	glComponents _ = 4
-	glUpload i (V4 a b c d) = glUniform4f i a b c d
-	glDefault = V4 0 0 0 0
-
-
--- VAO -----------------------------------------------------------------------------------
-
-newtype VaoM m a = VaoM { unVao :: StateT Int (StateT (GL IO ()) m) a }
-	deriving
-		( Functor, Applicative, Monad, Alternative
-		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadFix, MonadPlus, MonadWindow
-		)
-
-instance MonadTrans VaoM where
-	lift = VaoM . lift . lift
-
-instance MonadState s m => MonadState s (VaoM m) where
-	get = lift get
-	put s = lift $ put s
-
-class Monad m => Vao m where
-	offset :: m Int
-	advanceBy :: Storable s => s -> m ()
-	posthoc :: GL IO () -> m ()
-
-instance Monad m => Vao (VaoM m) where
-	offset = VaoM get
-	advanceBy a = VaoM $ modify (sizeOf a +)
-	posthoc io = VaoM $ lift $ modify (>>io)
-
-instance Monad m => MonadFail (VaoM m) where
-		fail = return . error
-
-instance MonadGL m => MonadGL (VaoM m) where
-	glState = lift glState
-	count = lift count
-
-
-genName :: Int -> String
-genName i = (map (:[]) ['a'..'z'] ++ map show [1..]) !! i
-
-generateName :: MonadGL m => String -> m String
-generateName t = count >>= return . (t++) . genName
-
-withString :: MonadIO m => String -> (CString -> IO a) -> m a
-withString n f = liftIO $ bracket (newCAString n) free f
-
--- | Set a VAO. Since VAO setup has to run after shader setup, it wraps it.
-setAttributes :: (MonadGL m, AttrType a b) => ShaderId -> a -> (b -> m c) -> m (VaoId, c)
-setAttributes s a f = do
-	i <- glGenVertexArray
-	glBindVertexArray i -- needed?
-	-- ~ getVBO >>= liftIO . glBindBuffer GL_ARRAY_BUFFER -- needed?
-	(b, m) <- runStateT (evalStateT (unVao $ setAttribute s a) 0) (return ())
-	r <- f b
-	liftGL m
-	return (i, r)
-
-class Storable a => AttrType a b where
-	setAttribute :: MonadGL m => ShaderId -> a -> VaoM m b
-
-instance AttrType Int32 (Expr V Int32) where setAttribute = setupAttribute1
-instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
-
-instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
-	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
-
-instance AttrType (V3 Float) (V3 (Expr V Float)) where
-	setAttribute s a = do
-		Expr (Val n) <- setupAttribute1 s a
-		return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z"]
-
-
-setupAttribute1
-	:: (GLtype a, MonadGL m)
-	=> ShaderId
-	-> a
-	-> VaoM m (Expr V a)
-setupAttribute1 s a = do
-	n <- generateName $ "v" ++ glShortName a
-	o <- offset
-	posthoc $ withString n $ \c -> do
-		p <- fromIntegral <$> glGetAttribLocation s c -- TODO: has to run after compiler linking
-		glVertexAttribPointer p
-			(glComponents a)
-			(glType a)
-			(glNormalized a)
-			0
-			(intPtrToPtr $ IntPtr o)
-		glEnableVertexAttribArray p
-	advanceBy a
-	initExpr <- makeRunOnce $ do
-		addHeader "attribute" a n
-		return n
-	return $ (Expr $ Val $ runOnce initExpr)
-
--- Expr ----------------------------------------------------------------------------------
-
-data Ast
-	= Val { val :: BuildShader (GL IO) String }
-	| Fn { fnName :: String, fnAst :: [Ast] }
-
-
-data V -- | Vertex shader signifier.
-data F -- | Fragment/pixel shader signifier.
-
-
--- | Expression for shaders.
--- | e states the environment, which is either vertex or fragment shader.
-data Expr e a = Expr { ast :: Ast }
-
-
--- Uploadable ----------------------------------------------------------------------------
-
-makeFloat :: MonadGL m => m (Expr e Float, MVar Float)
-makeFloat = makeVar
-
-class GLtype a => Uploadable a e | e -> a where
-	makeVar :: MonadGL m => m (e, MVar a)
-
-
-instance Uploadable Float (Expr e Float) where
-	makeVar = makeVarDefault "f"
-
-
-makeVarDefault :: forall a m e . (MonadGL m, GLtype a) => String -> m (Expr e a, MVar a)
-makeVarDefault c = do
-	m <- liftIO $ newMVar glDefault
-	vname <- generateName c
-	r <- makeRunOnce $ do
-		s <- getShaderId
-		addHeader "uniform" (err :: a) vname
-		postBuild $ liftIO $ do
-			l <- withString vname $ glGetUniformLocation s
-			wc <- makeRunWhenChanged glDefault (glUpload l)
-			when (l >= 0) $ addExec $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
-		return vname
-	return (Expr $ Val $ runOnce r, m)
-
-updateMVar :: MonadIO m => MVar a -> a -> m ()
-updateMVar m a = liftIO $ void $ swapMVar m a
-
-
--- Shader building monad -----------------------------------------------------------------
-
-data BuildShaderState = BuildShaderState
-	{ shaderId :: ShaderId
-	, header :: [String]
-	, cExpr :: [String]
-	, postBuild :: GL IO ()
-	, execOnUse :: GL IO ()
-	}
-
-
-emptyShaderState :: ShaderId -> BuildShaderState
-emptyShaderState i = BuildShaderState i [] [] (pure ()) (pure ())
-
-blankShader :: Monad m => BuildShader m r -> m r
-blankShader s = evalStateT (unBuildShader s) $ emptyShaderState 0
-
-
-newtype BuildShader m r = BuildShader { unBuildShader :: StateT BuildShaderState m r }
-	deriving
-		( Functor, Applicative, Monad, Alternative
-		, MonadIO, MonadState BuildShaderState, MonadTrans
-		)
-
-instance MonadGL m => MonadGL (BuildShader m) where
-	glState = lift glState
-	count = lift count
-
-addCExpr :: Monad m => String -> String -> BuildShader m ()
-addCExpr n sa = modify $ \s -> s { cExpr = (n ++ " = " ++ sa) : cExpr s }
-
-addHeader :: forall a m. (GLtype a, MonadGL m) => String -> a -> String -> BuildShader m ()
-addHeader i a n =
-	modify $ \s -> s { header = unwords [i, glCNameWithPrec a, n, ";"] : header s }
-
-addPostBuild :: MonadGL m => GL IO () -> BuildShader m ()
-addPostBuild io = modify $ \s -> s { postBuild = postBuild s >> io }
-
-addExec :: MonadGL m => GL IO () -> BuildShader m ()
-addExec io = modify $ \s -> s { execOnUse = execOnUse s >> io }
-
-getShaderId :: MonadState BuildShaderState m => m ShaderId
-getShaderId = shaderId <$> get
-
-liftE' :: String -> Expr e1 a1 -> Expr e2 a2
-liftE' s (Expr a) = Expr $ Fn s [a]
-
-liftE2 :: (Ast -> Ast -> Ast) -> Expr e1 a1 -> Expr e2 a2 -> Expr e3 a3
-liftE2 f (Expr a) (Expr b) = Expr $ f a b
-
-instance Num a => Num (Expr e a) where
-	(+) = liftE2 (\a b -> Fn "+" [a,b])
-	(*) = liftE2 (\a b -> Fn "*" [a,b])
-	(-) = liftE2 (\a b -> Fn "-" [a,b])
-	abs = undefined
-	signum = undefined
-	fromInteger = Expr . Val . return . ($ []) . showFFloat Nothing . fromInteger
-
-instance Fractional a => Fractional (Expr e a) where
-	fromRational = Expr . Val . return . ($ []) . showFFloat Nothing . fromRat
-	(/) = liftE2 (\a b -> Fn "/" [a,b])
-
-
-instance Floating a => Floating (Expr e a) where
-	pi = Expr $ Val $ return $ show pi
-	exp = liftE' "exp"
-	log = liftE' "log"
-	sqrt = liftE' "sqrt"
-	(**) = liftE2 (\a b -> Fn "^" [a,b])
-	sin = liftE' "sin"
-	cos = liftE' "cos"
-	tan = liftE' "tan"
-	asin = liftE' "asin"
-	acos = liftE' "acos"
-	atan = liftE' "atan"
-	sinh = liftE' "sinh"
-	cosh = liftE' "cosh"
-	tanh = liftE' "tanh"
-	asinh = liftE' "asinh"
-	acosh = liftE' "acosh"
-	atanh = liftE' "atanh"
-
-
-
-
-compose1 :: (MonadGL m, MonadIO m) => Ast -> BuildShader m String
-compose1 ast = case ast of
-	Val s -> liftBuildShaderGL s
-	Fn s (p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
-		(compose1 p1) (compose1 p2)
-	Fn "if" (p1:p2:p3:[]) -> liftM3 (\a b c -> par $ a ++ "?" ++ b ++ ":" ++ c)
-		(compose1 p1) (compose1 p2) (compose1 p3)
-	Fn s as -> (s++) . par . intercalate ", " <$> mapM compose1 as
-	where
-		isOp :: String -> Bool
-		isOp (x:_) = not $ isAlpha x
-		isOp [] = False
-
-par :: String -> String
-par s = "(" ++ s ++ ")"
-
-compose :: MonadGL m => String -> Expr e r -> BuildShader m ()
-compose s e = (compose1 $ ast e) >>= addCExpr s
-
-class Raster v f where
-	raster :: (V4 (Expr V Float), v) -> f
-
-
-instance GLtype a => Raster (Expr V a) (Expr F a) where
-	raster (v,e) = let
-		a = err :: a
-		vert n = do
-			compose "gl_Position" $ vec4 v
-			compose n e
-			addHeader "varying" a n -- borked for tuple types
-		frag = do
-			n <- generateName $ glShortName a
-			addHeader "in " a n
-			i <- getShaderId
-			(p,exec) <- lift $ addShader i GL_VERTEX_SHADER $ vert n
-			addPostBuild p
-			addExec exec
-			return n
-		in Expr $ Val frag
-
-
-vec4 :: V4 (Expr e a) -> Expr e (V4 a)
-vec4 v = Expr $ Fn "vec4" $ map ast $ toList v
-
-
-compile :: forall a b m. (AttrType a b, MonadGL m)
-	=> (b -> V4 (Expr F Float))
-	-> m ([GArray a] -> m ())
-compile f = do
-	sp <- glCreateProgram
-	(i, exec) <- setAttributes sp (err :: a) $ \e -> do
-		(p,exec) <- addShader sp GL_FRAGMENT_SHADER $ compose "gl_FragColor" $ vec4 $ f e
-		p
-		return exec
-	return $ \garrs -> do
-		glBindVertexArray i
-		glUseProgram sp
-		exec
-		drawArrays garrs
-
-
-
--- Ast optimizations ---------------------------------------------------------------------
--- without context probably quickly to break stuff
-
-
-
--- ~ same (x:y:xs) = x == y && same (y:xs)
--- ~ same _ = True
-
--- ~ findInStringDepth :: Int -> String -> String -> Bool
--- ~ findInStringDepth i s = any (isPrefixOf s) . take i . tails
-
--- ~ vecRow = [".x", ".y", ".z", ".w"]
-
-
 
