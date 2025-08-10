@@ -752,10 +752,16 @@ class (Eq a, Storable a) => GLtype a where
 	glUpload :: MonadIO m => GLint -> a -> m ()
 	glDefault :: a
 	glPrecision :: a -> String
-	glPrecision _ = "mediump"
+	glPrecision _ = "highp"
 	glCNameWithPrec :: a -> String
 	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
 
+
+instance GLtype Int32 where
+	glCName _ = "bool"
+	glType _ = GL_BOOL
+	glUpload = glUniform1i
+	glDefault = 0
 
 instance GLtype Int32 where
 	glCName _ = "int"
@@ -771,21 +777,44 @@ instance GLtype Float where
 
 instance GLtype (V2 Float) where
 	glCName _ = "vec2"
-	glType _ = GL_FLOAT
+	glType _ = GL_FLOAT_VEC2
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2f i a b
 	glDefault = V2 0 0
 
 instance GLtype (V3 Float) where
 	glCName _ = "vec3"
-	glType _ = GL_FLOAT
+	glType _ = GL_FLOAT_VEC3
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3f i a b c
 	glDefault = V3 0 0 0
 
 instance GLtype (V4 Float) where
 	glCName _ = "vec4"
-	glType _ = GL_FLOAT
+	glType _ = GL_FLOAT_VEC4
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4f i a b c d
 	glDefault = V4 0 0 0 0
+
+
+instance GLtype (V2 Int) where
+	glCName _ = "vec2"
+	glType _ = GL_INT_VEC2
+	glComponents _ = 2
+	glUpload i (V2 a b) = glUniform2i i a b
+	glDefault = V2 0 0
+
+instance GLtype (V3 Int) where
+	glCName _ = "vec3"
+	glType _ = GL_INT_VEC3
+	glComponents _ = 3
+	glUpload i (V3 a b c) = glUniform3i i a b c
+	glDefault = V3 0 0 0
+
+instance GLtype (V4 Int) where
+	glCName _ = "vec4"
+	glType _ = GL_INT_VEC4
+	glComponents _ = 4
+	glUpload i (V4 a b c d) = glUniform4i i a b c d
+	glDefault = V4 0 0 0 0
+
