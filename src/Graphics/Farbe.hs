@@ -27,6 +27,7 @@ import Foreign.C
 -- ~ import Graphics.GL
 import Graphics.GL.Embedded20
 import Graphics.GL.Ext.OES.VertexArrayObject
+import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
 
 import Control.Exception
@@ -640,6 +641,12 @@ vboUpdate (GArray s i) a =
 	liftIO $ withStorableArray a $ \p -> glBufferSubData GL_ARRAY_BUFFER i s $ castPtr p
 
 
+-- ~ vboRecover :: MonadGL m => m ()
+-- ~ vboRecover = do
+	-- ~ size <- fst . findMax . imap <$> getMan
+	-- ~ p <- withPtr_ $ glGetBufferPointervOES GL_ARRAY_BUFFER GL_BUFFER_MAP_POINTER
+	-- ~ undefined
+
 -- | Merge neighboring ranges
 condense :: (Eq n, Num n) => [(n,n)] -> [(n,n)]
 condense (x@(xp,xr):y@(yp,yr):xs)
@@ -757,11 +764,11 @@ class (Eq a, Storable a) => GLtype a where
 	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
 
 
-instance GLtype Int32 where
+instance GLtype Bool where
 	glCName _ = "bool"
 	glType _ = GL_BOOL
-	glUpload = glUniform1i
-	glDefault = 0
+	glUpload i b = glUniform1i i $ if b then 1 else 0
+	glDefault = False
 
 instance GLtype Int32 where
 	glCName _ = "int"
@@ -797,21 +804,21 @@ instance GLtype (V4 Float) where
 	glDefault = V4 0 0 0 0
 
 
-instance GLtype (V2 Int) where
+instance GLtype (V2 Int32) where
 	glCName _ = "vec2"
 	glType _ = GL_INT_VEC2
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2i i a b
 	glDefault = V2 0 0
 
-instance GLtype (V3 Int) where
+instance GLtype (V3 Int32) where
 	glCName _ = "vec3"
 	glType _ = GL_INT_VEC3
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3i i a b c
 	glDefault = V3 0 0 0
 
-instance GLtype (V4 Int) where
+instance GLtype (V4 Int32) where
 	glCName _ = "vec4"
 	glType _ = GL_INT_VEC4
 	glComponents _ = 4
