@@ -5,6 +5,7 @@ import Graphics.Farbe
 import Graphics.Farbe.Window
 import Graphics.Farbe.Vec
 import Data.Function
+import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
 import Graphics.GL
@@ -17,10 +18,7 @@ loadSTL s = readFileSTL s >>= newGArray
 
 
 main :: IO ()
-main = foo
-
-foo :: IO ()
-foo = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
+main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
   (u, upx) <- makeFloat
@@ -30,6 +28,8 @@ foo = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
 
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+    t <- getTime
+    liftIO $ swapMVar upx $ sin t
     g [b]
     f [a,b]
     display

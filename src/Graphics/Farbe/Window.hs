@@ -81,7 +81,6 @@ import Control.Monad.Fix (MonadFix)
 import Control.Applicative (Alternative)
 import Control.Monad.IO.Class
 
-import Debug.Trace
 
 
 -- | Creates a fullscreen window, runs your action and terminates window after.
@@ -331,7 +330,7 @@ translate' f g t x = fromJust $ translate f g t x
 
 -- USER UTILITY ----------------------------------------------------------------
 
--- | Returns time since window launch.
+-- | Returns time in seconds since window launch.
 getTime :: (MonadWindow m, Fractional a) => m a
 getTime = do
 	t0 <- wsStartTime <$> windowState
