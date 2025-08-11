@@ -123,7 +123,7 @@ runGL conf (GL m) = do
 
 data GLConfig = GLConfig { glVBOSize :: GLintptr }
 
-defaultConfig = GLConfig { glVBOSize = (2^24-1) }
+glDefaultConfig = GLConfig { glVBOSize = (2^24-1) }
 
 
 
