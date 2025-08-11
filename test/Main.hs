@@ -20,7 +20,7 @@ main :: IO ()
 main = foo
 
 foo :: IO ()
-foo = runWindowT "" (InWindow (600,400)) $ runGL $ do
+foo = runWindowT "" (InWindow (600,400)) $ runGL defaultConfig $ do
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
   (u, upx) <- makeFloat

@@ -45,14 +45,15 @@ import Control.Monad.RWS (RWST)
 
 -- ~ import Data.Typeable
 
--- ~ import Debug.Trace
+import Debug.Trace
 
 
 
 -- GL Monad ------------------------------------------------------------------------------
 
 data GLState = GLState
-	{ counter :: MVar Int
+	{ glConfig :: GLConfig
+	, counter :: MVar Int
 	, vbo :: MVar VBOMan
 	-- ~ , glWork :: MVar [(GLint, IO ())]
 	-- ~ , resource :: MVar (M.IntMap GLint) -- do i need that?
@@ -66,13 +67,6 @@ newtype GL m a = GL { unGL :: ReaderT GLState m a }
 		, MonadWriter w, MonadState s, MonadError e, MonadIO
 		, MonadFix, MonadPlus, MonadWindow
 		)
-
-runGL :: MonadIO m => GL m a -> m a
-runGL (GL m) = do
-	vbom <- liftIO $ initVBOMan (2^24-1) >>= newMVar
-	counter <- liftIO $ newMVar 0
-	runReaderT m $ GLState counter vbom
-
 
 instance MonadTrans GL where
 	lift = GL . lift
@@ -121,10 +115,15 @@ instance MonadGL m => MonadGL (ExceptT e m) where
 	glState = lift glState
 
 
-liftGL :: (MonadGL m, MonadIO m) => GL IO a -> m a
-liftGL gl = do
-	r <- glState
-	liftIO $ runReaderT (unGL gl) r
+runGL :: MonadIO m => GLConfig -> GL m a -> m a
+runGL conf (GL m) = do
+	vbom <- liftIO $ initVBOMan (glVBOSize conf) >>= newMVar
+	counter <- liftIO $ newMVar 0
+	runReaderT m $ GLState conf counter vbom
+
+data GLConfig = GLConfig { glVBOSize :: GLintptr }
+
+defaultConfig = GLConfig { glVBOSize = (2^24-1) }
 
 
 
@@ -148,6 +147,12 @@ runPostShaderBuilds p = do
 	(a,w) <- runWriterT $ unpsp p
 	preRender =<< (liftGL $ snd <$> collectPreRender w)
 	return a
+	-- missing to run w?
+
+liftGL :: (MonadGL m, MonadIO m) => GL IO a -> m a
+liftGL gl = do
+	r <- glState
+	liftIO $ runReaderT (unGL gl) r
 
 
 newtype PreRenderM m a = PreRenderM { unprp :: WriterT (GL IO ()) m a }
@@ -641,11 +646,27 @@ vboUpdate (GArray s i) a =
 	liftIO $ withStorableArray a $ \p -> glBufferSubData GL_ARRAY_BUFFER i s $ castPtr p
 
 
--- ~ vboRecover :: MonadGL m => m ()
--- ~ vboRecover = do
-	-- ~ size <- fst . findMax . imap <$> getMan
-	-- ~ p <- withPtr_ $ glGetBufferPointervOES GL_ARRAY_BUFFER GL_BUFFER_MAP_POINTER
-	-- ~ undefined
+vboRecover :: MonadGL m => m ()
+vboRecover = do
+	pag <- getMan
+	let k = fst $ M.findMax $ imap pag
+	oldvbo <- getVBO
+	p <- liftIO $ withPtr_ $ glGetBufferPointervOES GL_ARRAY_BUFFER GL_BUFFER_MAP_POINTER_OES
+	v <- liftIO $ withPtr_ $ glGenBuffers 1
+	glBindBuffer GL_ARRAY_BUFFER v
+	glBufferData GL_ARRAY_BUFFER k p GL_STATIC_DRAW
+	glDeleteBuffer oldvbo
+	mvm <- vbo <$> glState
+	let pag' = pag { imap = fixKey k (k*2) $ imap pag }
+	liftIO $ swapMVar mvm $ VBOMan pag' v
+	undefined
+	where
+		fixKey o k m = M.insert k (negate k) $ M.delete o m
+
+glDeleteBuffer :: MonadIO m => GLuint -> m ()
+glDeleteBuffer i = liftIO $ alloca $ \p -> do
+	poke p i
+	glDeleteBuffers 1 p
 
 -- | Merge neighboring ranges
 condense :: (Eq n, Num n) => [(n,n)] -> [(n,n)]
@@ -784,21 +805,21 @@ instance GLtype Float where
 
 instance GLtype (V2 Float) where
 	glCName _ = "vec2"
-	glType _ = GL_FLOAT_VEC2
+	glType _ = GL_FLOAT
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2f i a b
 	glDefault = V2 0 0
 
 instance GLtype (V3 Float) where
 	glCName _ = "vec3"
-	glType _ = GL_FLOAT_VEC3
+	glType _ = GL_FLOAT
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3f i a b c
 	glDefault = V3 0 0 0
 
 instance GLtype (V4 Float) where
 	glCName _ = "vec4"
-	glType _ = GL_FLOAT_VEC4
+	glType _ = GL_FLOAT
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4f i a b c d
 	glDefault = V4 0 0 0 0
@@ -806,21 +827,21 @@ instance GLtype (V4 Float) where
 
 instance GLtype (V2 Int32) where
 	glCName _ = "vec2"
-	glType _ = GL_INT_VEC2
+	glType _ = GL_INT
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2i i a b
 	glDefault = V2 0 0
 
 instance GLtype (V3 Int32) where
 	glCName _ = "vec3"
-	glType _ = GL_INT_VEC3
+	glType _ = GL_INT
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3i i a b c
 	glDefault = V3 0 0 0
 
 instance GLtype (V4 Int32) where
 	glCName _ = "vec4"
-	glType _ = GL_INT_VEC4
+	glType _ = GL_INT
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4i i a b c d
 	glDefault = V4 0 0 0 0
