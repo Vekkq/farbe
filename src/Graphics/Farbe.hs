@@ -56,7 +56,7 @@ import Debug.Trace
 data GLState = GLState
 	{ glConfig :: GLConfig
 	, counter :: MVar Int
-	, vbo :: MVar VBOMan
+	, vboMan :: MVar VBOMan
 	-- ~ , glWork :: MVar [(GLint, IO ())]
 	-- ~ , resource :: MVar (M.IntMap GLint) -- do i need that?
 	-- ~ , glLog :: MVar [String] -- make a new monad transformer for log
@@ -620,20 +620,20 @@ data VBOMan = VBOMan
 
 initVBOMan :: GLintptr -> IO VBOMan
 initVBOMan s = do
-	vbo <- withPtr_ $ glGenBuffers 1
-	glBindBuffer GL_ARRAY_BUFFER vbo
+	vboMan <- withPtr_ $ glGenBuffers 1
+	glBindBuffer GL_ARRAY_BUFFER vboMan
 	glBufferData GL_ARRAY_BUFFER s nullPtr GL_STATIC_DRAW
-	return $ VBOMan (newPager s) vbo
+	return $ VBOMan (newPager s) vboMan
 
 getVBO :: MonadGL m => m GLuint
-getVBO = liftIO . fmap vboIndex . readMVar =<< vbo <$> glState
+getVBO = liftIO . fmap vboIndex . readMVar =<< vboMan <$> glState
 
 getPager :: MonadGL m => m (Pager GLintptr)
-getPager = liftIO . fmap pager . readMVar =<< vbo <$> glState
+getPager = liftIO . fmap pager . readMVar =<< vboMan <$> glState
 
 updatePager :: MonadGL m => (Pager GLintptr -> m (Pager GLintptr, a)) -> m a
 updatePager f = do
-	vmm <- vbo <$> glState
+	vmm <- vboMan <$> glState
 	vm <- liftIO $ takeMVar vmm
 	(p',r) <- f $ pager vm
 	liftIO $ putMVar vmm $ vm { pager = p' }
@@ -657,7 +657,7 @@ vboAlloc a i = do
 			return p
 		Nothing -> do
 			liftIO $ putStrLn $
-				"The vbo exceeded its allocated size. "
+				"The vboMan exceeded its allocated size. "
 				++ "Consider to increase its default. "
 			vboRecover
 			vboAlloc a i
@@ -673,7 +673,7 @@ vboRecover = do
 	glBindBuffer GL_ARRAY_BUFFER v
 	glBufferData GL_ARRAY_BUFFER newSize p GL_STATIC_DRAW
 	glDeleteBuffer oldvbo
-	mvm <- vbo <$> glState
+	mvm <- vboMan <$> glState
 	let pager' = pager { imap = fixKey size newSize $ imap pager }
 	liftIO $ swapMVar mvm $ VBOMan pager' v
 	return ()
