@@ -13,6 +13,7 @@ import Graphics.Farbe.Window
 
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Maybe
 import Data.Char
 import Data.List
@@ -129,7 +130,7 @@ glDefaultConfig = GLConfig { glVBOSize = (2^24-1) }
 
 -- Tasks ---------------------------------------------------------------------------------
 
-newtype PostShaderBuildsM m a = PostShaderBuildsM { unpsp :: WriterT (PreRenderM (GL IO) ()) m a }
+newtype PostShaderBuildsM m a = PostShaderBuildsM { unpsp :: WriterT [(String, PreRenderM (GL IO) ())] m a }
 	deriving
 		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL)
 
@@ -137,7 +138,7 @@ instance PreRender m => PreRender (PostShaderBuildsM m) where
 	preRender = lift . preRender
 
 class Monad m => PostShaderBuilds m where
-	postShaderBuilds :: PreRenderM (GL IO) () -> m ()
+	postShaderBuilds :: [(String, PreRenderM (GL IO) ())] -> m ()
 
 instance Monad m => PostShaderBuilds (PostShaderBuildsM m) where
 	postShaderBuilds = PostShaderBuildsM . tell
@@ -175,11 +176,13 @@ collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
 
 fmap2 f = fmap (fmap f)
 
-instance Monad m => Semigroup (PreRenderM m a) where
-	(<>) = (>>)
+(.:) = (.).(.)
 
-instance Monad m => Monoid (PreRenderM m a) where
-	mempty = return $ error ""
+-- ~ instance Monad m => Semigroup (PreRenderM m a) where
+	-- ~ (<>) = (>>)
+
+-- ~ instance Monad m => Monoid (PreRenderM m a) where
+	-- ~ mempty = return $ error ""
 
 
 
@@ -188,12 +191,13 @@ instance Monad m => Monoid (PreRenderM m a) where
 
 data BuildShaderState = BuildShaderState
 	{ shaderId :: Shader
-	, header :: [String]
+	, header :: S.Set String
 	, cExpr :: [String]
+	, background :: Int -- | variable to signal if still in same shader
 	}
 
 emptyShaderState :: Shader -> BuildShaderState
-emptyShaderState i = BuildShaderState i [] []
+emptyShaderState i = BuildShaderState i S.empty [] 0
 
 -- ~ blankShader :: Monad m => BuildShaderM m r -> m r
 -- ~ blankShader s = evalStateT (unBuildShaderM s) $ emptyShaderState 0
@@ -226,7 +230,7 @@ instance (MonadGL m, PostShaderBuilds m, PreRender m) => BuildShader (BuildShade
 
 addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m ()
 addHeader i a n = buildShaderState $ \s -> ((),) $
-		s { header = unwords [i, glCNameWithPrec a, n, ";"] : header s }
+		s { header = S.insert (unwords [i, glCNameWithPrec a, n, ";"]) $ header s }
 
 addCExpr :: BuildShader m => String -> String -> m ()
 addCExpr n sa = buildShaderState $ \s -> ((),) $
@@ -234,6 +238,8 @@ addCExpr n sa = buildShaderState $ \s -> ((),) $
 
 getShader :: BuildShader m => m Shader
 getShader = buildShaderState $ \s -> (shaderId s, s)
+
+-- ~ getBackground
 
 
 -- Expr ----------------------------------------------------------------------------------
@@ -249,12 +255,11 @@ liftBuildShaderExt
 	-> m a
 liftBuildShaderExt g = do
 	b <- buildShaderState $ \s -> (s,s)
-	(((a, b'), pre), post) <- liftGL $ runWriterT $ unpsp $ runWriterT $ unprp $ runStateT (unBuildShaderM g) b
+	(((a, b'), pre), l) <- liftGL $ runWriterT $ unpsp $ runWriterT $ unprp $ runStateT (unBuildShaderM g) b
 	buildShaderState $ \_ -> (b',b')
 	preRender pre
-	postShaderBuilds post
+	postShaderBuilds l
 	return a
-
 
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
@@ -340,7 +345,7 @@ setupAttribute1
 setupAttribute1 s a = do
 	n <- generateName a
 	o <- offset
-	postShaderBuilds $ withString n $ \c -> do
+	postShaderBuilds n $ withString n $ \c -> do
 		p <- fromIntegral <$> glGetAttribLocation s c
 		glVertexAttribPointer p
 			(glComponents a)
@@ -373,15 +378,15 @@ makeVarDefault :: forall a m e . (MonadGL m, GLtype a) => String -> m (Expr e a,
 makeVarDefault c = do
 	m <- liftIO $ newMVar glDefault
 	vname <- generateName (err :: a)
-	r <- makeRunOnce $ do
+	let r = do
 		s <- getShader
 		addHeader "uniform" (err :: a) vname
-		postShaderBuilds $ do
+		postShaderBuilds vname $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged glDefault (glUpload l)
 			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
 		return vname
-	return (Expr $ Val $ runOnce r, m)
+	return (Expr $ Val r, m)
 
 updateMVar :: MonadIO m => MVar a -> a -> m ()
 updateMVar m a = liftIO $ void $ swapMVar m a
@@ -518,7 +523,7 @@ addShader sp t shdr = do
 	(a,st) <- runStateT (unBuildShaderM shdr) $ emptyShaderState sp
 	let str
 		=  "#version 100\n"
-		++ unlines (reverse $ header st)
+		++ unlines (toList $ header st)
 		++ "\n\nvoid main(){\n"
 		++ unlines (map (("  "++) . (++";")) $ reverse $ cExpr st)
 		++ "}"

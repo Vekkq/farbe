@@ -24,7 +24,7 @@ main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   (u, upx) <- makeFloat
 
   f <- compile (\v -> let (V3 x y z) = v*0.02 in V4 u 1 (raster (V4 x y z 1, x)) 1)
-  g <- compile (\v -> let (V3 x y z) = v*0.04 in V4 1 (raster (V4 x y z 1, x)) 1 1)
+  g <- compile (\v -> let (V3 x y z) = v*0.04 in V4 1 (raster (V4 x y z 1, x)) u 1)
 
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
