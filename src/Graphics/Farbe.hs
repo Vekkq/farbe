@@ -131,24 +131,24 @@ glDefaultConfig = GLConfig { glVBOSize = (2^24) }
 
 -- Tasks ---------------------------------------------------------------------------------
 
-newtype PostShaderBuildsM m a = PostShaderBuildsM { unpsp :: WriterT [(String, PreRenderM (GL IO) ())] m a }
+newtype PostShaderProgramM m a = PostShaderProgramM { unpsp :: WriterT [(String, PreRenderM (GL IO) ())] m a }
 	deriving
 		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL)
 
-instance PreRender m => PreRender (PostShaderBuildsM m) where
+instance PreRender m => PreRender (PostShaderProgramM m) where
 	preRender = lift . preRender
 
-class Monad m => PostShaderBuilds m where
-	postShaderBuildsList :: [(String, PreRenderM (GL IO) ())] -> m ()
+class Monad m => PostShaderProgram m where
+	postShaderProgramList :: [(String, PreRenderM (GL IO) ())] -> m ()
 
-instance Monad m => PostShaderBuilds (PostShaderBuildsM m) where
-	postShaderBuildsList = PostShaderBuildsM . tell
+instance Monad m => PostShaderProgram (PostShaderProgramM m) where
+	postShaderProgramList = PostShaderProgramM . tell
 
-postShaderBuilds :: PostShaderBuilds m => String -> PreRenderM (GL IO) () -> m ()
-postShaderBuilds s a = postShaderBuildsList [(s,a)]
+postShaderProgram :: PostShaderProgram m => String -> PreRenderM (GL IO) () -> m ()
+postShaderProgram s a = postShaderProgramList [(s,a)]
 
-runPostShaderBuilds :: (MonadGL m, PreRender m) => PostShaderBuildsM m a -> m a
-runPostShaderBuilds p = do
+runPostShaderProgram :: (MonadGL m, PreRender m) => PostShaderProgramM m a -> m a
+runPostShaderProgram p = do
 	(a,w) <- runWriterT $ unpsp p
 	let b = sequence $ map snd $ nubBy ((==) `on` fst) w
 	preRender =<< (liftGL $ snd <$> collectPreRender b)
@@ -172,8 +172,8 @@ instance Monad m => PreRender (PreRenderM m) where
 	preRender :: GL IO () -> PreRenderM m ()
 	preRender = PreRenderM . tell
 
-instance PostShaderBuilds m => PostShaderBuilds (PreRenderM m) where
-	postShaderBuildsList = lift . postShaderBuildsList
+instance PostShaderProgram m => PostShaderProgram (PreRenderM m) where
+	postShaderProgramList = lift . postShaderProgramList
 
 collectPreRender :: MonadGL m => PreRenderM m a -> m (a, m ())
 collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
@@ -208,17 +208,17 @@ runBuildShader i b = runStateT (unBuildShaderM b) $ emptyShaderState i
 instance MonadGL m => MonadGL (BuildShaderM m) where
 	glState = lift glState
 
-instance PostShaderBuilds m => PostShaderBuilds (BuildShaderM m) where
-	postShaderBuildsList = lift . postShaderBuildsList
+instance PostShaderProgram m => PostShaderProgram (BuildShaderM m) where
+	postShaderProgramList = lift . postShaderProgramList
 
 instance PreRender m => PreRender (BuildShaderM m) where
 	preRender = lift . preRender
 
 
-class (MonadGL m, PostShaderBuilds m, PreRender m) => BuildShader m where
+class (MonadGL m, PostShaderProgram m, PreRender m) => BuildShader m where
 	buildShaderState :: (BuildShaderState -> (a, BuildShaderState)) -> m a
 
-instance (MonadGL m, PostShaderBuilds m, PreRender m) => BuildShader (BuildShaderM m) where
+instance (MonadGL m, PostShaderProgram m, PreRender m) => BuildShader (BuildShaderM m) where
 	buildShaderState = BuildShaderM . state
 
 addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m ()
@@ -243,13 +243,13 @@ buildShaderStatePut a = buildShaderState $ \_ -> ((),a)
 -- Expr ----------------------------------------------------------------------------------
 
 data Ast
-	= Val { val :: BuildShaderM (PreRenderM (PostShaderBuildsM (GL IO))) String }
+	= Val { val :: BuildShaderM (PreRenderM (PostShaderProgramM (GL IO))) String }
 	| Fn { fnName :: String, fnAst :: [Ast] }
 
 
 liftBuildShaderExt
-	:: (MonadGL m, BuildShader m, PreRender m, PostShaderBuilds m)
-	=> BuildShaderM (PreRenderM (PostShaderBuildsM (GL IO))) a
+	:: (MonadGL m, BuildShader m, PreRender m, PostShaderProgram m)
+	=> BuildShaderM (PreRenderM (PostShaderProgramM (GL IO))) a
 	-> m a
 liftBuildShaderExt g = do
 	b <- buildShaderStateGet
@@ -257,7 +257,7 @@ liftBuildShaderExt g = do
 		liftGL $ runWriterT $ unpsp $ runWriterT $ unprp $ runStateT (unBuildShaderM g) b
 	buildShaderStatePut b'
 	preRender pre
-	postShaderBuildsList post
+	postShaderProgramList post
 	return a
 
 data V -- | Vertex shader signifier.
@@ -289,8 +289,8 @@ instance Monad m => Attrib (AttribM m) where
 instance MonadGL m => MonadGL (AttribM m) where
 	glState = lift glState
 
-instance PostShaderBuilds m => PostShaderBuilds (AttribM m) where
-	postShaderBuildsList = lift . postShaderBuildsList
+instance PostShaderProgram m => PostShaderProgram (AttribM m) where
+	postShaderProgramList = lift . postShaderProgramList
 
 instance PreRender m => PreRender (AttribM m) where
 	preRender = lift . preRender
@@ -344,7 +344,7 @@ setupAttribute1
 setupAttribute1 s a = do
 	n <- generateName a
 	o <- offset
-	postShaderBuilds n $ withString n $ \c -> do
+	postShaderProgram n $ withString n $ \c -> do
 		p <- fromIntegral <$> glGetAttribLocation s c
 		glVertexAttribPointer p
 			(glComponents a)
@@ -380,7 +380,7 @@ makeVarDefault c = do
 	let r = do
 		s <- getShader
 		addHeader "uniform" (err :: a) vname
-		postShaderBuilds vname $ do
+		postShaderProgram vname $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged glDefault (glUpload l)
 			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
@@ -485,7 +485,7 @@ compile f = do
 		(i,e) <- setAttributes sp (err :: a)
 		compose "gl_FragColor" $ vec4 $ f e
 		return i
-	(vao,exec) <- collectPreRender $ runPostShaderBuilds g
+	(vao,exec) <- collectPreRender $ runPostShaderProgram g
 	return $ \garrs -> do
 		glBindVertexArray vao
 		glUseProgram sp
@@ -647,13 +647,6 @@ vboUpdate (GArray s i) a =
 	liftIO $ withStorableArray a $ \p -> glBufferSubData GL_ARRAY_BUFFER i s $ castPtr p
 
 
--- ~ vboAlloc :: MonadGL m => GLintptr -> GLintptr -> m GLintptr
--- ~ vboAlloc a i = updatePager $ \mn -> return $ fromMaybe e $ calcAlloc a mn i
-	-- ~ where e = error "VBOMan: total size limit reached"
-	-- ~ -- a buffer may be extendable afterall, when copying out all data
-	-- ~ -- and adding it with a bigger call to glbufferdata again.
-	-- ~ -- this requires OES_mapbuffer .
-
 vboAlloc :: MonadGL m => GLintptr -> GLintptr -> m GLintptr
 vboAlloc a i = do
 	pager <- getPager
@@ -714,9 +707,6 @@ drawRanges = condense . map gArrayRange . sortBy (comparing gArrayPos)
 
 
 -- GArray interface ----------------------------------------------------------------------
-
--- TODO: have GArray clear itself up on losing reference
--- move garray content into a ioref and add finalizer
 
 data GArray a = GArray { gArraySize :: GLintptr, gArrayPos :: GLintptr } deriving (Eq,Ord)
 
