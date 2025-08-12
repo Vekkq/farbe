@@ -125,7 +125,7 @@ runGL conf (GL m) = do
 
 data GLConfig = GLConfig { glVBOSize :: GLintptr }
 
-glDefaultConfig = GLConfig { glVBOSize = (2^24-1) }
+glDefaultConfig = GLConfig { glVBOSize = (2^24) }
 
 
 
@@ -144,6 +144,7 @@ class Monad m => PostShaderBuilds m where
 instance Monad m => PostShaderBuilds (PostShaderBuildsM m) where
 	postShaderBuildsList = PostShaderBuildsM . tell
 
+postShaderBuilds :: PostShaderBuilds m => String -> PreRenderM (GL IO) () -> m ()
 postShaderBuilds s a = postShaderBuildsList [(s,a)]
 
 runPostShaderBuilds :: (MonadGL m, PreRender m) => PostShaderBuildsM m a -> m a
@@ -231,7 +232,12 @@ addCExpr n sa = buildShaderState $ \s -> ((),) $
 getShader :: BuildShader m => m Shader
 getShader = buildShaderState $ \s -> (shaderId s, s)
 
--- ~ getBackground
+buildShaderStateGet :: BuildShader m => m BuildShaderState
+buildShaderStateGet = buildShaderState $ \s -> (s,s)
+
+buildShaderStatePut :: BuildShader m => BuildShaderState -> m ()
+buildShaderStatePut a = buildShaderState $ \_ -> ((),a)
+
 
 
 -- Expr ----------------------------------------------------------------------------------
@@ -253,12 +259,6 @@ liftBuildShaderExt g = do
 	preRender pre
 	postShaderBuildsList post
 	return a
-
-buildShaderStateGet :: BuildShader m => m BuildShaderState
-buildShaderStateGet = buildShaderState $ \s -> (s,s)
-
-buildShaderStatePut :: BuildShader m => BuildShaderState -> m ()
-buildShaderStatePut a = buildShaderState $ \_ -> ((),a)
 
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
@@ -628,44 +628,67 @@ initVBOMan s = do
 getVBO :: MonadGL m => m GLuint
 getVBO = liftIO . fmap vboIndex . readMVar =<< vbo <$> glState
 
-getMan :: MonadGL m => m (Pager GLintptr)
-getMan = liftIO . fmap pager . readMVar =<< vbo <$> glState
+getPager :: MonadGL m => m (Pager GLintptr)
+getPager = liftIO . fmap pager . readMVar =<< vbo <$> glState
 
-updateMan :: MonadGL m => (Pager GLintptr -> IO (Pager GLintptr, a)) -> m a
-updateMan f = liftIO . (flip modifyMVar foo) =<< vbo <$> glState
-	where
-		foo (VBOMan a v) = do
-			(a',x) <- f a
-			return (VBOMan a' v, x)
+updatePager :: MonadGL m => (Pager GLintptr -> m (Pager GLintptr, a)) -> m a
+updatePager f = do
+	vmm <- vbo <$> glState
+	vm <- liftIO $ takeMVar vmm
+	(p',r) <- f $ pager vm
+	liftIO $ putMVar vmm $ vm { pager = p' }
+	return r
 
-vboAlloc :: MonadGL m => GLintptr -> GLintptr -> m GLintptr
-vboAlloc a i = updateMan $ \mn -> return $ fromMaybe e $ calcAlloc a mn i
-	where e = error "VBOMan: total size limit reached"
-	-- a buffer may be extendable afterall, when copying out all data
-	-- and adding it with a bigger call to glbufferdata again.
-	-- this requires OES_mapbuffer .
+putPager :: MonadGL m => Pager GLintptr -> m ()
+putPager a = updatePager $ \_ -> return (a, ())
 
 vboUpdate :: (MonadGL m, Storable a) => GArray a -> StorableArray Int a -> m ()
 vboUpdate (GArray s i) a =
 	liftIO $ withStorableArray a $ \p -> glBufferSubData GL_ARRAY_BUFFER i s $ castPtr p
 
 
+-- ~ vboAlloc :: MonadGL m => GLintptr -> GLintptr -> m GLintptr
+-- ~ vboAlloc a i = updatePager $ \mn -> return $ fromMaybe e $ calcAlloc a mn i
+	-- ~ where e = error "VBOMan: total size limit reached"
+	-- ~ -- a buffer may be extendable afterall, when copying out all data
+	-- ~ -- and adding it with a bigger call to glbufferdata again.
+	-- ~ -- this requires OES_mapbuffer .
+
+vboAlloc :: MonadGL m => GLintptr -> GLintptr -> m GLintptr
+vboAlloc a i = do
+	pager <- getPager
+	let maybeP = calcAlloc a pager i
+	case maybeP of
+		Just (pager,p) -> do
+			putPager pager
+			return p
+		Nothing -> do
+			liftIO $ putStrLn $
+				"The vbo exceeded its allocated size. "
+				++ "Consider to increase its default. "
+			vboRecover
+			vboAlloc a i
+
 vboRecover :: MonadGL m => m ()
 vboRecover = do
-	pag <- getMan
-	let k = fst $ M.findMax $ imap pag
+	pager <- getPager
+	let size = fst $ M.findMax $ imap pager
+	let newSize = size*2
 	oldvbo <- getVBO
 	p <- liftIO $ withPtr_ $ glGetBufferPointervOES GL_ARRAY_BUFFER GL_BUFFER_MAP_POINTER_OES
 	v <- liftIO $ withPtr_ $ glGenBuffers 1
 	glBindBuffer GL_ARRAY_BUFFER v
-	glBufferData GL_ARRAY_BUFFER k p GL_STATIC_DRAW
+	glBufferData GL_ARRAY_BUFFER newSize p GL_STATIC_DRAW
 	glDeleteBuffer oldvbo
 	mvm <- vbo <$> glState
-	let pag' = pag { imap = fixKey k (k*2) $ imap pag }
-	liftIO $ swapMVar mvm $ VBOMan pag' v
-	undefined
+	let pager' = pager { imap = fixKey size newSize $ imap pager }
+	liftIO $ swapMVar mvm $ VBOMan pager' v
+	return ()
 	where
-		fixKey o k m = M.insert k (negate k) $ M.delete o m
+		fixKey o n m = M.insert n (negate n) $ M.delete o m
+
+vboFree :: MonadGL m => GLintptr -> m ()
+vboFree a = updatePager $ \p -> return $ (,()) $ calcRemove a p
 
 glDeleteBuffer :: MonadIO m => GLuint -> m ()
 glDeleteBuffer i = liftIO $ alloca $ \p -> do
@@ -721,7 +744,7 @@ drawArrays gs@(g:_) = let
 
 -- | After using @removeGArray@, further calls with the given GArray are undefined.
 removeGArray :: MonadGL m => GArray a -> m ()
-removeGArray (GArray _ i) = updateMan $ return . (,()) . calcRemove i
+removeGArray (GArray _ i) = updatePager $ return . (,()) . calcRemove i
 
 
 
