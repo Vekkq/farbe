@@ -21,15 +21,15 @@ main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
-  (u, upx) <- makeFloat
+  (u, mu) <- makeFloat
 
   f <- compile (\v -> let (V3 x y z) = v*0.02 in V4 u 1 (raster (V4 x y z 1, x)) 1)
-  g <- compile (\v -> let (V3 x y z) = v*0.04 in V4 1 (raster (V4 x y z 1, x)) u 1)
+  g <- compile (\v -> let (V3 x y z) = v*0.04 in V4 1 (raster (V4 x y z 1, x)) u u)
 
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
     t <- getTime
-    liftIO $ swapMVar upx $ sin t
+    liftIO $ swapMVar mu $ sin t
     g [b]
     f [a,b]
     display

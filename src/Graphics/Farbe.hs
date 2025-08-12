@@ -18,6 +18,7 @@ import Data.Maybe
 import Data.Char
 import Data.List
 import Data.Ord (comparing)
+import Data.Function
 import Data.Foldable
 import Data.Array.Storable
 import Data.Array.Base
@@ -138,17 +139,19 @@ instance PreRender m => PreRender (PostShaderBuildsM m) where
 	preRender = lift . preRender
 
 class Monad m => PostShaderBuilds m where
-	postShaderBuilds :: [(String, PreRenderM (GL IO) ())] -> m ()
+	postShaderBuildsList :: [(String, PreRenderM (GL IO) ())] -> m ()
 
 instance Monad m => PostShaderBuilds (PostShaderBuildsM m) where
-	postShaderBuilds = PostShaderBuildsM . tell
+	postShaderBuildsList = PostShaderBuildsM . tell
+
+postShaderBuilds s a = postShaderBuildsList [(s,a)]
 
 runPostShaderBuilds :: (MonadGL m, PreRender m) => PostShaderBuildsM m a -> m a
 runPostShaderBuilds p = do
 	(a,w) <- runWriterT $ unpsp p
-	preRender =<< (liftGL $ snd <$> collectPreRender w)
+	let b = sequence $ map snd $ nubBy ((==) `on` fst) w
+	preRender =<< (liftGL $ snd <$> collectPreRender b)
 	return a
-	-- missing to run w?
 
 liftGL :: (MonadGL m, MonadIO m) => GL IO a -> m a
 liftGL gl = do
@@ -169,7 +172,7 @@ instance Monad m => PreRender (PreRenderM m) where
 	preRender = PreRenderM . tell
 
 instance PostShaderBuilds m => PostShaderBuilds (PreRenderM m) where
-	postShaderBuilds = lift . postShaderBuilds
+	postShaderBuildsList = lift . postShaderBuildsList
 
 collectPreRender :: MonadGL m => PreRenderM m a -> m (a, m ())
 collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
@@ -177,13 +180,6 @@ collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
 fmap2 f = fmap (fmap f)
 
 (.:) = (.).(.)
-
--- ~ instance Monad m => Semigroup (PreRenderM m a) where
-	-- ~ (<>) = (>>)
-
--- ~ instance Monad m => Monoid (PreRenderM m a) where
-	-- ~ mempty = return $ error ""
-
 
 
 
@@ -193,14 +189,10 @@ data BuildShaderState = BuildShaderState
 	{ shaderId :: Shader
 	, header :: S.Set String
 	, cExpr :: [String]
-	, background :: Int -- | variable to signal if still in same shader
 	}
 
 emptyShaderState :: Shader -> BuildShaderState
-emptyShaderState i = BuildShaderState i S.empty [] 0
-
--- ~ blankShader :: Monad m => BuildShaderM m r -> m r
--- ~ blankShader s = evalStateT (unBuildShaderM s) $ emptyShaderState 0
+emptyShaderState i = BuildShaderState i S.empty []
 
 newtype BuildShaderM m r = BuildShaderM { unBuildShaderM :: StateT BuildShaderState m r }
 	deriving
@@ -216,7 +208,7 @@ instance MonadGL m => MonadGL (BuildShaderM m) where
 	glState = lift glState
 
 instance PostShaderBuilds m => PostShaderBuilds (BuildShaderM m) where
-	postShaderBuilds = lift . postShaderBuilds
+	postShaderBuildsList = lift . postShaderBuildsList
 
 instance PreRender m => PreRender (BuildShaderM m) where
 	preRender = lift . preRender
@@ -254,12 +246,19 @@ liftBuildShaderExt
 	=> BuildShaderM (PreRenderM (PostShaderBuildsM (GL IO))) a
 	-> m a
 liftBuildShaderExt g = do
-	b <- buildShaderState $ \s -> (s,s)
-	(((a, b'), pre), l) <- liftGL $ runWriterT $ unpsp $ runWriterT $ unprp $ runStateT (unBuildShaderM g) b
-	buildShaderState $ \_ -> (b',b')
+	b <- buildShaderStateGet
+	(((a, b'), pre), post) <-
+		liftGL $ runWriterT $ unpsp $ runWriterT $ unprp $ runStateT (unBuildShaderM g) b
+	buildShaderStatePut b'
 	preRender pre
-	postShaderBuilds l
+	postShaderBuildsList post
 	return a
+
+buildShaderStateGet :: BuildShader m => m BuildShaderState
+buildShaderStateGet = buildShaderState $ \s -> (s,s)
+
+buildShaderStatePut :: BuildShader m => BuildShaderState -> m ()
+buildShaderStatePut a = buildShaderState $ \_ -> ((),a)
 
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
@@ -291,7 +290,7 @@ instance MonadGL m => MonadGL (AttribM m) where
 	glState = lift glState
 
 instance PostShaderBuilds m => PostShaderBuilds (AttribM m) where
-	postShaderBuilds = lift . postShaderBuilds
+	postShaderBuildsList = lift . postShaderBuildsList
 
 instance PreRender m => PreRender (AttribM m) where
 	preRender = lift . preRender
@@ -463,7 +462,7 @@ instance GLtype a => Raster (Expr V a) (Expr F a) where
 		vert n = do
 			compose "gl_Position" $ vec4 v
 			compose n e
-			addHeader "varying" a n -- borked for tuple types
+			addHeader "varying" a n -- will likely become borked for tuple types
 		frag = do
 			n <- generateName a
 			addHeader "in" a n
