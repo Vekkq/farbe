@@ -13,8 +13,8 @@ import Graphics.GL
 
 
 
-loadSTL :: MonadGL m => String -> m (GArray (V3 Float))
-loadSTL s = readFileSTL s >>= newGArray
+loadSTL :: MonadGL m => String -> m (VArray (V3 Float))
+loadSTL s = readFileSTL s >>= newVArray
 
 
 main :: IO ()

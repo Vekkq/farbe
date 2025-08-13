@@ -448,7 +448,7 @@ vec4 v = Expr $ Fn "vec4" $ map ast $ toList v
 
 compile :: forall a b m. (AttrType a b, MonadGL m)
 	=> (b -> V4 (Expr F Float))
-	-> m ([GArray a] -> m ())
+	-> m ([VArray a] -> m ())
 compile f = do
 	sp <- glCreateProgram
 	let g = addShader sp GL_FRAGMENT_SHADER $ do
@@ -612,8 +612,8 @@ updatePager f = do
 putPager :: MonadGL m => Pager GLintptr -> m ()
 putPager a = updatePager $ \_ -> return (a, ())
 
-vboUpdate :: (MonadGL m, Storable a) => GArray a -> StorableArray Int a -> m ()
-vboUpdate (GArray s i) a =
+vboUpdate :: (MonadGL m, Storable a) => VArray a -> StorableArray Int a -> m ()
+vboUpdate (VArray s i) a =
 	liftIO $ withStorableArray a $ \p -> glBufferSubData GL_ARRAY_BUFFER i s $ castPtr p
 
 
@@ -669,32 +669,32 @@ condense [] = []
 mapTuple :: (a -> b) -> (a, a) -> (b, b)
 mapTuple f (x,y) = (f x, f y)
 
-gArrayRange :: GArray a -> (CPtrdiff, CPtrdiff)
-gArrayRange (GArray s p) = (p,s)
+gArrayRange :: VArray a -> (CPtrdiff, CPtrdiff)
+gArrayRange (VArray s p) = (p,s)
 
-drawRanges :: [GArray a] -> [(CPtrdiff, CPtrdiff)]
+drawRanges :: [VArray a] -> [(CPtrdiff, CPtrdiff)]
 drawRanges = condense . map gArrayRange . sortBy (comparing gArrayPos)
 
 
--- GArray interface ----------------------------------------------------------------------
+-- VArray interface ----------------------------------------------------------------------
 
-data GArray a = GArray { gArraySize :: GLintptr, gArrayPos :: GLintptr } deriving (Eq,Ord)
+data VArray a = VArray { gArraySize :: GLintptr, gArrayPos :: GLintptr } deriving (Eq,Ord)
 
-newGArray :: (MonadGL m, Storable a, Foldable f) => f a -> m (GArray a)
-newGArray xs = newGArray' =<<
+newVArray :: (MonadGL m, Storable a, Foldable f) => f a -> m (VArray a)
+newVArray xs = newVArray' =<<
 	(liftIO $ newListArray (0, pred $ length xs) $ foldr (:) [] xs)
 
 
-newGArray' :: (MonadGL m, Storable a) => StorableArray Int a -> m (GArray a)
-newGArray' a = do
+newVArray' :: (MonadGL m, Storable a) => StorableArray Int a -> m (VArray a)
+newVArray' a = do
 	i <- liftIO $ getNumElements a
 	let s = itoi $ subSizeOf a * i
-	g <- GArray s <$> vboAlloc (subSizeOf a) s
+	g <- VArray s <$> vboAlloc (subSizeOf a) s
 	vboUpdate g a
 	return g
 
 
-drawArrays :: (MonadIO m, Storable a) => [GArray a] -> m ()
+drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays [] = return ()
 drawArrays gs@(g:_) = let
 		f = itoi . (`quot` (subSizeOf g))
@@ -702,9 +702,9 @@ drawArrays gs@(g:_) = let
 	in mapM_ (uncurry (glDrawArrays GL_TRIANGLES)) r
 
 
--- | After using @removeGArray@, further calls with the given GArray are undefined.
-removeGArray :: MonadGL m => GArray a -> m ()
-removeGArray (GArray _ i) = updatePager $ return . (,()) . calcRemove i
+-- | After using @removeVArray@, further calls with the given VArray are undefined.
+removeVArray :: MonadGL m => VArray a -> m ()
+removeVArray (VArray _ i) = updatePager $ return . (,()) . calcRemove i
 
 
 
