@@ -245,13 +245,31 @@ liftBuildShaderExt g = do
 	postShaderProgramList post
 	return a
 
+compose1 :: BuildShader m => Ast -> m String
+compose1 ast = case ast of
+	Val s -> liftBuildShaderExt s
+	Fn s (p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
+		(compose1 p1) (compose1 p2)
+	Fn "if" (p1:p2:p3:[]) -> liftM3 (\a b c -> par $ a ++ "?" ++ b ++ ":" ++ c)
+		(compose1 p1) (compose1 p2) (compose1 p3)
+	Fn s as -> (s++) . par . intercalate ", " <$> mapM compose1 as
+	where
+		isOp :: String -> Bool
+		isOp (x:_) = not $ isAlpha x
+		isOp [] = False
+
+par :: String -> String
+par s = "(" ++ s ++ ")"
+
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
-
 
 -- | Expression for shaders.
 -- | e states the environment, which is either vertex or fragment shader.
 data Expr e a = Expr { ast :: Ast }
+
+compose :: BuildShader m => String -> Expr e r -> m ()
+compose s e = (compose1 $ ast e) >>= addCExpr s
 
 -- AttribM (VAO) -------------------------------------------------------------------------
 
@@ -299,8 +317,8 @@ instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
 instance (Storable (v a), Vector v, GLtype (v a), Num a) => AttrType (v a) (v (Expr V a)) where
 	setAttribute s a = do
 		Expr (Val n) <- setupAttribute1 s a
-		return $ fromList $ take (vsize (err :: v a)) $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z", ".w"]
-
+		return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z", ".w"]
+		-- maybe better to use array notation, since i'll need it for array anyway
 
 
 setupAttribute1
@@ -399,25 +417,7 @@ instance Floating a => Floating (Expr e a) where
 
 
 
-
-compose1 :: BuildShader m => Ast -> m String
-compose1 ast = case ast of
-	Val s -> liftBuildShaderExt s
-	Fn s (p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
-		(compose1 p1) (compose1 p2)
-	Fn "if" (p1:p2:p3:[]) -> liftM3 (\a b c -> par $ a ++ "?" ++ b ++ ":" ++ c)
-		(compose1 p1) (compose1 p2) (compose1 p3)
-	Fn s as -> (s++) . par . intercalate ", " <$> mapM compose1 as
-	where
-		isOp :: String -> Bool
-		isOp (x:_) = not $ isAlpha x
-		isOp [] = False
-
-par :: String -> String
-par s = "(" ++ s ++ ")"
-
-compose :: BuildShader m => String -> Expr e r -> m ()
-compose s e = (compose1 $ ast e) >>= addCExpr s
+-- Rasterization -------------------------------------------------------------------------
 
 class Raster v f where
 	raster :: (V4 (Expr V Float), v) -> f
@@ -442,6 +442,9 @@ instance GLtype a => Raster (Expr V a) (Expr F a) where
 vec4 :: V4 (Expr e a) -> Expr e (V4 a)
 vec4 v = Expr $ Fn "vec4" $ map ast $ toList v
 
+
+
+-- Compilation ---------------------------------------------------------------------------
 
 compile :: forall a b m. (AttrType a b, MonadGL m)
 	=> (b -> V4 (Expr F Float))
