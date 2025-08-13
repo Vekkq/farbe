@@ -4,6 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE IncoherentInstances #-}
+{-# LANGUAGE CPP #-}
 
 module Graphics.Farbe where
 
@@ -65,13 +66,10 @@ data GLState = GLState
 
 newtype GL m a = GL { unGL :: ReaderT GLState m a }
 	deriving
-		( Functor, Applicative, Monad, Alternative
+		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadWriter w, MonadState s, MonadError e, MonadIO
 		, MonadFix, MonadPlus, MonadWindow
 		)
-
-instance MonadTrans GL where
-	lift = GL . lift
 
 instance MonadReader r m => MonadReader r (GL m) where
 	ask = lift $ ask
@@ -133,7 +131,8 @@ glDefaultConfig = GLConfig { glVBOSize = (2^24) }
 
 newtype PostShaderProgramM m a = PostShaderProgramM { unpsp :: WriterT [(String, PreRenderM (GL IO) ())] m a }
 	deriving
-		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL)
+		(Functor, Applicative, Monad, MonadTrans, Alternative, MonadIO, MonadGL)
+
 
 instance PreRender m => PreRender (PostShaderProgramM m) where
 	preRender = lift . preRender
@@ -143,6 +142,12 @@ class Monad m => PostShaderProgram m where
 
 instance Monad m => PostShaderProgram (PostShaderProgramM m) where
 	postShaderProgramList = PostShaderProgramM . tell
+
+instance PostShaderProgram m => PostShaderProgram (StateT s m) where
+	postShaderProgramList = lift . postShaderProgramList
+
+instance (PostShaderProgram m, Monoid w) => PostShaderProgram (WriterT w m) where
+	postShaderProgramList = lift . postShaderProgramList
 
 postShaderProgram :: PostShaderProgram m => String -> PreRenderM (GL IO) () -> m ()
 postShaderProgram s a = postShaderProgramList [(s,a)]
@@ -162,18 +167,23 @@ liftGL gl = do
 
 newtype PreRenderM m a = PreRenderM { unprp :: WriterT (GL IO ()) m a }
 	deriving
-		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL)
+		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL, PostShaderProgram)
 
 
 class Monad m => PreRender m where
 	preRender :: GL IO () -> m ()
 
 instance Monad m => PreRender (PreRenderM m) where
-	preRender :: GL IO () -> PreRenderM m ()
 	preRender = PreRenderM . tell
 
-instance PostShaderProgram m => PostShaderProgram (PreRenderM m) where
-	postShaderProgramList = lift . postShaderProgramList
+instance PreRender m => PreRender (ReaderT s m) where
+	preRender = lift . preRender
+
+instance PreRender m => PreRender (StateT s m) where
+	preRender = lift . preRender
+
+instance (PreRender m, Monoid w) => PreRender (WriterT w m) where
+	preRender = lift . preRender
 
 collectPreRender :: MonadGL m => PreRenderM m a -> m (a, m ())
 collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
@@ -198,15 +208,12 @@ emptyShaderState i = BuildShaderState i S.empty []
 newtype BuildShaderM m r = BuildShaderM { unBuildShaderM :: StateT BuildShaderState m r }
 	deriving
 		( Functor, Applicative, Monad, Alternative
-		, MonadIO, MonadTrans
+		, MonadIO, MonadTrans, MonadGL
 		)
 
 runBuildShader :: Shader -> BuildShaderM m a -> m (a, BuildShaderState)
 runBuildShader i b = runStateT (unBuildShaderM b) $ emptyShaderState i
 
-
-instance MonadGL m => MonadGL (BuildShaderM m) where
-	glState = lift glState
 
 instance PostShaderProgram m => PostShaderProgram (BuildShaderM m) where
 	postShaderProgramList = lift . postShaderProgramList
@@ -268,15 +275,11 @@ data F -- | Fragment/pixel shader signifier.
 -- | e states the environment, which is either vertex or fragment shader.
 data Expr e a = Expr { ast :: Ast }
 
--- AttribM -------------------------------------------------------------------------------
+-- AttribM (VAO) -------------------------------------------------------------------------
 
 newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
 	deriving
 		(Functor, Applicative, Monad, MonadTrans, MonadIO)
-
--- ~ instance MonadState s m => MonadState s (AttribM m) where
-	-- ~ get = lift get
-	-- ~ put s = lift $ put s
 
 class Monad m => Attrib m where
 	offset :: m Int
@@ -359,7 +362,7 @@ setupAttribute1 s a = do
 		return n
 	return $ (Expr $ Val $ runOnce initExpr)
 
--- Uploadable ----------------------------------------------------------------------------
+-- Uploadable (Uniforms) -----------------------------------------------------------------
 
 makeFloat :: MonadGL m => m (Expr e Float, MVar Float)
 makeFloat = makeVar
