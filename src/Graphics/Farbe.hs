@@ -269,7 +269,7 @@ instance Monad m => Attrib (AttribM m) where
 	offset = AttribM get
 	advanceBy a = AttribM $ modify (sizeOf a +)
 
-instance (Monad m) => MonadFail m where
+instance (Monad m) => MonadFail m where -- should get this removed
 		fail = return . error
 
 type Vao = GLuint
