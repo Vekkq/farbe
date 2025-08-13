@@ -83,37 +83,26 @@ instance Monad m => Semigroup (GL m a) where
 instance Monad m => Monoid (GL m a) where
 	mempty = return $ error ""
 
-
 class MonadIO m => MonadGL m where
 	glState :: m GLState
+
+instance MonadIO m => MonadGL (GL m) where
+	glState = GL ask
+
+#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
+instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+
+SIMPLEFUNCTION_CLASSINSTANCES(glState,MonadGL,)
 
 count :: MonadGL m => m Int
 count = do
 		c <- counter <$> glState
 		liftIO $ modifyMVar c (\i -> return (succ i, i))
-
-instance MonadIO m => MonadGL (GL m) where
-	glState = GL ask
-
-instance MonadGL m => MonadGL (ReaderT r m) where
-	glState = lift glState
-
-
-instance MonadGL m => MonadGL (StateT s m) where
-	glState = lift glState
-
-instance (MonadGL m, Monoid w) => MonadGL (WriterT w m) where
-	glState = lift glState
-
-instance (MonadGL m, Monoid w) => MonadGL (RWST r w s m) where
-	glState = lift glState
-
-instance MonadGL m => MonadGL (ContT c m) where
-	glState = lift glState
-
-instance MonadGL m => MonadGL (ExceptT e m) where
-	glState = lift glState
-
 
 runGL :: MonadIO m => GLConfig -> GL m a -> m a
 runGL conf (GL m) = do
@@ -126,16 +115,23 @@ data GLConfig = GLConfig { glVBOSize :: GLintptr }
 glDefaultConfig = GLConfig { glVBOSize = (2^24) }
 
 
+-- Name generation -----------------------------------------------------------------------
+
+genName :: Int -> String
+genName i = (map (:[]) ['a'..'z'] ++ map show [1..]) !! i
+
+generateName :: (MonadGL m, GLtype a) => a -> m String
+generateName a = count >>= return . (glShortName a++) . genName
+
+withString :: MonadIO m => String -> (CString -> IO a) -> m a
+withString n f = liftIO $ bracket (newCAString n) free f
+
 
 -- Tasks ---------------------------------------------------------------------------------
 
 newtype PostShaderProgramM m a = PostShaderProgramM { unpsp :: WriterT [(String, PreRenderM (GL IO) ())] m a }
 	deriving
-		(Functor, Applicative, Monad, MonadTrans, Alternative, MonadIO, MonadGL)
-
-
-instance PreRender m => PreRender (PostShaderProgramM m) where
-	preRender = lift . preRender
+		(Functor, Applicative, Monad, MonadTrans, Alternative, MonadIO, MonadGL, PreRender)
 
 class Monad m => PostShaderProgram m where
 	postShaderProgramList :: [(String, PreRenderM (GL IO) ())] -> m ()
@@ -143,11 +139,7 @@ class Monad m => PostShaderProgram m where
 instance Monad m => PostShaderProgram (PostShaderProgramM m) where
 	postShaderProgramList = PostShaderProgramM . tell
 
-instance PostShaderProgram m => PostShaderProgram (StateT s m) where
-	postShaderProgramList = lift . postShaderProgramList
-
-instance (PostShaderProgram m, Monoid w) => PostShaderProgram (WriterT w m) where
-	postShaderProgramList = lift . postShaderProgramList
+SIMPLEFUNCTION_CLASSINSTANCES(postShaderProgramList,PostShaderProgram,.)
 
 postShaderProgram :: PostShaderProgram m => String -> PreRenderM (GL IO) () -> m ()
 postShaderProgram s a = postShaderProgramList [(s,a)]
@@ -169,21 +161,13 @@ newtype PreRenderM m a = PreRenderM { unprp :: WriterT (GL IO ()) m a }
 	deriving
 		(Functor, Applicative, Monad, MonadTrans, MonadIO, MonadGL, PostShaderProgram)
 
-
 class Monad m => PreRender m where
 	preRender :: GL IO () -> m ()
 
 instance Monad m => PreRender (PreRenderM m) where
 	preRender = PreRenderM . tell
 
-instance PreRender m => PreRender (ReaderT s m) where
-	preRender = lift . preRender
-
-instance PreRender m => PreRender (StateT s m) where
-	preRender = lift . preRender
-
-instance (PreRender m, Monoid w) => PreRender (WriterT w m) where
-	preRender = lift . preRender
+SIMPLEFUNCTION_CLASSINSTANCES(preRender,PreRender,.)
 
 collectPreRender :: MonadGL m => PreRenderM m a -> m (a, m ())
 collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
@@ -191,8 +175,6 @@ collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
 fmap2 f = fmap (fmap f)
 
 (.:) = (.).(.)
-
-
 
 -- Shader building monad -----------------------------------------------------------------
 
@@ -208,18 +190,12 @@ emptyShaderState i = BuildShaderState i S.empty []
 newtype BuildShaderM m r = BuildShaderM { unBuildShaderM :: StateT BuildShaderState m r }
 	deriving
 		( Functor, Applicative, Monad, Alternative
-		, MonadIO, MonadTrans, MonadGL
+		, MonadIO, MonadTrans
+		, MonadGL, PostShaderProgram, PreRender
 		)
 
 runBuildShader :: Shader -> BuildShaderM m a -> m (a, BuildShaderState)
 runBuildShader i b = runStateT (unBuildShaderM b) $ emptyShaderState i
-
-
-instance PostShaderProgram m => PostShaderProgram (BuildShaderM m) where
-	postShaderProgramList = lift . postShaderProgramList
-
-instance PreRender m => PreRender (BuildShaderM m) where
-	preRender = lift . preRender
 
 
 class (MonadGL m, PostShaderProgram m, PreRender m) => BuildShader m where
@@ -227,6 +203,8 @@ class (MonadGL m, PostShaderProgram m, PreRender m) => BuildShader m where
 
 instance (MonadGL m, PostShaderProgram m, PreRender m) => BuildShader (BuildShaderM m) where
 	buildShaderState = BuildShaderM . state
+
+SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)
 
 addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m ()
 addHeader i a n = buildShaderState $ \s -> ((),) $
@@ -279,7 +257,9 @@ data Expr e a = Expr { ast :: Ast }
 
 newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
 	deriving
-		(Functor, Applicative, Monad, MonadTrans, MonadIO)
+		( Functor, Applicative, Monad, MonadTrans, MonadIO
+		, MonadGL, PostShaderProgram, PreRender, BuildShader
+		)
 
 class Monad m => Attrib m where
 	offset :: m Int
@@ -289,30 +269,8 @@ instance Monad m => Attrib (AttribM m) where
 	offset = AttribM get
 	advanceBy a = AttribM $ modify (sizeOf a +)
 
-instance MonadGL m => MonadGL (AttribM m) where
-	glState = lift glState
-
-instance PostShaderProgram m => PostShaderProgram (AttribM m) where
-	postShaderProgramList = lift . postShaderProgramList
-
-instance PreRender m => PreRender (AttribM m) where
-	preRender = lift . preRender
-
-instance BuildShader m => BuildShader (AttribM m) where
-	buildShaderState = lift . buildShaderState
-
 instance (Monad m) => MonadFail m where
 		fail = return . error
-
-
-genName :: Int -> String
-genName i = (map (:[]) ['a'..'z'] ++ map show [1..]) !! i
-
-generateName :: (MonadGL m, GLtype a) => a -> m String
-generateName a = count >>= return . (glShortName a++) . genName
-
-withString :: MonadIO m => String -> (CString -> IO a) -> m a
-withString n f = liftIO $ bracket (newCAString n) free f
 
 type Vao = GLuint
 
