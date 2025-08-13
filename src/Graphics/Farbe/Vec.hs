@@ -10,6 +10,7 @@ import Graphics.Farbe.Tuple
 
 import Control.Applicative
 import Foreign.Storable
+import Data.Foldable (toList)
 
 import Foreign.Ptr
 
@@ -79,15 +80,20 @@ instance Traversable V4 where
   sequenceA (V4 x y z w) = V4 <$> x <*> y <*> z <*> w
 
 
-class (Applicative v, Foldable v, Traversable v, FromList v) => Vector v
+class (Applicative v, Foldable v, Traversable v, FromList v) => Vector v where
+  vsize :: v a -> Int
 
-instance Vector V1
+instance Vector V1 where
+  vsize _ = 1
 
-instance Vector V2
+instance Vector V2 where
+  vsize _ = 2
 
-instance Vector V3
+instance Vector V3 where
+  vsize _ = 3
 
-instance Vector V4
+instance Vector V4 where
+  vsize _ = 4
 
 
 
@@ -273,6 +279,8 @@ acurve = undefined
 
 type Mat vx vy a = vx (vy a)
 
+toList2 :: (Foldable f, Foldable g) => f (g a) -> [a]
+toList2 = concatMap toList . toList
 
 mtranspose :: (Vector x, Vector y) => Mat x y a -> Mat y x a
 mtranspose = sequenceA

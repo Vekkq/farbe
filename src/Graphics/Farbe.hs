@@ -291,10 +291,16 @@ instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
 instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
 	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
 
-instance AttrType (V3 Float) (V3 (Expr V Float)) where
+-- ~ instance AttrType (V3 Float) (V3 (Expr V Float)) where
+	-- ~ setAttribute s a = do
+		-- ~ Expr (Val n) <- setupAttribute1 s a
+		-- ~ return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z"]
+
+instance (Storable (v a), Vector v, GLtype (v a), Num a) => AttrType (v a) (v (Expr V a)) where
 	setAttribute s a = do
 		Expr (Val n) <- setupAttribute1 s a
-		return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z"]
+		return $ fromList $ take (vsize (err :: v a)) $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z", ".w"]
+
 
 
 setupAttribute1
@@ -763,10 +769,15 @@ class (Eq a, Storable a) => GLtype a where
 	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
 
 
+boolToInt :: Bool -> Int32
+boolToInt True = 1
+boolToInt _ = 0
+
+
 instance GLtype Bool where
 	glCName _ = "bool"
 	glType _ = GL_BOOL
-	glUpload i b = glUniform1i i $ if b then 1 else 0
+	glUpload i b = glUniform1i i $ boolToInt b
 	glDefault = False
 
 instance GLtype Int32 where
@@ -804,23 +815,88 @@ instance GLtype (V4 Float) where
 
 
 instance GLtype (V2 Int32) where
-	glCName _ = "vec2"
+	glCName _ = "ivec2"
 	glType _ = GL_INT
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2i i a b
 	glDefault = V2 0 0
 
 instance GLtype (V3 Int32) where
-	glCName _ = "vec3"
+	glCName _ = "ivec3"
 	glType _ = GL_INT
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3i i a b c
 	glDefault = V3 0 0 0
 
 instance GLtype (V4 Int32) where
-	glCName _ = "vec4"
+	glCName _ = "ivec4"
 	glType _ = GL_INT
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4i i a b c d
 	glDefault = V4 0 0 0 0
+
+
+instance GLtype (V2 Bool) where
+	glCName _ = "bvec2"
+	glType _ = GL_BOOL
+	glComponents _ = 2
+	glUpload i (V2 a b) = glUniform2i i (boolToInt a) (boolToInt b)
+	glDefault = V2 False False
+
+instance GLtype (V3 Bool) where
+	glCName _ = "bvec3"
+	glType _ = GL_BOOL
+	glComponents _ = 3
+	glUpload i (V3 a b c) = glUniform3i i (boolToInt a) (boolToInt b) (boolToInt c)
+	glDefault = V3 False False False
+
+instance GLtype (V4 Bool) where
+	glCName _ = "bvec4"
+	glType _ = GL_BOOL
+	glComponents _ = 4
+	glUpload i (V4 a b c d) = glUniform4i i (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+	glDefault = V4 False False False False
+
+
+instance GLtype (Mat V2 V2 Float) where
+	glCName _ = "mat2"
+	glType _ = GL_FLOAT
+	glComponents _ = 4
+	glUpload i (V2 (V2 a b) (V2 c d)) = glUniform4f i a b c d
+	glDefault = V2 (V2 0 0) (V2 0 0)
+
+instance GLtype (Mat V3 V3 Float) where
+	glCName _ = "mat3"
+	glType _ = GL_FLOAT
+	glComponents _ = 9
+	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv i 3 GL_FALSE p
+	glDefault = V3 (V3 0 0 0) (V3 0 0 0) (V3 0 0 0)
+
+instance GLtype (Mat V4 V4 Float) where
+	glCName _ = "mat4"
+	glType _ = GL_FLOAT
+	glComponents _ = 16
+	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv i 4 GL_FALSE p
+	glDefault = V4 (V4 0 0 0 0) (V4 0 0 0 0) (V4 0 0 0 0) (V4 0 0 0 0)
+
+withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
+withArray' = liftIO .: withArray
+
+
+instance GLtype [Float] where
+	glCName a = "float[" ++ show (length a) ++ "]"
+	glType _ = GL_FLOAT
+	glComponents a = veryGenericLength a
+	glUpload i l = withArray' l $ \p -> glUniform1fv i (genericLength l) p
+	glDefault = []
+
+veryGenericLength :: (Foldable t, Num i) => t a -> i
+veryGenericLength = fromIntegral . length
+
+-- dis is dumb
+instance Storable [Float] where
+	sizeOf = undefined
+	alignment = undefined
+	peek = undefined
+	poke = undefined
 
