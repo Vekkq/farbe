@@ -271,7 +271,7 @@ data Expr e a = Expr { ast :: Ast } deriving Functor
 compose :: BuildShader m => String -> Expr e r -> m ()
 compose s e = (compose1 $ ast e) >>= addCExpr s
 
--- AttribM (VAO) -------------------------------------------------------------------------
+-- Attributes (VAO) ----------------------------------------------------------------------
 
 newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
 	deriving
@@ -304,7 +304,7 @@ class Storable a => AttrType a b where
 	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
 
 instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
-instance AttrType Int32 (Expr V Int32) where setAttribute = setupAttribute1
+instance AttrType Int (Expr V Int) where setAttribute = setupAttribute1
 instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
 
 instance AttrType (Normalized Float) (Expr V Float) where
@@ -327,10 +327,10 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		(setAttribute s (err :: c))
 		(setAttribute s (err :: d))
 
-instance (Storable (v a), Vector v, GLtype (v a), Num a) => AttrType (v a) (v (Expr V a)) where
+instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a)) where
 	setAttribute s a = do
 		Expr (Val n) <- setupAttribute1 s a
-		return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z", ".w"]
+		return $ fromListFill err $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z", ".w"]
 		-- maybe better to use array notation, since i'll need it for array anyway
 
 
@@ -359,22 +359,35 @@ setupAttribute1 s a = do
 
 -- Uploadable (Uniforms) -----------------------------------------------------------------
 
-makeFloat :: MonadGL m => m (Expr e Float, MVar Float)
-makeFloat = makeVar
+makeVar' :: (MonadGL m, Uploadable a e) => a -> m (e, MVar a)
+makeVar' a = do
+	(e,m) <- makeVar
+	liftIO $ swapMVar m a
+	return (e,m)
+
 
 class GLtype a => Uploadable a e | e -> a where
 	makeVar :: MonadGL m => m (e, MVar a)
 
-
 instance Uploadable Float (Expr e Float) where
 	makeVar = makeVarDefault "f"
 
--- ~ makeVarDefault = undefined
+instance Uploadable Int (Expr e Int) where
+	makeVar = makeVarDefault "i"
+
+instance Uploadable Bool (Expr e Bool) where
+	makeVar = makeVarDefault "b"
+
+instance (Vector v, GLtype (v a)) => Uploadable (v a) (v (Expr e a)) where
+	makeVar = do
+		(Expr (Val n), m) <- makeVarDefault "vf"
+		let e' = fromListFill err $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z", ".w"]
+		return (e', m)
 
 makeVarDefault :: forall a m e . (MonadGL m, GLtype a) => String -> m (Expr e a, MVar a)
 makeVarDefault c = do
 	m <- liftIO $ newMVar glDefault
-	vname <- generateName (err :: a)
+	vname <- (c++) <$> generateName (err :: a)
 	let r = do
 		s <- getShader
 		addHeader "uniform" (err :: a) vname
@@ -790,10 +803,10 @@ instance GLtype Bool where
 	glUpload i b = glUniform1i i $ boolToInt b
 	glDefault = False
 
-instance GLtype Int32 where
+instance GLtype Int where
 	glCName _ = "int"
 	glType _ = GL_INT
-	glUpload = glUniform1i
+	glUpload i = glUniform1i i . itoi
 	glDefault = 0
 
 instance GLtype Float where
@@ -824,25 +837,25 @@ instance GLtype (V4 Float) where
 	glDefault = V4 0 0 0 0
 
 
-instance GLtype (V2 Int32) where
+instance GLtype (V2 Int) where
 	glCName _ = "ivec2"
 	glType _ = GL_INT
 	glComponents _ = 2
-	glUpload i (V2 a b) = glUniform2i i a b
+	glUpload i (V2 a b) = glUniform2i i (itoi a) (itoi b)
 	glDefault = V2 0 0
 
-instance GLtype (V3 Int32) where
+instance GLtype (V3 Int) where
 	glCName _ = "ivec3"
 	glType _ = GL_INT
 	glComponents _ = 3
-	glUpload i (V3 a b c) = glUniform3i i a b c
+	glUpload i (V3 a b c) = glUniform3i i (itoi a) (itoi b) (itoi c)
 	glDefault = V3 0 0 0
 
-instance GLtype (V4 Int32) where
+instance GLtype (V4 Int) where
 	glCName _ = "ivec4"
 	glType _ = GL_INT
 	glComponents _ = 4
-	glUpload i (V4 a b c d) = glUniform4i i a b c d
+	glUpload i (V4 a b c d) = glUniform4i i (itoi a) (itoi b) (itoi c) (itoi d)
 	glDefault = V4 0 0 0 0
 
 

@@ -177,7 +177,6 @@ curve :: (Vector v, Num (v a)) => v a -> v a -> v a -> a -> v a
 curve v v2 v3 t = line (line v v2 t) (line v2 v3 t) t
 
 
-
 class ToTuple a b where
   toTuple :: a -> b
 
