@@ -266,7 +266,7 @@ data F -- | Fragment/pixel shader signifier.
 
 -- | Expression for shaders.
 -- | e states the environment, which is either vertex or fragment shader.
-data Expr e a = Expr { ast :: Ast }
+data Expr e a = Expr { ast :: Ast } deriving Functor
 
 compose :: BuildShader m => String -> Expr e r -> m ()
 compose s e = (compose1 $ ast e) >>= addCExpr s
@@ -303,16 +303,29 @@ setAttributes s a = do
 class Storable a => AttrType a b where
 	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
 
+instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
 instance AttrType Int32 (Expr V Int32) where setAttribute = setupAttribute1
 instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
+
+instance AttrType (Normalized Float) (Expr V Float) where
+	setAttribute i a = fmap2 unNormalized $ setupAttribute1 i a
 
 instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
 	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
 
--- ~ instance AttrType (V3 Float) (V3 (Expr V Float)) where
-	-- ~ setAttribute s a = do
-		-- ~ Expr (Val n) <- setupAttribute1 s a
-		-- ~ return $ fromList $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z"]
+instance (AttrType a x, AttrType b y, AttrType c z) => AttrType (a,b,c) (x,y,z) where
+	setAttribute s _ = liftM3 (,,)
+		(setAttribute s (err :: a))
+		(setAttribute s (err :: b))
+		(setAttribute s (err :: c))
+
+instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
+	AttrType (a,b,c,d) (x,y,z,w) where
+	setAttribute s _ = liftM4 (,,,)
+		(setAttribute s (err :: a))
+		(setAttribute s (err :: b))
+		(setAttribute s (err :: c))
+		(setAttribute s (err :: d))
 
 instance (Storable (v a), Vector v, GLtype (v a), Num a) => AttrType (v a) (v (Expr V a)) where
 	setAttribute s a = do
@@ -771,12 +784,6 @@ class (Eq a, Storable a) => GLtype a where
 	glCNameWithPrec :: a -> String
 	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
 
-
-boolToInt :: Bool -> Int32
-boolToInt True = 1
-boolToInt _ = 0
-
-
 instance GLtype Bool where
 	glCName _ = "bool"
 	glType _ = GL_BOOL
@@ -885,6 +892,25 @@ instance GLtype (Mat V4 V4 Float) where
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
 
+data Normalized a = Normalized { unNormalized :: a } deriving (Eq)
+
+instance Functor Normalized where
+	fmap f (Normalized a) = Normalized $ f a
+
+instance Storable a => Storable (Normalized a) where
+	sizeOf _ = sizeOf (err :: a)
+	alignment _ = alignment (err :: a)
+	peek p = fmap Normalized $ peek $ castPtr p
+	poke p (Normalized a) = poke (castPtr p) a
+
+instance GLtype a => GLtype (Normalized a) where
+	glNormalized _ = GL_TRUE
+	glCName _ = glCName (err :: a)
+	glType _ = glType (err :: a)
+	glComponents _ = glComponents (err :: a)
+	glUpload i _ = glUpload i (err :: a)
+	glDefault = Normalized (glDefault :: a)
+
 
 instance GLtype [Float] where
 	glCName a = "float[" ++ show (length a) ++ "]"
@@ -903,3 +929,8 @@ instance Storable [Float] where
 	peek = undefined
 	poke = undefined
 
+
+
+boolToInt :: Bool -> Int32
+boolToInt True = 1
+boolToInt _ = 0
