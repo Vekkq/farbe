@@ -226,7 +226,6 @@ instance FromList V4 where
   fromListFill a xs | (x:y:z:w:_) <- xs ++ repeat a = V4 x y z w
 
 
--- | gives the size of the last type variable
 subSizeOf :: forall g a n. (Storable a, Num n) => g a -> n
 subSizeOf _ = itoi $ sizeOf (err :: a)
 
