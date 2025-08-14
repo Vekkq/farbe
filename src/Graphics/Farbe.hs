@@ -248,6 +248,8 @@ liftBuildShaderExt g = do
 compose1 :: BuildShader m => Ast -> m String
 compose1 ast = case ast of
 	Val s -> liftBuildShaderExt s
+	Fn "[]" (p1:p2:[]) -> liftM2 (\a b -> a ++ "[" ++ b ++ "]")
+		(compose1 p1) (compose1 p2)
 	Fn s (p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
 		(compose1 p1) (compose1 p2)
 	Fn "if" (p1:p2:p3:[]) -> liftM3 (\a b c -> par $ a ++ "?" ++ b ++ ":" ++ c)
@@ -270,6 +272,57 @@ data Expr e a = Expr { ast :: Ast } deriving Functor
 
 compose :: BuildShader m => String -> Expr e r -> m ()
 compose s e = (compose1 $ ast e) >>= addCExpr s
+
+
+
+-- Expr functions ------------------------------------------------------------------------
+
+liftE :: String -> Expr e a1 -> Expr e a2
+liftE s (Expr a) = Expr $ Fn s [a]
+
+liftE2 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3
+liftE2 s (Expr a) (Expr b) = Expr $ Fn s [a,b]
+
+
+data Arr a
+
+arr :: Expr e (Arr a) -> Expr e Int -> Expr e a
+arr = liftE2 "[]"
+
+
+instance Num a => Num (Expr e a) where
+	(+) = liftE2 "+"
+	(*) = liftE2 "*"
+	(-) = liftE2 "-"
+	abs = undefined
+	signum = undefined
+	fromInteger = Expr . Val . return . ($ []) . showFFloat Nothing . fromInteger
+
+instance Fractional a => Fractional (Expr e a) where
+	fromRational = Expr . Val . return . ($ []) . showFFloat Nothing . fromRat
+	(/) = liftE2 "/"
+
+
+instance Floating a => Floating (Expr e a) where
+	pi = Expr $ Val $ return $ show pi
+	exp = liftE "exp"
+	log = liftE "log"
+	sqrt = liftE "sqrt"
+	(**) = liftE2 "^"
+	sin = liftE "sin"
+	cos = liftE "cos"
+	tan = liftE "tan"
+	asin = liftE "asin"
+	acos = liftE "acos"
+	atan = liftE "atan"
+	sinh = liftE "sinh"
+	cosh = liftE "cosh"
+	tanh = liftE "tanh"
+	asinh = liftE "asinh"
+	acosh = liftE "acosh"
+	atanh = liftE "atanh"
+
+
 
 -- Attributes (VAO) ----------------------------------------------------------------------
 
@@ -378,11 +431,20 @@ instance Uploadable Int (Expr e Int) where
 instance Uploadable Bool (Expr e Bool) where
 	makeVar = makeVarDefault "b"
 
-instance (Vector v, GLtype (v a)) => Uploadable (v a) (v (Expr e a)) where
+instance (Vector v, GLtype (v a), GLtype a) => Uploadable (v a) (v (Expr e a)) where
 	makeVar = do
-		(Expr (Val n), m) <- makeVarDefault "vf"
+		(Expr (Val n), m) <- makeVarDefault $ "v" ++ glShortName (err :: a)
 		let e' = fromListFill err $ map (\c -> Expr $ Val $ fmap (++c) n) [".x", ".y", ".z", ".w"]
 		return (e', m)
+
+instance (Vector v, GLtype (v (v a))) => Uploadable (v (v a)) (v (v (Expr e a))) where
+	makeVar = do
+		(Expr (Val n), m) <- makeVarDefault $ "m"
+		let e' = fromListFill err $ map (fromListFill err) $ map2 (\c -> Expr $ Val $ fmap (++c) n) [[".x", ".y", ".z", ".w"],[".x", ".y", ".z", ".w"],[".x", ".y", ".z", ".w"],[".x", ".y", ".z", ".w"]]
+		-- borked, needs to be upgraded to [][] notation, possibly through Fn "[]"
+		return (e', m)
+
+map2 = map . map
 
 makeVarDefault :: forall a m e . (MonadGL m, GLtype a) => String -> m (Expr e a, MVar a)
 makeVarDefault c = do
@@ -400,46 +462,6 @@ makeVarDefault c = do
 
 updateMVar :: MonadIO m => MVar a -> a -> m ()
 updateMVar m a = liftIO $ void $ swapMVar m a
-
-
-
-liftE :: String -> Expr e1 a1 -> Expr e2 a2
-liftE s (Expr a) = Expr $ Fn s [a]
-
-liftE2 :: String -> Expr e1 a1 -> Expr e2 a2 -> Expr e3 a3
-liftE2 s (Expr a) (Expr b) = Expr $ Fn s [a,b]
-
-instance Num a => Num (Expr e a) where
-	(+) = liftE2 "+"
-	(*) = liftE2 "*"
-	(-) = liftE2 "-"
-	abs = undefined
-	signum = undefined
-	fromInteger = Expr . Val . return . ($ []) . showFFloat Nothing . fromInteger
-
-instance Fractional a => Fractional (Expr e a) where
-	fromRational = Expr . Val . return . ($ []) . showFFloat Nothing . fromRat
-	(/) = liftE2 "/"
-
-
-instance Floating a => Floating (Expr e a) where
-	pi = Expr $ Val $ return $ show pi
-	exp = liftE "exp"
-	log = liftE "log"
-	sqrt = liftE "sqrt"
-	(**) = liftE2 "^"
-	sin = liftE "sin"
-	cos = liftE "cos"
-	tan = liftE "tan"
-	asin = liftE "asin"
-	acos = liftE "acos"
-	atan = liftE "atan"
-	sinh = liftE "sinh"
-	cosh = liftE "cosh"
-	tanh = liftE "tanh"
-	asinh = liftE "asinh"
-	acosh = liftE "acosh"
-	atanh = liftE "atanh"
 
 
 
