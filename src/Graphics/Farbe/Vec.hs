@@ -81,7 +81,7 @@ instance Traversable V4 where
 
 
 class (Applicative v, Foldable v, Traversable v, FromList v) => Vector v where
-  vsize :: v a -> Int
+  vsize :: Num n => v a -> n
 
 instance Vector V1 where
   vsize _ = 1

@@ -1,4 +1,12 @@
 
+* write raster instances (vector,tuples)
+  * the raster function isn't ideal - rewrite and move back to compile function
+* add array type
+* add textures
+* add other glsl functions
+* write optimizer for sqeezing separate vector values back into vector
+* write optimizer to turn multiused asts into shared variables
+* extending tuple instances
 
 * have GArray clear itself up on losing reference
   * move garray content into a ioref and add finalizer
