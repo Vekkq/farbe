@@ -1,6 +1,4 @@
 
-* write raster instances (vector,tuples)
-  * the raster function isn't ideal - rewrite and move back to compile function
 * add array type
 * add textures
 * add other glsl functions

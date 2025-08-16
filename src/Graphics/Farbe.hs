@@ -474,10 +474,10 @@ updateMVar m a = liftIO $ void $ swapMVar m a
 -- Rasterization -------------------------------------------------------------------------
 
 class Raster a b where
-	rTranslate :: a -> WriterT (AstM ()) AstM b
+	transfer :: a -> WriterT (AstM ()) AstM b
 
 instance GLtype a => Raster (Expr V a) (Expr F a) where
-	rTranslate e = do
+	transfer e = do
 		let a = err :: a
 		n <- generateName a
 		compose n e
@@ -487,7 +487,7 @@ instance GLtype a => Raster (Expr V a) (Expr F a) where
 		return $ Expr $ Val $ return n
 
 instance (Vector v, GLtype (v a)) => Raster (v (Expr V a)) (v (Expr F a)) where
-	rTranslate e = do
+	transfer e = do
 		let va = err :: v a
 		n <- generateName va
 		compose n $ exprVec e
@@ -497,7 +497,7 @@ instance (Vector v, GLtype (v a)) => Raster (v (Expr V a)) (v (Expr F a)) where
 		return $ vecParts $ Expr $ Val $ return n
 
 instance (Vector v, GLtype (v a), GLtype (v (v a))) => Raster (v (v (Expr V a))) (v (v (Expr F a))) where
-	rTranslate e = do
+	transfer e = do
 		let vva = err :: v (v a)
 		n <- generateName vva
 		compose n $ exprVec $ fmap exprVec e
@@ -507,16 +507,16 @@ instance (Vector v, GLtype (v a), GLtype (v (v a))) => Raster (v (v (Expr V a)))
 		return $ fmap vecParts $ vecParts $ Expr $ Val $ return n
 
 instance (Raster a b, Raster c d) => Raster (a,c) (b,d) where
-	rTranslate (a,b) = liftM2 (,) (rTranslate a) (rTranslate b)
+	transfer (a,b) = liftM2 (,) (transfer a) (transfer b)
 
 instance (Raster a b, Raster c d, Raster e f) => Raster (a,c,e) (b,d,f) where
-	rTranslate (a,b,c) = liftM3 (,,) (rTranslate a) (rTranslate b) (rTranslate c)
+	transfer (a,b,c) = liftM3 (,,) (transfer a) (transfer b) (transfer c)
 
 
 instance (Raster a b, Raster c d, Raster e f, Raster g h)
 	=> Raster (a,c,e,g) (b,d,f,h) where
-	rTranslate (a,b,c,d) = liftM4 (,,,)
-		(rTranslate a) (rTranslate b) (rTranslate c) (rTranslate d)
+	transfer (a,b,c,d) = liftM4 (,,,)
+		(transfer a) (transfer b) (transfer c) (transfer d)
 
 
 
@@ -550,7 +550,7 @@ compile sv sf = do
 		(i,ef,sf') <- addShader sp GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes sp (err :: a)
 			let (v,r) = sv e
-			(ef,sf') <-runWriterT (rTranslate r)
+			(ef,sf') <-runWriterT (transfer r)
 			compose "gl_Position" $ exprVec v
 			return (i,ef,sf')
 		addShader sp GL_FRAGMENT_SHADER $ do
