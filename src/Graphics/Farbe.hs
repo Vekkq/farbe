@@ -231,16 +231,17 @@ data Ast
 	= Val { val :: AstM String }
 	| Fn { fnName :: String, fnAst :: [Ast] }
 
-type AstM = BuildShaderM (PreRenderM (PostShaderProgramM (GL IO)))
+-- ~ type AstM = BuildShaderM (PreRenderM (PostShaderProgramM (GL IO)))
+type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
 
 liftBuildShaderExt
 	:: (MonadGL m, BuildShader m, PreRender m, PostShaderProgram m)
-	=> BuildShaderM (PreRenderM (PostShaderProgramM (GL IO))) a
+	=> BuildShaderM (PostShaderProgramM (PreRenderM (GL IO))) a
 	-> m a
 liftBuildShaderExt g = do
 	b <- buildShaderStateGet
-	(((a, b'), pre), post) <-
-		liftGL $ runWriterT $ unpsp $ runWriterT $ unprp $ runStateT (unBuildShaderM g) b
+	(((a, b'), post), pre) <-
+		liftGL $ runWriterT $ unprp $ runWriterT $ unpsp $ runStateT (unBuildShaderM g) b
 	buildShaderStatePut b'
 	preRender pre
 	postShaderProgramList post
@@ -472,61 +473,55 @@ updateMVar m a = liftIO $ void $ swapMVar m a
 
 -- Rasterization -------------------------------------------------------------------------
 
-class Raster v f where
-	raster :: (V4 (Expr V Float), v) -> f
+class Raster a b where
+	rTranslate :: a -> WriterT (AstM ()) AstM b
 
--- try casting environment variable to a class holding F instead,
--- in hopes that this stops multiple raster results from being combined
 instance GLtype a => Raster (Expr V a) (Expr F a) where
-	raster (v,e) = let
-		a = err :: a
-		vert n = do
-			compose "gl_Position" $ exprVec v
-			compose n e
-			addHeader "varying" a n
-		frag = do
-			n <- generateName a
+	rTranslate e = do
+		let a = err :: a
+		n <- generateName a
+		compose n e
+		addHeader "varying" a $ n
+		tell $ do
 			addHeader "in" a n
-			i <- getShader
-			addShader i GL_VERTEX_SHADER $ vert n
-			return n
-		in Expr $ Val frag
+		return $ Expr $ Val $ return n
 
-exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
-exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
+instance (Vector v, GLtype (v a)) => Raster (v (Expr V a)) (v (Expr F a)) where
+	rTranslate e = do
+		let va = err :: v a
+		n <- generateName va
+		compose n $ exprVec e
+		addHeader "varying" va $ n
+		tell $ do
+			addHeader "in" va n
+		return $ vecParts $ Expr $ Val $ return n
 
-instance (Vector v, Eq (v a), GLtype (v a), GLtype a) => Raster (v (Expr V a)) (v (Expr F a)) where
-	raster (v,e) = let
-		a = err :: v a
-		vert n = do
-			compose "gl_Position" $ exprVec v
-			compose n $ exprVec e
-			addHeader "varying" a $ n
-		frag = do
-			n <- generateName a
-			addHeader "in" a n
-			i <- getShader
-			addShader i GL_VERTEX_SHADER $ vert n
-			return n
-		in vecParts $ Expr $ Val frag
+instance (Vector v, GLtype (v a), GLtype (v (v a))) => Raster (v (v (Expr V a))) (v (v (Expr F a))) where
+	rTranslate e = do
+		let vva = err :: v (v a)
+		n <- generateName vva
+		compose n $ exprVec $ fmap exprVec e
+		addHeader "varying" vva $ n
+		tell $ do
+			addHeader "in" vva n
+		return $ fmap vecParts $ vecParts $ Expr $ Val $ return n
+
+instance (Raster a b, Raster c d) => Raster (a,c) (b,d) where
+	rTranslate (a,b) = liftM2 (,) (rTranslate a) (rTranslate b)
+
+instance (Raster a b, Raster c d, Raster e f) => Raster (a,c,e) (b,d,f) where
+	rTranslate (a,b,c) = liftM3 (,,) (rTranslate a) (rTranslate b) (rTranslate c)
 
 
-data ShaderSet = forall v f . RasterTranslate v f => ShaderSet
-	{ shaderV :: (V4 (Expr V Float), v)
-	, shaderF :: (f -> V4 (Expr F Float))
-	}
+instance (Raster a b, Raster c d, Raster e f, Raster g h)
+	=> Raster (a,c,e,g) (b,d,f,h) where
+	rTranslate (a,b,c,d) = liftM4 (,,,)
+		(rTranslate a) (rTranslate b) (rTranslate c) (rTranslate d)
 
--- ~ instance Raster (a,c) (b,d) where
-	-- ~ raster (v,e) = let
-		-- ~ vert n = do
-			-- ~ compose "gl_Position" $ exprVec v
-		-- ~ frag = do
-			-- ~ i <- getShader
-			-- ~ (a,w) <- runWriterT (rTranslate e)
-			-- ~ addShader i GL_VERTEX_SHADER $ vert >> w
-			-- ~ return a
 
-		-- ~ in frag
+
+
+
 
 instance Semigroup (AstM a) where
 	(<>) = (>>)
@@ -534,41 +529,39 @@ instance Semigroup (AstM a) where
 instance Monoid (AstM a) where
 	mempty = return $ error ""
 
-class RasterTranslate a b where
-	rTranslate :: a -> WriterT (AstM ()) AstM b
-
-instance GLtype a => RasterTranslate (Expr V a) (Expr F b) where
-	rTranslate e = do
-		let a = err :: a
-		n <- generateName a
-		tell $ do
-			compose n e
-			addHeader "varying" a $ n
-		addHeader "in" a n
-		return $ Expr $ Val $ return n
-
-
-instance (RasterTranslate a b, RasterTranslate c d) => RasterTranslate (a,c) (b,d) where
-	rTranslate (a,b) = liftM2 (,) (rTranslate a) (rTranslate b)
-
+exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
+exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
 
 
 -- Compilation ---------------------------------------------------------------------------
 
-compile :: forall a b m. (AttrType a b, MonadGL m)
-	=> (b -> V4 (Expr F Float))
+data ShaderSet a v f = Raster v f => ShaderSet
+	{ shaderV :: (a -> (V4 (Expr V Float), v))
+	, shaderF :: (f -> V4 (Expr F Float))
+	}
+
+compile :: forall a b m v f. (MonadGL m, AttrType a b, Raster v f)
+	=> (b -> (V4 (Expr V Float), v))
+	-> (f -> V4 (Expr F Float))
 	-> m ([VArray a] -> m ())
-compile f = do
+compile sv sf = do
 	sp <- glCreateProgram
-	let g = addShader sp GL_FRAGMENT_SHADER $ do
-		(i,e) <- setAttributes sp (err :: a)
-		compose "gl_FragColor" $ exprVec $ f e
+	let g = do
+		(i,ef,sf') <- addShader sp GL_VERTEX_SHADER $ do
+			(i,e) <- setAttributes sp (err :: a)
+			let (v,r) = sv e
+			(ef,sf') <-runWriterT (rTranslate r)
+			compose "gl_Position" $ exprVec v
+			return (i,ef,sf')
+		addShader sp GL_FRAGMENT_SHADER $ do
+			compose "gl_FragColor" $ exprVec $ sf ef
+			sf'
 		return i
-	(vao,exec) <- collectPreRender $ runPostShaderProgram g
+	(vao,exec) <- liftGL $ collectPreRender $ runPostShaderProgram g
 	return $ \garrs -> do
 		glBindVertexArray vao
 		glUseProgram sp
-		exec
+		liftGL $ exec
 		drawArrays garrs
 
 
