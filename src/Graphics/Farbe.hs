@@ -4,6 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE IncoherentInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 
 module Graphics.Farbe where
@@ -231,8 +232,14 @@ data Ast
 	= Val { val :: AstM String }
 	| Fn { fnName :: String, fnAst :: [Ast] }
 
--- ~ type AstM = BuildShaderM (PreRenderM (PostShaderProgramM (GL IO)))
 type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
+
+data V -- | Vertex shader signifier.
+data F -- | Fragment/pixel shader signifier.
+
+-- | Expression for shaders.
+-- | e states the environment, which is either vertex or fragment shader.
+data Expr e a = Expr { ast :: Ast } deriving (Functor)
 
 liftBuildShaderExt
 	:: (MonadGL m, BuildShader m, PreRender m, PostShaderProgram m)
@@ -264,13 +271,6 @@ compose1 ast = case ast of
 
 par :: String -> String
 par s = "(" ++ s ++ ")"
-
-data V -- | Vertex shader signifier.
-data F -- | Fragment/pixel shader signifier.
-
--- | Expression for shaders.
--- | e states the environment, which is either vertex or fragment shader.
-data Expr e a = Expr { ast :: Ast } deriving (Functor)
 
 
 compose :: BuildShader m => String -> Expr e r -> m ()
@@ -388,6 +388,10 @@ instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a
 
 vecParts :: forall e v a . Vector v => Expr e (v a) -> v (Expr e a)
 vecParts e = fromListFill err $ map (\i -> arr' e i) $ map expr [0..]
+
+exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
+exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
+
 
 expr x = Expr $ Val $ return $ show x
 
@@ -529,10 +533,6 @@ instance Semigroup (AstM a) where
 instance Monoid (AstM a) where
 	mempty = return $ error ""
 
-exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
-exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
-
-
 -- Compilation ---------------------------------------------------------------------------
 
 data ShaderSet a v f = Raster v f => ShaderSet
@@ -551,31 +551,53 @@ compile sv sf = do
 			(i,e) <- setAttributes sp (err :: a)
 			let (v,r) = sv e
 			(ef,sf') <-runWriterT (transfer r)
-			compose "gl_Position" $ exprVec v
+			v' <- fmap Expr $ shrinkEnds $ ast $ exprVec v
+			compose "gl_Position" $ v'
+			-- ~ compose "gl_Position" $ exprVec v
 			return (i,ef,sf')
 		addShader sp GL_FRAGMENT_SHADER $ do
 			compose "gl_FragColor" $ exprVec $ sf ef
 			sf'
 		return i
 	(vao,exec) <- liftGL $ collectPreRender $ runPostShaderProgram g
-	return $ \garrs -> do
+	return $ \varrs -> do
 		glBindVertexArray vao
 		glUseProgram sp
 		liftGL $ exec
-		drawArrays garrs
+		drawArrays varrs
 
 
 
 -- Ast optimizations ---------------------------------------------------------------------
 -- without context probably quick to break stuff
 
+shrinkEnds :: BuildShader m => Ast -> m Ast
+shrinkEnds e@(Fn vn asts)
+	| findInStringDepth 1 "vec" vn
+	, Just ns <- forM asts (\(Fn "arr" [Val n, Fn op a]) -> Just (n,op,a))
+	= do
+		let ops@(op:_) = map tsnd ns
+		ss <- liftBuildShaderExt $ sequence $ map tfst ns
+		if same ops && and (zipWith (==) (map read ss) [0..])
+			then fmap (Fn op) $ mapM (shrinkEnds . Fn vn) $ transpose $ map ttrd ns
+			else return e
+shrinkEnds e = return e
+-- https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Except.html
+
+-- ~ foo = Fn "vec2"
+	-- ~ [ Fn "arr" [Val (return 0), Fn "+" [a1,a2]]
+	-- ~ , Fn "arr" [Val (return 1), Fn "+" [b1,b2]]
+	-- ~ ]
+-- ~ -> Fn "+" [Fn "vec2" [a1,b1], Fn "vec2" [a2,b2]]
 
 
--- ~ same (x:y:xs) = x == y && same (y:xs)
--- ~ same _ = True
 
--- ~ findInStringDepth :: Int -> String -> String -> Bool
--- ~ findInStringDepth i s = any (isPrefixOf s) . take i . tails
+same :: Eq a => [a] -> Bool
+same (x:y:xs) = x == y && same (y:xs)
+same _ = True
+
+findInStringDepth :: Int -> String -> String -> Bool
+findInStringDepth i s = any (isPrefixOf s) . take i . tails
 
 -- ~ vecRow = [".x", ".y", ".z", ".w"]
 
@@ -771,16 +793,16 @@ condense [] = []
 mapTuple :: (a -> b) -> (a, a) -> (b, b)
 mapTuple f (x,y) = (f x, f y)
 
-gArrayRange :: VArray a -> (CPtrdiff, CPtrdiff)
-gArrayRange (VArray s p) = (p,s)
+vArrayRange :: VArray a -> (CPtrdiff, CPtrdiff)
+vArrayRange (VArray s p) = (p,s)
 
 drawRanges :: [VArray a] -> [(CPtrdiff, CPtrdiff)]
-drawRanges = condense . map gArrayRange . sortBy (comparing gArrayPos)
+drawRanges = condense . map vArrayRange . sortBy (comparing vArrayPos)
 
 
 -- VArray interface ----------------------------------------------------------------------
 
-data VArray a = VArray { gArraySize :: GLintptr, gArrayPos :: GLintptr } deriving (Eq,Ord)
+data VArray a = VArray { vArraySize :: GLintptr, vArrayPos :: GLintptr } deriving (Eq,Ord)
 
 newVArray :: (MonadGL m, Storable a, Foldable f) => f a -> m (VArray a)
 newVArray xs = newVArray' =<<
@@ -1001,22 +1023,15 @@ instance GLtype a => GLtype (Normalized a) where
 	glDefault = Normalized (glDefault :: a)
 
 
-instance GLtype [Float] where
-	glCName a = "float[" ++ show (length a) ++ "]"
-	glType _ = GL_FLOAT
-	glComponents a = veryGenericLength a
-	glUpload i l = withArray' l $ \p -> glUniform1fv i (genericLength l) p
-	glDefault = []
+-- ~ instance GLtype [Float] where
+	-- ~ glCName a = "float[" ++ show (length a) ++ "]"
+	-- ~ glType _ = GL_FLOAT
+	-- ~ glComponents a = veryGenericLength a
+	-- ~ glUpload i l = withArray' l $ \p -> glUniform1fv i (genericLength l) p
+	-- ~ glDefault = []
 
 veryGenericLength :: (Foldable t, Num i) => t a -> i
 veryGenericLength = fromIntegral . length
-
--- dis is dumb
-instance Storable [Float] where
-	sizeOf = undefined
-	alignment = undefined
-	peek = undefined
-	poke = undefined
 
 
 

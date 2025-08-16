@@ -1,3 +1,5 @@
+-- ~ {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 -- tuple convertion and storable tuples
 
@@ -62,10 +64,10 @@ instance (Storable a, Storable b, Storable c, Storable d) => Storable (a,b,c,d) 
 
 
 
-class Tuple1 a b where tfst :: a -> b
-class Tuple2 a b where tsnd :: a -> b
-class Tuple3 a b where ttrd :: a -> b
-class Tuple4 a b where tth4 :: a -> b
+class Tuple1 a b | a -> b where tfst :: a -> b
+class Tuple2 a b | a -> b where tsnd :: a -> b
+class Tuple3 a b | a -> b where ttrd :: a -> b
+class Tuple4 a b | a -> b where tth4 :: a -> b
 -- ~ class Tuple5 a b | a -> b where t5 :: a -> b
 -- ~ class Tuple6 a b | a -> b where t6 :: a -> b
 -- ~ class Tuple7 a b | a -> b where t7 :: a -> b
