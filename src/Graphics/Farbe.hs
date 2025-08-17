@@ -396,6 +396,14 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a)) where
 	setAttribute s a = vecParts <$> setupAttribute1 s a
 
+instance (Storable (v (v a)), Vector v, GLtype (v (v a))) =>
+	AttrType (v (v a)) (v (v (Expr V a))) where
+	setAttribute s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
+
+instance (Storable a, GLtype a, KnownNat s) => AttrType (Arr s a) (Expr V (Arr s a)) where
+	setAttribute s a = setupAttribute1 s a
+
+
 vecParts :: forall e v a . Vector v => Expr e (v a) -> v (Expr e a)
 vecParts e = fromListFill err $ map (\i -> arr' e i) $ map expr [0..]
 
@@ -494,8 +502,16 @@ data Arr (s :: Nat) t = Arr { unArr :: StorableArray Int t }
 arrSize ::forall n s t . (KnownNat s, Num n) => (Arr s t) -> n
 arrSize _ = itoi (natVal (Proxy :: Proxy s))
 
+arrNew :: forall m s t . (KnownNat s, Storable t, MonadIO m) => m (Arr s t)
+arrNew = liftIO $ Arr <$> newArray_ (0, itoi (natVal (Proxy :: Proxy s)))
+
 arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
 arr = liftE2 "[]"
+
+instance (Storable e, KnownNat s) => Storable (Arr s e) where
+	sizeOf = arrSize
+	alignment _ = alignment (err :: e)
+	-- ~ peek p = forM [0..arrSize] $ \i -> peek i
 
 -- Rasterization -------------------------------------------------------------------------
 
