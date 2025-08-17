@@ -990,6 +990,10 @@ instance GLtype (V4 Bool) where
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4i i (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
 
+boolToInt :: Bool -> Int32
+boolToInt True = 1
+boolToInt _ = 0
+
 
 instance GLtype (Mat V2 V2 Float) where
 	glCName _ = "mat2"
@@ -1032,16 +1036,9 @@ instance GLtype a => GLtype (Normalized a) where
 	glUpload i _ = glUpload i (err :: a)
 
 
-
 instance (KnownNat s, GLtype e) => GLtype (Arr s e) where
 	glCName a = glCName (err :: e) ++ "[" ++ show (arrSize a) ++ "]"
 	glType _ = glType (err :: e)
 	glComponents a = glComponents (err :: e) * arrSize a
 	glUpload i a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv i (glComponents a) $ castPtr p
 
-
-
-
-boolToInt :: Bool -> Int32
-boolToInt True = 1
-boolToInt _ = 0
