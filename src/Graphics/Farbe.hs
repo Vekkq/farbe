@@ -437,7 +437,7 @@ setupAttribute1 s a = do
 makeVar' :: (MonadGL m, Uploadable a e) => a -> m (e, MVar a)
 makeVar' a = do
 	(e,m) <- makeVar
-	liftIO $ swapMVar m a
+	liftIO $ fuzzySwapMVar m a
 	return (e,m)
 
 
@@ -467,24 +467,29 @@ map2 = map . map
 
 makeVarDefault :: forall a m e . (MonadGL m, Eq a, GLtype a) => String -> m (Expr e a, MVar a)
 makeVarDefault c = do
-	m <- liftIO $ newMVar glDefault
+	m <- liftIO $ newEmptyMVar
 	vname <- (c++) <$> generateName (err :: a)
 	let r = do
 		s <- getShader
 		addHeader "uniform" (err :: a) vname
 		postShaderProgram vname $ do
 			l <- withString vname $ glGetUniformLocation s
-			wc <- makeRunWhenChanged glDefault (glUpload l)
+			wc <- makeRunWhenChanged (glUpload l)
 			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
 		return vname
 	return (Expr $ Val r, m)
 
 updateMVar :: MonadIO m => MVar a -> a -> m ()
-updateMVar m a = liftIO $ void $ swapMVar m a
+updateMVar m a = liftIO $ void $ fuzzySwapMVar m a
+
+fuzzySwapMVar ml a = liftIO $ do
+	r <- tryTakeMVar ml
+	tryPutMVar ml a
+	return r
 
 -- Array stub ----------------------------------------------------------------------------
 
-data Arr (s :: Nat) t = Arr { unArr :: StorableArray t }
+data Arr (s :: Nat) t = Arr { unArr :: StorableArray Int t }
 
 arrSize ::forall n s t . (KnownNat s, Num n) => (Arr s t) -> n
 arrSize _ = itoi (natVal (Proxy :: Proxy s))
@@ -874,16 +879,16 @@ runOnce (RunOnce m ma) = do
 
 data RunWhenChanged m a = RunWhenChanged (a -> m ()) (MVar a)
 
-makeRunWhenChanged :: MonadIO m => a -> (a -> m2 ()) -> m (RunWhenChanged m2 a)
-makeRunWhenChanged a m = liftIO $ RunWhenChanged m <$> newMVar a
+makeRunWhenChanged :: MonadIO m => (a -> m2 ()) -> m (RunWhenChanged m2 a)
+makeRunWhenChanged m = liftIO $ RunWhenChanged m <$> newEmptyMVar
 
 runwc :: (MonadIO m, Eq a) => RunWhenChanged m a -> a -> m ()
 runwc (RunWhenChanged f ml) a = do
-	l <- liftIO $ readMVar ml
-	if a == l
+	l <- liftIO $ tryReadMVar ml
+	if maybe False (a==) l
 		then return ()
 		else do
-			liftIO $ swapMVar ml a
+			fuzzySwapMVar ml a
 			f a
 
 -- GL extension for VAO ------------------------------------------------------------------
@@ -909,7 +914,6 @@ class GLtype a where
 	glShortName :: a -> String
 	glShortName a = take 1 $ glCName a
 	glUpload :: MonadIO m => GLint -> a -> m ()
-	glDefault :: a
 	glPrecision :: a -> String
 	glPrecision _ = "highp"
 	glCNameWithPrec :: a -> String
@@ -919,40 +923,34 @@ instance GLtype Bool where
 	glCName _ = "bool"
 	glType _ = GL_BOOL
 	glUpload i b = glUniform1i i $ boolToInt b
-	glDefault = False
 
 instance GLtype Int where
 	glCName _ = "int"
 	glType _ = GL_INT
 	glUpload i = glUniform1i i . itoi
-	glDefault = 0
 
 instance GLtype Float where
 	glCName _ = "float"
 	glType _ = GL_FLOAT
 	glUpload = glUniform1f
-	glDefault = 0
 
 instance GLtype (V2 Float) where
 	glCName _ = "vec2"
 	glType _ = GL_FLOAT
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2f i a b
-	glDefault = V2 0 0
 
 instance GLtype (V3 Float) where
 	glCName _ = "vec3"
 	glType _ = GL_FLOAT
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3f i a b c
-	glDefault = V3 0 0 0
 
 instance GLtype (V4 Float) where
 	glCName _ = "vec4"
 	glType _ = GL_FLOAT
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4f i a b c d
-	glDefault = V4 0 0 0 0
 
 
 instance GLtype (V2 Int) where
@@ -960,21 +958,18 @@ instance GLtype (V2 Int) where
 	glType _ = GL_INT
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2i i (itoi a) (itoi b)
-	glDefault = V2 0 0
 
 instance GLtype (V3 Int) where
 	glCName _ = "ivec3"
 	glType _ = GL_INT
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3i i (itoi a) (itoi b) (itoi c)
-	glDefault = V3 0 0 0
 
 instance GLtype (V4 Int) where
 	glCName _ = "ivec4"
 	glType _ = GL_INT
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4i i (itoi a) (itoi b) (itoi c) (itoi d)
-	glDefault = V4 0 0 0 0
 
 
 instance GLtype (V2 Bool) where
@@ -982,21 +977,18 @@ instance GLtype (V2 Bool) where
 	glType _ = GL_BOOL
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2i i (boolToInt a) (boolToInt b)
-	glDefault = V2 False False
 
 instance GLtype (V3 Bool) where
 	glCName _ = "bvec3"
 	glType _ = GL_BOOL
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3i i (boolToInt a) (boolToInt b) (boolToInt c)
-	glDefault = V3 False False False
 
 instance GLtype (V4 Bool) where
 	glCName _ = "bvec4"
 	glType _ = GL_BOOL
 	glComponents _ = 4
 	glUpload i (V4 a b c d) = glUniform4i i (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
-	glDefault = V4 False False False False
 
 
 instance GLtype (Mat V2 V2 Float) where
@@ -1004,21 +996,18 @@ instance GLtype (Mat V2 V2 Float) where
 	glType _ = GL_FLOAT
 	glComponents _ = 4
 	glUpload i (V2 (V2 a b) (V2 c d)) = glUniform4f i a b c d
-	glDefault = V2 (V2 0 0) (V2 0 0)
 
 instance GLtype (Mat V3 V3 Float) where
 	glCName _ = "mat3"
 	glType _ = GL_FLOAT
 	glComponents _ = 9
 	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv i 3 GL_FALSE p
-	glDefault = V3 (V3 0 0 0) (V3 0 0 0) (V3 0 0 0)
 
 instance GLtype (Mat V4 V4 Float) where
 	glCName _ = "mat4"
 	glType _ = GL_FLOAT
 	glComponents _ = 16
 	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv i 4 GL_FALSE p
-	glDefault = V4 (V4 0 0 0 0) (V4 0 0 0 0) (V4 0 0 0 0) (V4 0 0 0 0)
 
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
@@ -1041,7 +1030,6 @@ instance GLtype a => GLtype (Normalized a) where
 	glType _ = glType (err :: a)
 	glComponents _ = glComponents (err :: a)
 	glUpload i _ = glUpload i (err :: a)
-	glDefault = Normalized (glDefault :: a)
 
 
 
@@ -1049,8 +1037,7 @@ instance (KnownNat s, GLtype e) => GLtype (Arr s e) where
 	glCName a = glCName (err :: e) ++ "[" ++ show (arrSize a) ++ "]"
 	glType _ = glType (err :: e)
 	glComponents a = glComponents (err :: e) * arrSize a
-	glUpload i a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv i (glComponents a) p
-	glDefault = undefined
+	glUpload i a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv i (glComponents a) $ castPtr p
 
 
 
