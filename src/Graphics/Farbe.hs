@@ -6,6 +6,9 @@
 {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Graphics.Farbe where
 
@@ -46,6 +49,9 @@ import Control.Monad.Except (ExceptT, MonadError)
 import Control.Monad.Fix (MonadFix)
 import Control.Applicative (Alternative)
 import Control.Monad.RWS (RWST)
+
+import GHC.TypeNats
+import Data.Proxy
 
 -- ~ import Data.Typeable
 
@@ -293,12 +299,6 @@ liftE2 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3
 liftE2 s (Expr a) (Expr b) = Expr $ Fn s [a,b]
 
 
-data Arr a
-
-arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
-arr = liftE2 "[]"
-
-
 newtype Constant = Constant Int
 	deriving (Eq, Ord, Num, Real, Show, Read, Integral, Enum, Bounded)
 
@@ -410,7 +410,7 @@ arr' = liftE2 "[]"
 
 
 setupAttribute1
-	:: (GLtype a, BuildShader m, Attrib m)
+	:: (GLtype a, Storable a, BuildShader m, Attrib m)
 	=> Shader
 	-> a
 	-> m (Expr V a)
@@ -453,20 +453,19 @@ instance Uploadable Int (Expr e Int) where
 instance Uploadable Bool (Expr e Bool) where
 	makeVar = makeVarDefault "b"
 
-instance (Vector v, GLtype (v a), GLtype a) => Uploadable (v a) (v (Expr e a)) where
+instance (Vector v, Eq (v a), GLtype (v a), GLtype a) => Uploadable (v a) (v (Expr e a)) where
 	makeVar = do
 		(e, m) <- makeVarDefault $ "v" ++ glShortName (err :: a)
-		let e' = vecParts e
-		return (e', m)
+		return (vecParts e, m)
 
-instance (Vector v, GLtype (v (v a))) => Uploadable (v (v a)) (v (v (Expr e a))) where
+instance (Vector v, Eq (v (v a)), GLtype (v (v a))) => Uploadable (v (v a)) (v (v (Expr e a))) where
 	makeVar = do
 		(e, m) <- makeVarDefault $ "m"
 		return (vecParts <$> vecParts e, m)
 
 map2 = map . map
 
-makeVarDefault :: forall a m e . (MonadGL m, GLtype a) => String -> m (Expr e a, MVar a)
+makeVarDefault :: forall a m e . (MonadGL m, Eq a, GLtype a) => String -> m (Expr e a, MVar a)
 makeVarDefault c = do
 	m <- liftIO $ newMVar glDefault
 	vname <- (c++) <$> generateName (err :: a)
@@ -483,7 +482,15 @@ makeVarDefault c = do
 updateMVar :: MonadIO m => MVar a -> a -> m ()
 updateMVar m a = liftIO $ void $ swapMVar m a
 
+-- Array stub ----------------------------------------------------------------------------
 
+data Arr (s :: Nat) t = Arr { unArr :: StorableArray t }
+
+arrSize ::forall n s t . (KnownNat s, Num n) => (Arr s t) -> n
+arrSize _ = itoi (natVal (Proxy :: Proxy s))
+
+arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
+arr = liftE2 "[]"
 
 -- Rasterization -------------------------------------------------------------------------
 
@@ -892,7 +899,7 @@ glBindVertexArray = liftIO . glBindVertexArrayOES
 
 -- GL type information -------------------------------------------------------------------
 
-class (Eq a, Storable a) => GLtype a where
+class GLtype a where
 	glCName :: a -> String
 	glType :: a -> GLenum
 	glComponents :: a -> GLint
@@ -1016,6 +1023,7 @@ instance GLtype (Mat V4 V4 Float) where
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
 
+
 data Normalized a = Normalized { unNormalized :: a } deriving (Eq)
 
 instance Functor Normalized where
@@ -1036,15 +1044,14 @@ instance GLtype a => GLtype (Normalized a) where
 	glDefault = Normalized (glDefault :: a)
 
 
--- ~ instance GLtype [Float] where
-	-- ~ glCName a = "float[" ++ show (length a) ++ "]"
-	-- ~ glType _ = GL_FLOAT
-	-- ~ glComponents a = veryGenericLength a
-	-- ~ glUpload i l = withArray' l $ \p -> glUniform1fv i (genericLength l) p
-	-- ~ glDefault = []
 
-veryGenericLength :: (Foldable t, Num i) => t a -> i
-veryGenericLength = fromIntegral . length
+instance (KnownNat s, GLtype e) => GLtype (Arr s e) where
+	glCName a = glCName (err :: e) ++ "[" ++ show (arrSize a) ++ "]"
+	glType _ = glType (err :: e)
+	glComponents a = glComponents (err :: e) * arrSize a
+	glUpload i a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv i (glComponents a) p
+	glDefault = undefined
+
 
 
 
