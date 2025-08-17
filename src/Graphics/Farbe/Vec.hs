@@ -177,40 +177,41 @@ curve :: (Vector v, Num (v a)) => v a -> v a -> v a -> a -> v a
 curve v v2 v3 t = line (line v v2 t) (line v2 v3 t) t
 
 
-class ToTuple a b where
-  toTuple :: a -> b
+class ToTuple a b where toTuple :: a -> b
+instance ToTuple (V2 a) (a,a) where toTuple (V2 x y) = (x,y)
+instance ToTuple (V3 a) (a,a,a) where toTuple (V3 x y z) = (x,y,z)
+instance ToTuple (V4 a) (a,a,a,a) where toTuple (V4 x y z w) = (x,y,z,w)
 
-instance ToTuple (V2 a) (a,a) where
-  toTuple (V2 x y) = (x,y)
-
-instance ToTuple (V3 a) (a,a,a) where
-  toTuple (V3 x y z) = (x,y,z)
-
-instance ToTuple (V4 a) (a,a,a,a) where
-  toTuple (V4 x y z w) = (x,y,z,w)
-
-
-class FromTuple a b where
-  fromTuple :: a -> b
-
-instance FromTuple (a,a) (V2 a) where
-  fromTuple (x,y) = V2 x y
-
-instance FromTuple (a,a,a) (V3 a) where
-  fromTuple (x,y,z) = V3 x y z
-
-instance FromTuple (a,a,a,a) (V4 a) where
-  fromTuple (x,y,z,w) = V4 x y z w
-
+class FromTuple a b where fromTuple :: a -> b
+instance FromTuple (a,a) (V2 a) where fromTuple (x,y) = V2 x y
+instance FromTuple (a,a,a) (V3 a) where fromTuple (x,y,z) = V3 x y z
+instance FromTuple (a,a,a,a) (V4 a) where fromTuple (x,y,z,w) = V4 x y z w
 
 class TupleConverse a b
 instance (FromTuple a b, ToTuple b a) => TupleConverse a b
 
 
-class FromList t where
-  fromList :: Num a => [a] -> t a
-  fromList = fromListFill 0
+class GetX v where getx :: v a -> a
+instance GetX V1 where getx (V1 x) = x
+instance GetX V2 where getx (V2 x _) = x
+instance GetX V3 where getx (V3 x _ _) = x
+instance GetX V4 where getx (V4 x _ _ _) = x
 
+class GetY v where gety :: v a -> a
+instance GetY V2 where gety (V2 _ y) = y
+instance GetY V3 where gety (V3 _ y _) = y
+instance GetY V4 where gety (V4 _ y _ _) = y
+
+class GetZ v where getz :: v a -> a
+instance GetZ V3 where getz (V3 _ _ z) = z
+instance GetZ V4 where getz (V4 _ _ z _) = z
+
+class GetW v where getw :: v a -> a
+instance GetW V4 where getw (V4 _ _ _ w) = w
+
+
+
+class FromList t where
   fromListFill :: a -> [a] -> t a
 
 instance FromList V1 where
@@ -224,6 +225,11 @@ instance FromList V3 where
 
 instance FromList V4 where
   fromListFill a xs | (x:y:z:w:_) <- xs ++ repeat a = V4 x y z w
+
+fromList :: (FromList t, Num a) => [a] -> t a
+fromList = fromListFill 0
+
+
 
 
 subSizeOf :: forall g a n. (Storable a, Num n) => g a -> n

@@ -111,10 +111,16 @@ runGL conf (GL m) = do
 	counter <- liftIO $ newMVar 0
 	runReaderT m $ GLState conf counter vbom
 
-data GLConfig = GLConfig { glVBOSize :: GLintptr }
+data GLConfig = GLConfig
+	{ glVBOSize :: GLintptr
+	, glDebug :: Bool }
 
-glDefaultConfig = GLConfig { glVBOSize = (2^24) }
+glDefaultConfig = GLConfig { glVBOSize = (2^24), glDebug = True }
 
+debug :: MonadGL m => m a -> m ()
+debug io = do
+	d <- glDebug <$> glConfig <$> glState
+	when d $ void io
 
 -- Name generation -----------------------------------------------------------------------
 
@@ -289,16 +295,20 @@ liftE2 s (Expr a) (Expr b) = Expr $ Fn s [a,b]
 
 data Arr a
 
-arr :: Expr e (Arr a) -> Expr e Int -> Expr e a
+arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
 arr = liftE2 "[]"
+
+
+newtype Constant = Constant Int
+	deriving (Eq, Ord, Num, Real, Show, Read, Integral, Enum, Bounded)
 
 
 instance Num a => Num (Expr e a) where
 	(+) = liftE2 "+"
 	(*) = liftE2 "*"
 	(-) = liftE2 "-"
-	abs = undefined
-	signum = undefined
+	abs = liftE "abs"
+	signum = liftE "sign"
 	fromInteger = Expr . Val . return . ($ []) . showFFloat Nothing . fromInteger
 
 instance Fractional a => Fractional (Expr e a) where
@@ -571,25 +581,30 @@ compile sv sf = do
 -- Ast optimizations ---------------------------------------------------------------------
 -- without context probably quick to break stuff
 
+
+-- shrinkEnds currently not useful
 shrinkEnds :: BuildShader m => Ast -> m Ast
 shrinkEnds e@(Fn vn asts)
 	| findInStringDepth 1 "vec" vn
-	, Just ns <- forM asts (\(Fn "arr" [Val n, Fn op a]) -> Just (n,op,a))
+	, Just ns <- forM asts f
 	= do
 		let ops@(op:_) = map tsnd ns
 		ss <- liftBuildShaderExt $ sequence $ map tfst ns
 		if same ops && and (zipWith (==) (map read ss) [0..])
 			then fmap (Fn op) $ mapM (shrinkEnds . Fn vn) $ transpose $ map ttrd ns
 			else return e
+	where
+		f (Fn "arr" [Val n, Fn op a]) = Just (n,op,a)
+		f _ = Nothing
 shrinkEnds e = return e
--- https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Except.html
 
--- ~ foo = Fn "vec2"
-	-- ~ [ Fn "arr" [Val (return 0), Fn "+" [a1,a2]]
-	-- ~ , Fn "arr" [Val (return 1), Fn "+" [b1,b2]]
-	-- ~ ]
--- ~ -> Fn "+" [Fn "vec2" [a1,b1], Fn "vec2" [a2,b2]]
-
+{-
+foo = Fn "vec2"
+	[ Fn "arr" [Val (return 0), Fn "+" [a1,a2]]
+	, Fn "arr" [Val (return 1), Fn "+" [b1,b2]]
+	]
+bar = (Fn "+" [Fn "vec2" [a1,b1], Fn "vec2" [a2,b2]] ==) <$> shrinkEnds foo
+-}
 
 
 same :: Eq a => [a] -> Bool
@@ -598,8 +613,6 @@ same _ = True
 
 findInStringDepth :: Int -> String -> String -> Bool
 findInStringDepth i s = any (isPrefixOf s) . take i . tails
-
--- ~ vecRow = [".x", ".y", ".z", ".w"]
 
 
 
@@ -620,12 +633,12 @@ addShader sp t shdr = do
 		++ "\n\nvoid main(){\n"
 		++ unlines (map (("  "++) . (++";")) $ reverse $ cExpr st)
 		++ "}"
+	debug $	liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
 		checkShaderError str i
-		putStrLn str
 		glAttachShader sp i
 		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
 	return a
