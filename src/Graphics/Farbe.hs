@@ -30,6 +30,9 @@ import Data.Array.Base
 import Numeric
 import Foreign hiding (void)
 import Foreign.C
+import Foreign.Marshal.Array
+
+
 
 -- ~ import Graphics.GL
 import Graphics.GL.Embedded20
@@ -499,19 +502,28 @@ fuzzySwapMVar ml a = liftIO $ do
 
 data Arr (s :: Nat) t = Arr { unArr :: StorableArray Int t }
 
-arrSize ::forall n s t . (KnownNat s, Num n) => (Arr s t) -> n
-arrSize _ = itoi (natVal (Proxy :: Proxy s))
+sizeArr :: forall n s t . (KnownNat s, Num n) => (Arr s t) -> n
+sizeArr _ = itoi (natVal (Proxy :: Proxy s))
 
-arrNew :: forall m s t . (KnownNat s, Storable t, MonadIO m) => m (Arr s t)
-arrNew = liftIO $ Arr <$> newArray_ (0, itoi (natVal (Proxy :: Proxy s)))
+sizeArr' :: forall n s t p . (KnownNat s, Num n) => p (Arr s t) -> n
+sizeArr' _ = itoi (natVal (Proxy :: Proxy s))
+
+newArr :: forall m s t . (KnownNat s, Storable t, MonadIO m) => m (Arr s t)
+newArr = liftIO $ Arr <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)))
 
 arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
 arr = liftE2 "[]"
 
 instance (Storable e, KnownNat s) => Storable (Arr s e) where
-	sizeOf = arrSize
+	sizeOf a = sizeArr a * sizeOf (err :: e)
 	alignment _ = alignment (err :: e)
-	-- ~ peek p = forM [0..arrSize] $ \i -> peek i
+	peek p = liftIO $ do
+		arr <- newArr
+		withStorableArray (unArr arr) $ \p2 -> copyArray (castPtr p) p2 (sizeArr arr)
+		return arr
+	poke p a@(Arr sa) = withStorableArray sa $ \ p2 -> copyArray p2 (castPtr p) (sizeArr a)
+	-- i cant help but feel that this is borked
+
 
 -- Rasterization -------------------------------------------------------------------------
 
@@ -578,6 +590,7 @@ data ShaderSet a v f = Raster v f => ShaderSet
 	, shaderF :: (f -> V4 (Expr F Float))
 	}
 
+-- perhaps its better to keep the shader in a writerT-like state like the raster function
 compile :: forall a b m v f. (MonadGL m, AttrType a b, Raster v f)
 	=> (b -> (V4 (Expr V Float), v))
 	-> (f -> V4 (Expr F Float))
@@ -591,7 +604,6 @@ compile sv sf = do
 			(ef,sf') <-runWriterT (transfer r)
 			v' <- fmap Expr $ shrinkEnds $ ast $ exprVec v
 			compose "gl_Position" $ v'
-			-- ~ compose "gl_Position" $ exprVec v
 			return (i,ef,sf')
 		addShader sp GL_FRAGMENT_SHADER $ do
 			compose "gl_FragColor" $ exprVec $ sf ef
@@ -1053,8 +1065,8 @@ instance GLtype a => GLtype (Normalized a) where
 
 
 instance (KnownNat s, GLtype e) => GLtype (Arr s e) where
-	glCName a = glCName (err :: e) ++ "[" ++ show (arrSize a) ++ "]"
+	glCName a = glCName (err :: e) ++ "[" ++ show (sizeArr a) ++ "]"
 	glType _ = glType (err :: e)
-	glComponents a = glComponents (err :: e) * arrSize a
+	glComponents a = glComponents (err :: e) * sizeArr a
 	glUpload i a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv i (glComponents a) $ castPtr p
 
