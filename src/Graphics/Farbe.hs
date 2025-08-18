@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE IncoherentInstances #-}
@@ -9,17 +10,16 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
-
 module Graphics.Farbe where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.Window
+import Graphics.Farbe.Utils
 
 
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.Maybe
 import Data.Char
 import Data.List
 import Data.Ord (comparing)
@@ -30,7 +30,6 @@ import Data.Array.Base
 import Numeric
 import Foreign hiding (void)
 import Foreign.C
-import Foreign.Marshal.Array
 
 
 
@@ -58,7 +57,7 @@ import Data.Proxy
 
 -- ~ import Data.Typeable
 
-import Debug.Trace
+-- ~ import Debug.Trace
 
 
 
@@ -124,6 +123,7 @@ data GLConfig = GLConfig
 	{ glVBOSize :: GLintptr
 	, glDebug :: Bool }
 
+glDefaultConfig :: GLConfig
 glDefaultConfig = GLConfig { glVBOSize = (2^24), glDebug = True }
 
 debug :: MonadGL m => m a -> m ()
@@ -141,7 +141,6 @@ generateName a = count >>= return . (glShortName a++) . genName
 
 withString :: MonadIO m => String -> (CString -> IO a) -> m a
 withString n f = liftIO $ bracket (newCAString n) free f
-
 
 -- Tasks ---------------------------------------------------------------------------------
 
@@ -188,8 +187,10 @@ SIMPLEFUNCTION_CLASSINSTANCES(preRender,PreRender,.)
 collectPreRender :: MonadGL m => PreRenderM m a -> m (a, m ())
 collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
 
+fmap2 :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
 fmap2 f = fmap (fmap f)
 
+(.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 
 -- Shader building monad -----------------------------------------------------------------
@@ -369,8 +370,8 @@ instance Monad m => Attrib (AttribM m) where
 	offset = AttribM get
 	advanceBy a = AttribM $ modify (sizeOf a +)
 
-instance (Monad m) => MonadFail m where -- should get this removed
-		fail = return . error
+-- ~ instance (Monad m) => MonadFail m where -- should get this removed
+		-- ~ fail = return . error
 
 type Vao = GLuint
 
@@ -426,7 +427,7 @@ vecParts e = fromListFill err $ map (\i -> arr' e i) $ map expr [0..]
 exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
 exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
 
-
+expr :: Show a => a -> Expr e a
 expr x = Expr $ Val $ return $ show x
 
 arr' :: Expr e (v a) -> Expr e Int -> Expr e a
@@ -505,14 +506,6 @@ makeVarDefault c = do
 		return vname
 	return (Expr $ Val r, m)
 
-updateMVar :: MonadIO m => MVar a -> a -> m ()
-updateMVar m a = liftIO $ void $ fuzzySwapMVar m a
-
-fuzzySwapMVar ml a = liftIO $ do
-	r <- tryTakeMVar ml
-	tryPutMVar ml a
-	return r
-
 -- Array stub ----------------------------------------------------------------------------
 
 data Arr (s :: Nat) a = Arr
@@ -542,8 +535,8 @@ instance (Storable e, KnownNat s) => Storable (Arr s e) where
 	sizeOf a = sizeArr a * sizeOf (err :: e)
 	alignment _ = alignment (err :: e)
 	peek p = liftIO $ do
-		arr <- newArr
-		modifyArr arr (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr arr))
+		ar <- newArr
+		modifyArr ar (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr ar))
 	poke p a@(Arr _ sa) = withStorableArray sa $ \ p2 -> copyArray p2 (castPtr p) (sizeArr a)
 	-- i cant help but feel that this is borked
 
@@ -719,71 +712,6 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 				putStrLn str
 				putStrLn e
 
-
-withPtr :: Storable a => (Ptr a -> IO b) -> IO (a, b)
-withPtr f = do
-	alloca $ \p -> do
-		x <- f p
-		y <- peek p
-		return (y, x)
-
-withPtr_ :: Storable a => (Ptr a -> IO ()) -> IO a
-withPtr_ f = fst <$> withPtr f
-
-
--- Pager - calculations for Buffer allocation --------------------------------------------
-
-data Pager n = Pager
-	{ imap :: M.Map n n -- | position - length
-	, lastCheck :: n
-	} deriving (Read, Show, Eq, Ord)
-
-
-newPager :: Integral n
-	=> n -- | total size
-	-> Pager n
-newPager s = Pager (M.fromList [((-1), 1), (s,negate s)]) 0
-
-calcAlloc :: Integral n
-	=> n -- | alignment
-	-> Pager n
-	-> n -- | size to be allocated
-	-> Maybe (Pager n, n)
-calcAlloc a mm@(Pager imap c) size
-	| size > 0 = (\i -> (Pager (M.insert i size imap) (i+size), i)) <$> nextSpace a mm start size
-	| otherwise = Nothing
-	where
-		start = fromMaybe (error "Pager: corrupted") $ uncurry (+) <$> M.lookupLE c imap
-
-align :: (Integral a) => a -> a -> a
-align a p
-	| a <= 0 = p
-	| mod p a == 0 = p
-	| otherwise = p + a - mod p a
-
-nextSpace :: Integral n => n -> Pager n -> n -> n -> Maybe n
-nextSpace a (Pager imap c) start size =
-	case (M.lookupLE c imap, M.lookupGE c imap) of
-		(Just (p,l), Just (p2,l2))
-			| aln <- (align a $ p+l), aln + size <= p2 -> Just aln
-			| p+l == start -> Nothing
-			| otherwise -> nextSpace a (Pager imap (p2+l2)) start size
-		_ -> error "Pager: out of bounds"
-
-calcLength :: Integral n => n -> Pager n -> n
-calcLength k mm = fromMaybe 0 $ M.lookup k $ imap mm
-
-calcRemove :: Integral n => n -> Pager n -> Pager n
-calcRemove k (Pager imap c) = Pager imap' c
-	where
-		imap' = if k /= min' && k /= max' then M.delete k imap else imap
-		min' = fst $ fromJust $ M.lookupMin imap
-		max' = fst $ fromJust $ M.lookupMax imap
-
-pagerSize :: Integral n => Pager n -> n
-pagerSize = fst . fromJust . M.lookupMax . imap
-
-
 -- VBO manager ---------------------------------------------------------------------------
 
 data VBOMan = VBOMan
@@ -825,8 +753,8 @@ vboAlloc a i = do
 	pager <- getPager
 	let maybeP = calcAlloc a pager i
 	case maybeP of
-		Just (pager,p) -> do
-			putPager pager
+		Just (pager', p) -> do
+			putPager pager'
 			return p
 		Nothing -> do
 			liftIO $ putStrLn $
@@ -909,41 +837,6 @@ drawArrays gs@(g:_) = let
 removeVArray :: MonadGL m => VArray a -> m ()
 removeVArray (VArray _ i) = updatePager $ return . (,()) . calcRemove i
 
-
-
--- RunOnce -------------------------------------------------------------------------------
-
-data RunOnce m a = RunOnce (m a) (MVar a)
-
-makeRunOnce :: MonadIO m => m2 a -> m (RunOnce m2 a)
-makeRunOnce ma = liftIO $ RunOnce ma <$> newEmptyMVar
-
-runOnce :: MonadIO m => RunOnce m a -> m a
-runOnce (RunOnce m ma) = do
-	maybea <- liftIO $ tryReadMVar ma
-	case maybea of
-		Just a -> return a
-		Nothing -> do
-			b <- m
-			liftIO $ tryPutMVar ma b
-			return b
-
-
--- RunWhenChanged ------------------------------------------------------------------------
-
-data RunWhenChanged m a = RunWhenChanged (a -> m ()) (MVar a)
-
-makeRunWhenChanged :: MonadIO m => (a -> m2 ()) -> m (RunWhenChanged m2 a)
-makeRunWhenChanged m = liftIO $ RunWhenChanged m <$> newEmptyMVar
-
-runwc :: (MonadIO m, Eq a) => RunWhenChanged m a -> a -> m ()
-runwc (RunWhenChanged f ml) a = do
-	l <- liftIO $ tryReadMVar ml
-	if maybe False (a==) l
-		then return ()
-		else do
-			fuzzySwapMVar ml a
-			f a
 
 -- GL extension for VAO ------------------------------------------------------------------
 

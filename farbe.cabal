@@ -19,6 +19,7 @@ library
                    , Graphics.Farbe.Vec
                    , Graphics.Farbe.Tuple
                    , Graphics.Farbe.Window
+                   , Graphics.Farbe.Utils
 
     build-depends: base ^>=4.20
                  , containers^>=0.7
