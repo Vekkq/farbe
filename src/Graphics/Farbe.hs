@@ -301,6 +301,12 @@ liftE s (Expr a) = Expr $ Fn s [a]
 liftE2 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3
 liftE2 s (Expr a) (Expr b) = Expr $ Fn s [a,b]
 
+liftE3 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
+liftE3 s (Expr a) (Expr b) (Expr c) = Expr $ Fn s [a,b,c]
+
+liftE4 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4 -> Expr e a5
+liftE4 s (Expr a) (Expr b) (Expr c) (Expr d) = Expr $ Fn s [a,b,c,d]
+
 
 newtype Constant = Constant Int
 	deriving (Eq, Ord, Num, Real, Show, Read, Integral, Enum, Bounded)
@@ -317,7 +323,6 @@ instance Num a => Num (Expr e a) where
 instance Fractional a => Fractional (Expr e a) where
 	fromRational = Expr . Val . return . ($ []) . showFFloat Nothing . fromRat
 	(/) = liftE2 "/"
-
 
 instance Floating a => Floating (Expr e a) where
 	pi = Expr $ Val $ return $ show pi
@@ -338,6 +343,14 @@ instance Floating a => Floating (Expr e a) where
 	acosh = liftE "acosh"
 	atanh = liftE "atanh"
 
+modf :: Expr e Float -> Expr e Float -> Expr e Float
+modf = liftE2 "mod"
+
+equot, erem, ediv, emod :: Expr e Int -> Expr e Int -> Expr e Int
+equot = liftE2 "/"
+erem = liftE2 "rem"
+ediv = liftE2 "div"
+emod = liftE2 "mod"
 
 
 -- Attributes (VAO) ----------------------------------------------------------------------
@@ -469,12 +482,14 @@ instance (Vector v, Eq (v a), GLtype (v a), GLtype a) => Uploadable (v a) (v (Ex
 		(e, m) <- makeVarDefault $ "v" ++ glShortName (err :: a)
 		return (vecParts e, m)
 
-instance (Vector v, Eq (v (v a)), GLtype (v (v a))) => Uploadable (v (v a)) (v (v (Expr e a))) where
+instance (Vector v, Eq (v (v a)), GLtype (v (v a)))
+	=> Uploadable (v (v a)) (v (v (Expr e a))) where
 	makeVar = do
 		(e, m) <- makeVarDefault $ "m"
 		return (vecParts <$> vecParts e, m)
 
-map2 = map . map
+instance (KnownNat s, GLtype a) => Uploadable (Arr s a) (Expr e (Arr s a)) where
+	makeVar = makeVarDefault "a"
 
 makeVarDefault :: forall a m e . (MonadGL m, Eq a, GLtype a) => String -> m (Expr e a, MVar a)
 makeVarDefault c = do
@@ -500,29 +515,40 @@ fuzzySwapMVar ml a = liftIO $ do
 
 -- Array stub ----------------------------------------------------------------------------
 
-data Arr (s :: Nat) t = Arr { unArr :: StorableArray Int t }
+data Arr (s :: Nat) a = Arr
+	{ changeToken :: Int
+	, unArr :: StorableArray Int a
+	}
 
-sizeArr :: forall n s t . (KnownNat s, Num n) => (Arr s t) -> n
+sizeArr :: forall n s a . (KnownNat s, Num n) => (Arr s a) -> n
 sizeArr _ = itoi (natVal (Proxy :: Proxy s))
 
-sizeArr' :: forall n s t p . (KnownNat s, Num n) => p (Arr s t) -> n
+sizeArr' :: forall n s a p . (KnownNat s, Num n) => p (Arr s a) -> n
 sizeArr' _ = itoi (natVal (Proxy :: Proxy s))
 
-newArr :: forall m s t . (KnownNat s, Storable t, MonadIO m) => m (Arr s t)
-newArr = liftIO $ Arr <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)))
+newArr :: forall m s a . (KnownNat s, Storable a, MonadIO m) => m (Arr s a)
+newArr = liftIO $ Arr 0 <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)))
 
-arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
-arr = liftE2 "[]"
+-- kinda cursed solution for tracking changes for Eq
+modifyArr :: MonadIO m => Arr s a -> (StorableArray Int a -> m b) -> m (Arr s a)
+modifyArr (Arr i sa) f = do
+	f sa
+	return $ Arr (succ i) sa
+
+instance Eq (Arr s a) where
+	(Arr i _) == (Arr i2 _) = i == i2
 
 instance (Storable e, KnownNat s) => Storable (Arr s e) where
 	sizeOf a = sizeArr a * sizeOf (err :: e)
 	alignment _ = alignment (err :: e)
 	peek p = liftIO $ do
 		arr <- newArr
-		withStorableArray (unArr arr) $ \p2 -> copyArray (castPtr p) p2 (sizeArr arr)
-		return arr
-	poke p a@(Arr sa) = withStorableArray sa $ \ p2 -> copyArray p2 (castPtr p) (sizeArr a)
+		modifyArr arr (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr arr))
+	poke p a@(Arr _ sa) = withStorableArray sa $ \ p2 -> copyArray p2 (castPtr p) (sizeArr a)
 	-- i cant help but feel that this is borked
+
+arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
+arr = liftE2 "[]"
 
 
 -- Rasterization -------------------------------------------------------------------------

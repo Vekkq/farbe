@@ -4,6 +4,8 @@
 * add other glsl functions
 * write optimizer to turn multiused asts into shared variables
 * extending tuple instances
+* integrate Data.Bits
+* integrate Data.Boolean (boolean package)
 
 * have GArray clear itself up on losing reference
   * move garray content into a ioref and add finalizer
