@@ -10,6 +10,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
+
 module Graphics.Farbe where
 
 import Graphics.Farbe.Vec
@@ -246,6 +247,7 @@ buildShaderStatePut a = buildShaderState $ \_ -> ((),a)
 
 data Ast
 	= Val { val :: AstM String }
+-- propose: Val { val :: Int, type :: Enum, astM :: astM () }
 	| Fn { fnName :: String, fnAst :: [Ast] }
 
 type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
@@ -637,46 +639,6 @@ compile sv sf = do
 
 
 
--- Ast optimizations ---------------------------------------------------------------------
--- without context probably quick to break stuff
-
-
--- shrinkEnds currently not useful
-shrinkEnds :: BuildShader m => Ast -> m Ast
-shrinkEnds e@(Fn vn asts)
-	| findInStringDepth 1 "vec" vn
-	, Just ns <- forM asts f
-	= do
-		let ops@(op:_) = map tsnd ns
-		ss <- liftBuildShaderExt $ sequence $ map tfst ns
-		if same ops && and (zipWith (==) (map read ss) [0..])
-			then fmap (Fn op) $ mapM (shrinkEnds . Fn vn) $ transpose $ map ttrd ns
-			else return e
-	where
-		f (Fn "arr" [Val n, Fn op a]) = Just (n,op,a)
-		f _ = Nothing
-shrinkEnds e = return e
-
-{-
-foo = Fn "vec2"
-	[ Fn "arr" [Val (return 0), Fn "+" [a1,a2]]
-	, Fn "arr" [Val (return 1), Fn "+" [b1,b2]]
-	]
-bar = (Fn "+" [Fn "vec2" [a1,b1], Fn "vec2" [a2,b2]] ==) <$> shrinkEnds foo
--}
-
-
-same :: Eq a => [a] -> Bool
-same (x:y:xs) = x == y && same (y:xs)
-same _ = True
-
-findInStringDepth :: Int -> String -> String -> Bool
-findInStringDepth i s = any (isPrefixOf s) . take i . tails
-
-
-
-
-
 
 -- Shader compilation --------------------------------------------------------------------
 
@@ -711,6 +673,49 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 			e -> do
 				putStrLn str
 				putStrLn e
+
+
+-- Ast optimizations ---------------------------------------------------------------------
+-- without context probably quick to break stuff
+
+-- shrinkEnds currently not useful
+shrinkEnds :: BuildShader m => Ast -> m Ast
+shrinkEnds e@(Fn vn asts)
+	| findInStringDepth 1 "vec" vn
+	, Just ns <- forM asts f
+	= do
+		let ops@(op:_) = map tsnd ns
+		ss <- liftBuildShaderExt $ sequence $ map tfst ns
+		if same ops && and (zipWith (==) (map read ss) [0..])
+			then fmap (Fn op) $ mapM (shrinkEnds . Fn vn) $ transpose $ map ttrd ns
+			else return e
+	where
+		f (Fn "arr" [Val n, Fn op a]) = Just (n,op,a)
+		f _ = Nothing
+shrinkEnds e = return e
+
+{-
+foo = Fn "vec2"
+	[ Fn "arr" [Val (return 0), Fn "+" [a1,a2]]
+	, Fn "arr" [Val (return 1), Fn "+" [b1,b2]]
+	]
+bar = (Fn "+" [Fn "vec2" [a1,b1], Fn "vec2" [a2,b2]] ==) <$> shrinkEnds foo
+-}
+
+
+same :: Eq a => [a] -> Bool
+same (x:y:xs) = x == y && same (y:xs)
+same _ = True
+
+findInStringDepth :: Int -> String -> String -> Bool
+findInStringDepth i s = any (isPrefixOf s) . take i . tails
+
+-- Blending ------------------------------------------------------------------------------
+
+-- function to take a list of renders with a depth/masc/blend operator added
+compileStack = undefined
+
+
 
 -- VBO manager ---------------------------------------------------------------------------
 

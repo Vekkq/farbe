@@ -11,12 +11,13 @@ import Graphics.Farbe.Tuple
 import Control.Applicative
 import Foreign.Storable
 import Data.Foldable (toList)
+import GHC.Generics (Generic)
 
 import Foreign.Ptr
 
 
 
-data V1 a = V1 a deriving (Read, Show, Eq, Ord)
+data V1 a = V1 a deriving (Read, Show, Eq, Ord, Generic)
 
 instance Functor V1 where
   fmap f (V1 x) = V1 (f x)
@@ -32,7 +33,7 @@ instance Traversable V1 where
   sequenceA (V1 x) = V1 <$> x
 
 
-data V2 a = V2 a a deriving (Read, Show, Eq, Ord)
+data V2 a = V2 a a deriving (Read, Show, Eq, Ord, Generic)
 
 instance Functor V2 where
   fmap f (V2 x y) = V2 (f x) (f y)
@@ -48,7 +49,7 @@ instance Traversable V2 where
   sequenceA (V2 x y) = liftA2 V2 x y
 
 
-data V3 a = V3 a a a deriving (Read, Show, Eq, Ord)
+data V3 a = V3 a a a deriving (Read, Show, Eq, Ord, Generic)
 
 instance Functor V3 where
   fmap f (V3 x y z) = V3 (f x) (f y) (f z)
@@ -64,7 +65,7 @@ instance Traversable V3 where
   sequenceA (V3 x y z) = liftA3 V3 x y z
 
 
-data V4 a = V4 a a a a deriving (Read, Show, Eq, Ord)
+data V4 a = V4 a a a a deriving (Read, Show, Eq, Ord, Generic)
 
 instance Functor V4 where
   fmap f (V4 x y z w) = V4 (f x) (f y) (f z) (f w)

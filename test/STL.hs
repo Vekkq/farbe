@@ -1,15 +1,59 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module STL where
 
-import Control.Monad.IO.Class
-
-import Data.Maybe
+import Data.Binary
+import Data.Binary.Get
+import Data.ByteString.Lazy (ByteString)
+import Data.Int
 import Graphics.Farbe.Vec
+import Graphics.Farbe.Utils
+import Graphics.Farbe.Tuple
+import Control.Monad
+import GHC.Generics
+import Control.Monad.IO.Class
+import Data.Maybe
 
 
-type Face = [[Float]]
 
+data STL = STL { triangles :: [Triangle] } deriving Show
+
+instance Binary STL where
+  get = do
+    replicateM 80 $ getWord8
+    i <- getWord32le
+    fmap STL $ replicateM (itoi i) $ do
+      tri <- get
+      _ :: Word16 <- get
+      return $ tri
+  put = undefined
+
+
+instance Binary (V3 Float) where
+  get = do
+    (x:y:z:[]) <- replicateM 3 getFloatle
+    return $ V3 x y z
+  put = undefined
+
+
+data Triangle = Triangle
+  { tv1 :: V3 Float
+  , tv2 :: V3 Float
+  , tv3 :: V3 Float
+  }
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Binary Triangle where
+  get = do
+    (_ :: V3 Float ,v1,v2,v3) <- get
+    return $ Triangle v1 v2 v3
+  put = undefined
+
+
+readFileBinSTL = do
+  STL tri <- decodeFile "animated_weapons1-spear.stl"
+  return $ concatMap (\(Triangle a b c) -> [a,b,c]) tri
 
 
 readFileSTL :: MonadIO m => FilePath -> m [V3 Float]
@@ -23,6 +67,7 @@ readSTL = catMaybes . map f . map words . lines
 
 
 
+type Face = [[Float]]
 
 writeFileSTL :: FilePath -> [Face] -> IO ()
 writeFileSTL s ts = writeFile s $ showSTL ts

@@ -43,8 +43,10 @@ test-suite farbe-test
 
     main-is:          Main.hs
 
-    build-depends: base ^>=4.20.0.0
+    build-depends: base ^>=4.20
                  , farbe
                  , gl^>=0.9
+                 , binary
+                 , bytestring
 
 
