@@ -606,10 +606,11 @@ instance Monoid (AstM a) where
 
 -- Compilation ---------------------------------------------------------------------------
 
-data ShaderSet a v f = Raster v f => ShaderSet
+data RenderSet a v f = Raster v f => RenderSet
 	{ shaderV :: (a -> (V4 (Expr V Float), v))
 	, shaderF :: (f -> V4 (Expr F Float))
-	}
+	} --, renderConfig :: RenderConfig
+	-- if the resulting texture can be of different type, make it a type variable
 
 -- perhaps its better to keep the shader in a writerT-like state like the raster function
 compile :: forall a b m v f. (MonadGL m, AttrType a b, Raster v f)

@@ -315,10 +315,14 @@ multv a b = vtranspose' $ a **** vtranspose b
 
 rotationMatrix2D :: Floating a => a -> Mat V2 V2 a
 rotationMatrix2D a = V2 (V2 (cos a) (negate $ sin a)) (V2 (sin a) (cos a))
--- ~ rotation2D a = V2 (V2 (cos a) (V2 (sin a)) (V2 (negate $ sin a) (cos a))
+
+roll, pitch, yaw :: Floating a => a -> Mat V3 V3 a
+roll a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
+pitch a = V3 (V3 (cos a) 0 (sin a)) (V3 0 1 0) (V3 (-sin a) 0 (cos a))
+yaw a = V3 (V3 1 0 0) (V3 0 (cos a) (-sin a)) (V3 0 (sin a) (cos a))
 
 rotationMatrix :: Floating a => a -> a -> a -> Mat V3 V3 a
-rotationMatrix a = undefined
+rotationMatrix a b c = roll a **** pitch b **** yaw c
 
 
 rotate2D :: Floating a => a -> V2 a -> V2 a

@@ -20,40 +20,41 @@ import Data.Maybe
 data STL = STL { triangles :: [Triangle] } deriving Show
 
 instance Binary STL where
-  get = do
-    replicateM 80 $ getWord8
-    i <- getWord32le
-    fmap STL $ replicateM (itoi i) $ do
-      tri <- get
-      _ :: Word16 <- get
-      return $ tri
-  put = undefined
+	get = do
+		replicateM 80 $ getWord8
+		i <- getWord32le
+		fmap STL $ replicateM (itoi i) $ do
+			tri <- get
+			_ :: Word16 <- get
+			return $ tri
+	put = undefined
 
 
 instance Binary (V3 Float) where
-  get = do
-    (x:y:z:[]) <- replicateM 3 getFloatle
-    return $ V3 x y z
-  put = undefined
+	get = do
+		(x:y:z:[]) <- replicateM 3 getFloatle
+		return $ V3 x y z
+	put = undefined
 
 
 data Triangle = Triangle
-  { tv1 :: V3 Float
-  , tv2 :: V3 Float
-  , tv3 :: V3 Float
-  }
-  deriving (Eq, Ord, Read, Show, Generic)
+	{ tn  :: V3 Float
+	, tv1 :: V3 Float
+	, tv2 :: V3 Float
+	, tv3 :: V3 Float
+	}
+	deriving (Eq, Ord, Read, Show, Generic)
 
 instance Binary Triangle where
-  get = do
-    (_ :: V3 Float ,v1,v2,v3) <- get
-    return $ Triangle v1 v2 v3
-  put = undefined
+	get = do
+		(n,v1,v2,v3) <- get
+		return $ Triangle n v1 v2 v3
+	put = undefined
 
 
 readFileBinSTL = do
-  STL tri <- decodeFile "animated_weapons1-spear.stl"
-  return $ concatMap (\(Triangle a b c) -> [a,b,c]) tri
+	STL tri <- decodeFile "animated_weapons1-spear.stl"
+	return $ concatMap (\(Triangle n a b c) -> [(n,a),(n,b),(n,b)]) tri
 
 
 readFileSTL :: MonadIO m => FilePath -> m [V3 Float]
