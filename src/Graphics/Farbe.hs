@@ -472,35 +472,42 @@ class GLtype a => Uploadable a e | e -> a where
 	makeVar :: MonadGL m => m (e, MVar a)
 
 instance Uploadable Float (Expr e Float) where
-	makeVar = makeVarDefault "f"
+	makeVar = makeVarDefault
 
 instance Uploadable Int (Expr e Int) where
-	makeVar = makeVarDefault "i"
+	makeVar = makeVarDefault
 
 instance Uploadable Bool (Expr e Bool) where
-	makeVar = makeVarDefault "b"
+	makeVar = makeVarDefault
 
 instance (Vector v, Eq (v a), GLtype (v a), GLtype a) => Uploadable (v a) (v (Expr e a)) where
 	makeVar = do
-		(e, m) <- makeVarDefault $ "v" ++ glShortName (err :: a)
+		(e, m) <- makeVarDefault
 		return (vecParts e, m)
 
-instance (Vector v, Eq (v (v a)), GLtype (v (v a)))
+instance (Vector v, Eq (v (v a)), GLtype (v (v a)), GLtype a)
 	=> Uploadable (v (v a)) (v (v (Expr e a))) where
 	makeVar = do
-		(e, m) <- makeVarDefault $ "m"
+		(e, m) <- makeVarDefault
 		return (vecParts <$> vecParts e, m)
 
-instance (KnownNat s, GLtype a) => Uploadable (Arr s a) (Expr e (Arr s a)) where
-	makeVar = makeVarDefault "a"
+-- ~ instance (Eq (Mat V3 V3 a), GLtype (Mat V3 V3 a))
+	-- ~ => Uploadable (Mat V3 V3 a) (Mat V3 V3 (Expr e a)) where
+	-- ~ makeVar = do
+		-- ~ (e, m) <- makeVarDefault
+		-- ~ return (vecParts <$> vecParts e, m)
 
-makeVarDefault :: forall a m e . (MonadGL m, Eq a, GLtype a) => String -> m (Expr e a, MVar a)
-makeVarDefault c = do
+instance (KnownNat s, GLtype a) => Uploadable (Arr s a) (Expr e (Arr s a)) where
+	makeVar = makeVarDefault
+
+makeVarDefault :: forall a m e . (MonadGL m, Eq a, GLtype a) => m (Expr e a, MVar a)
+makeVarDefault = do
+	let a = (err :: a)
 	m <- liftIO $ newEmptyMVar
-	vname <- (c++) <$> generateName (err :: a)
+	vname <- ((glShortName a)++) <$> generateName a
 	let r = do
 		s <- getShader
-		addHeader "uniform" (err :: a) vname
+		addHeader "uniform" a vname
 		postShaderProgram vname $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged (glUpload l)
