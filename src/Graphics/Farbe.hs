@@ -311,10 +311,6 @@ liftE4 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4 -> Expr e a
 liftE4 s (Expr a) (Expr b) (Expr c) (Expr d) = Expr $ Fn s [a,b,c,d]
 
 
-newtype Constant = Constant Int
-	deriving (Eq, Ord, Num, Real, Show, Read, Integral, Enum, Bounded)
-
-
 instance Num a => Num (Expr e a) where
 	(+) = liftE2 "+"
 	(*) = liftE2 "*"
@@ -424,7 +420,7 @@ instance (Storable a, GLtype a, KnownNat s) => AttrType (Arr s a) (Expr V (Arr s
 
 
 vecParts :: forall e v a . Vector v => Expr e (v a) -> v (Expr e a)
-vecParts e = fromListFill err $ map (\i -> arr' e i) $ map expr [0..]
+vecParts e = fromListFill err $ map (\i -> arrV e i) $ map expr [0..]
 
 exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
 exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
@@ -432,8 +428,9 @@ exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
 expr :: Show a => a -> Expr e a
 expr x = Expr $ Val $ return $ show x
 
-arr' :: Expr e (v a) -> Expr e Int -> Expr e a
-arr' = liftE2 "[]"
+arrV :: Vector v => Expr e (v a) -> Expr e Int -> Expr e a
+arrV = liftE2 "[]"
+
 
 
 setupAttribute1
@@ -461,59 +458,61 @@ setupAttribute1 s a = do
 
 -- Uploadable (Uniforms) -----------------------------------------------------------------
 
-makeVar' :: (MonadGL m, Uploadable a e) => a -> m (e, MVar a)
+data Var a = Var { varAst :: Ast, varMVar :: MVar a }
+
+makeVar' :: (MonadGL m, GLtype a) => a -> m (Var a)
 makeVar' a = do
-	(e,m) <- makeVar
-	liftIO $ fuzzySwapMVar m a
-	return (e,m)
+	v <- makeVar
+	liftIO $ fuzzySwapMVar (varMVar v) a
+	return v
+
+class Use a e where
+	use :: a -> e
+
+instance Use (Var Float) (Expr e Float) where
+	use = Expr . varAst
+
+instance Use (Var Int) (Expr e Int) where
+	use = Expr . varAst
+
+instance (Vector v, GLtype (v a), GLtype a) => Use (Var (v a)) (v (Expr e a)) where
+	use v = vecParts $ Expr $ varAst v
+
+instance (Vector v, GLtype (v (v a)), GLtype a)
+	=> Use (Var (v (v a))) (v (v (Expr e a))) where
+	use v = vecParts <$> vecParts (Expr $ varAst v)
+
+instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) (Expr e (Arr s a)) where
+	use = Expr . varAst
 
 
-class GLtype a => Uploadable a e | e -> a where
-	makeVar :: MonadGL m => m (e, MVar a)
-
-instance Uploadable Float (Expr e Float) where
-	makeVar = makeVarDefault
-
-instance Uploadable Int (Expr e Int) where
-	makeVar = makeVarDefault
-
-instance Uploadable Bool (Expr e Bool) where
-	makeVar = makeVarDefault
-
-instance (Vector v, Eq (v a), GLtype (v a), GLtype a) => Uploadable (v a) (v (Expr e a)) where
-	makeVar = do
-		(e, m) <- makeVarDefault
-		return (vecParts e, m)
-
-instance (Vector v, Eq (v (v a)), GLtype (v (v a)), GLtype a)
-	=> Uploadable (v (v a)) (v (v (Expr e a))) where
-	makeVar = do
-		(e, m) <- makeVarDefault
-		return (vecParts <$> vecParts e, m)
-
--- ~ instance (Eq (Mat V3 V3 a), GLtype (Mat V3 V3 a))
-	-- ~ => Uploadable (Mat V3 V3 a) (Mat V3 V3 (Expr e a)) where
-	-- ~ makeVar = do
-		-- ~ (e, m) <- makeVarDefault
-		-- ~ return (vecParts <$> vecParts e, m)
-
-instance (KnownNat s, GLtype a) => Uploadable (Arr s a) (Expr e (Arr s a)) where
-	makeVar = makeVarDefault
-
-makeVarDefault :: forall a m e . (MonadGL m, Eq a, GLtype a) => m (Expr e a, MVar a)
-makeVarDefault = do
+makeVar :: forall a m . (MonadGL m, GLtype a) => m (Var a)
+makeVar = do
 	let a = (err :: a)
 	m <- liftIO $ newEmptyMVar
 	vname <- ((glShortName a)++) <$> generateName a
 	let r = do
-		s <- getShader
 		addHeader "uniform" a vname
+		s <- getShader
 		postShaderProgram vname $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged (glUpload l)
 			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
 		return vname
-	return (Expr $ Val r, m)
+	return $ Var (Val r) m
+
+putVar :: MonadGL m => Var a -> a -> m ()
+putVar v a = liftIO . void $ fuzzySwapMVar (varMVar v) a
+
+readVar :: MonadGL m => Var a -> m (Maybe a)
+readVar = liftIO . tryReadMVar . varMVar
+
+modifyVar :: MonadGL m => Var a -> (a -> a) -> m ()
+modifyVar v f = readVar v >>= maybe (return ()) (putVar v . f)
+
+modifyVar' :: MonadGL m => Var a -> (a -> m a) -> m ()
+modifyVar' v f = readVar v >>= maybe (return ()) (\x -> f x >>= putVar v)
+
 
 -- Array stub ----------------------------------------------------------------------------
 
@@ -549,14 +548,22 @@ instance (Storable e, KnownNat s) => Storable (Arr s e) where
 	poke p a@(Arr _ sa) = withStorableArray sa $ \ p2 -> copyArray p2 (castPtr p) (sizeArr a)
 	-- i cant help but feel that this is borked
 
-arr :: Expr e (Arr a) -> Expr e Constant -> Expr e a
-arr = liftE2 "[]"
+
+arr :: Expr e (Arr a) -> Int -> Expr e a
+arr e n = liftE2 "[]" e $ expr n
+
+-- | arr' is ignoring constant expression requirement. May not work with old GL versions.
+arr' :: Expr e (Arr a) -> Expr e Int -> Expr e a
+arr' = liftE2 "[]"
 
 
 -- Rasterization -------------------------------------------------------------------------
 
 class Raster a b where
 	transfer :: a -> WriterT (AstM ()) AstM b
+
+instance Raster () () where
+	transfer e = return ()
 
 instance GLtype a => Raster (Expr V a) (Expr F a) where
 	transfer e = do
@@ -599,9 +606,6 @@ instance (Raster a b, Raster c d, Raster e f, Raster g h)
 	=> Raster (a,c,e,g) (b,d,f,h) where
 	transfer (a,b,c,d) = liftM4 (,,,)
 		(transfer a) (transfer b) (transfer c) (transfer d)
-
-
-
 
 
 
@@ -864,7 +868,7 @@ glBindVertexArray = liftIO . glBindVertexArrayOES
 
 -- GL type information -------------------------------------------------------------------
 
-class GLtype a where
+class Eq a => GLtype a where
 	glCName :: a -> String
 	glType :: a -> GLenum
 	glComponents :: a -> GLint
@@ -874,6 +878,7 @@ class GLtype a where
 	glShortName :: a -> String
 	glShortName a = take 1 $ glCName a
 	glUpload :: MonadIO m => GLint -> a -> m ()
+	-- ~ glUploads :: MonadIO m => Arr s a -> m () -- TODO
 	glPrecision :: a -> String
 	glPrecision _ = "highp"
 	glCNameWithPrec :: a -> String
@@ -965,13 +970,13 @@ instance GLtype (Mat V3 V3 Float) where
 	glCName _ = "mat3"
 	glType _ = GL_FLOAT
 	glComponents _ = 9
-	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv i 3 GL_FALSE p
+	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv i 1 GL_FALSE p
 
 instance GLtype (Mat V4 V4 Float) where
 	glCName _ = "mat4"
 	glType _ = GL_FLOAT
 	glComponents _ = 16
-	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv i 4 GL_FALSE p
+	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv i 1 GL_FALSE p
 
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray

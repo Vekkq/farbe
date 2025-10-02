@@ -21,16 +21,16 @@ main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
-  (u, mu) <- makeVar' 1.0
+  u <- makeVar' (1.0 :: Float)
 
-  f <- compile (\v -> let (V3 x y z) = v*0.02 in (V4 x y z 1, x)) (\x -> V4 u 1 x 1)
-  g <- compile (\v -> let (V3 x y z) = v*0.04 in (V4 x y z 1, x)) (\x -> V4 1 x u u)
+  f <- compile (\v -> let (V3 x y z) = v*0.02 in (V4 x y z 1, x)) (\x -> V4 (use u) 1 x 1)
+  g <- compile (\v -> let (V3 x y z) = v*0.04 in (V4 x y z 1, x)) (\x -> V4 1 x (use u) (use u))
 
 
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
     t <- getTime
-    liftIO $ swapMVar mu $ sin t
+    liftIO $ swapMVar (varMVar u) $ sin t
     g [b]
     f [a,b]
     display
