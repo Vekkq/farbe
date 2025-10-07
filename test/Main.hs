@@ -1,9 +1,9 @@
 module Main (main) where
 
-import STL
 import Graphics.Farbe
 import Graphics.Farbe.Window
 import Graphics.Farbe.Vec
+import Graphics.Farbe.STL
 import Data.Function
 import Control.Concurrent.MVar
 import Control.Monad

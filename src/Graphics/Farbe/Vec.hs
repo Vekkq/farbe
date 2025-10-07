@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Graphics.Farbe.Vec where
 

@@ -2,14 +2,12 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# LANGUAGE UndecidableInstances #-}
+-- ~ {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE IncoherentInstances #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
+-- ~ {-# LANGUAGE IncoherentInstances #-}
+-- ~ {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Graphics.Farbe where
 
@@ -81,11 +79,11 @@ newtype GL m a = GL { unGL :: ReaderT GLState m a }
 		, MonadFix, MonadPlus, MonadWindow
 		)
 
-instance MonadReader r m => MonadReader r (GL m) where
-	ask = lift $ ask
-	local f = withw $ mapReaderT (local f)
-		where
-		withw g = GL . g . unGL
+-- ~ instance MonadReader r m => MonadReader r (GL m) where
+	-- ~ ask = lift $ ask
+	-- ~ local f = withw $ mapReaderT (local f)
+		-- ~ where
+		-- ~ withw g = GL . g . unGL
 
 instance Monad m => Semigroup (GL m a) where
 	(<>) = (>>)
@@ -255,6 +253,10 @@ type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
 
+class ShaderSign a
+instance ShaderSign V
+instance ShaderSign F
+
 -- | Expression for shaders.
 -- | e states the environment, which is either vertex or fragment shader.
 data Expr e a = Expr { ast :: Ast } deriving (Functor)
@@ -408,6 +410,9 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		(setAttribute s (err :: c))
 		(setAttribute s (err :: d))
 
+-- ~ instance AttrType (V3 Float) (V3 (Expr V Float)) where
+	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
+
 instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a)) where
 	setAttribute s a = vecParts <$> setupAttribute1 s a
 
@@ -424,6 +429,10 @@ vecParts e = fromListFill err $ map (\i -> arrV e i) $ map expr [0..]
 
 exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
 exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
+
+exprVec2 :: forall v e a . (Vector v, GLtype (v (v a)))
+	=> v (v (Expr e a)) -> Expr e (v (v a))
+exprVec2 v = undefined
 
 expr :: Show a => a -> Expr e a
 expr x = Expr $ Val $ return $ show x
@@ -466,24 +475,67 @@ makeVar' a = do
 	liftIO $ fuzzySwapMVar (varMVar v) a
 	return v
 
-class Use a e where
-	use :: a -> e
 
-instance Use (Var Float) (Expr e Float) where
-	use = Expr . varAst
+class Use a e r | a e -> r, r -> a e where
+	use :: Var a -> r
 
-instance Use (Var Int) (Expr e Int) where
-	use = Expr . varAst
 
-instance (Vector v, GLtype (v a), GLtype a) => Use (Var (v a)) (v (Expr e a)) where
-	use v = vecParts $ Expr $ varAst v
+-- ~ instance Use Float e (Expr e Float) where
+	-- ~ use = Expr . varAst
 
-instance (Vector v, GLtype (v (v a)), GLtype a)
-	=> Use (Var (v (v a))) (v (v (Expr e a))) where
+-- ~ instance Use Int e (Expr e Int) where
+	-- ~ use = Expr . varAst
+
+-- ~ instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where
+	-- ~ use v = vecParts $ Expr $ varAst v
+
+-- ~ instance GLtype a => Use (V3 Int) e (V3 (Expr e Int)) where
+	-- ~ use v = vecParts $ Expr $ varAst v
+
+-- ~ instance Use (Mat V3 V3 Float) e (Mat V3 V3 (Expr e Float)) where
+	-- ~ use v = vecParts <$> vecParts (Expr $ varAst v)
+
+instance Vector v => Use (Mat v v Float) e (Mat v v (Expr e Float)) where
 	use v = vecParts <$> vecParts (Expr $ varAst v)
 
-instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) (Expr e (Arr s a)) where
-	use = Expr . varAst
+
+-- ~ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
+	-- ~ use = Expr . varAst
+
+
+test :: MonadGL m => m ([VArray (V3 Float)] -> m ())
+test = do
+	cam <- makeVar' $ (V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1) :: Mat V3 V3 Float) -- :: (Mat V3 V3 Float)
+	compile
+		(\v -> let
+				(V3 x y z) = use cam **| v/2
+			in (V4 x y z 1, ()))
+		(\() -> V4 1 1 1 1)
+
+
+
+-- ~ instance (Vector v, GLtype (v (v a)), GLtype a) => Use (Var (v (v a))) where
+	-- ~ type ShaderType (Var (v (v a))) = (v (v (Expr A a)))
+	-- ~ use' v = vecParts <$> vecParts (Expr $ varAst v)
+
+-- ~ class Use a e where
+	-- ~ use :: a -> e
+
+-- ~ instance Use (Var Float) (Expr e Float) where
+	-- ~ use = Expr . varAst
+
+-- ~ instance Use (Var Int) (Expr e Int) where
+	-- ~ use = Expr . varAst
+
+-- ~ instance (Vector v, GLtype (v a), GLtype a) => Use (Var (v a)) (v (Expr e a)) where
+	-- ~ use v = vecParts $ Expr $ varAst v
+
+-- ~ instance (Vector v, GLtype (v (v a)), GLtype a)
+	-- ~ => Use (Var (v (v a))) (v (v (Expr e a))) where
+	-- ~ use v = vecParts <$> vecParts (Expr $ varAst v)
+
+-- ~ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) (Expr e (Arr s a)) where
+	-- ~ use = Expr . varAst
 
 
 makeVar :: forall a m . (MonadGL m, GLtype a) => m (Var a)
@@ -585,11 +637,11 @@ instance (Vector v, GLtype (v a)) => Raster (v (Expr V a)) (v (Expr F a)) where
 			addHeader "in" va n
 		return $ vecParts $ Expr $ Val $ return n
 
-instance (Vector v, GLtype (v a), GLtype (v (v a))) => Raster (v (v (Expr V a))) (v (v (Expr F a))) where
+instance (Vector v, GLtype (v (v a))) => Raster (v (v (Expr V a))) (v (v (Expr F a))) where
 	transfer e = do
 		let vva = err :: v (v a)
 		n <- generateName vva
-		compose n $ exprVec $ fmap exprVec e
+		compose n $ exprVec2 e
 		addHeader "varying" vva $ n
 		tell $ do
 			addHeader "in" vva n
