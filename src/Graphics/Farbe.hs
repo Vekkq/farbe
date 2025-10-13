@@ -385,7 +385,7 @@ class Storable a => AttrType a b where
 	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
 
 instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
--- ~ instance AttrType Int (Expr V Int) where setAttribute = setupAttribute1
+instance AttrType Int32 (Expr V Int32) where setAttribute = setupAttribute1
 instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
 
 -- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
