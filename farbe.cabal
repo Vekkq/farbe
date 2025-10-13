@@ -21,7 +21,7 @@ library
                    , Graphics.Farbe.Window
                    , Graphics.Farbe.Utils
 
-    build-depends: base ^>=4.20
+    build-depends: base ^>=4.21
                  , containers^>=0.7
                  , mtl^>=2.3
                  , gl^>=0.9
@@ -43,7 +43,7 @@ test-suite farbe-test
 
     main-is:          Main.hs
 
-    build-depends: base ^>=4.20
+    build-depends: base ^>=4.21
                  , farbe
                  , gl^>=0.9
                  , binary

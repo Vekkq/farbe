@@ -2,10 +2,8 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
--- ~ {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
--- ~ {-# LANGUAGE IncoherentInstances #-}
--- ~ {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
@@ -79,11 +77,11 @@ newtype GL m a = GL { unGL :: ReaderT GLState m a }
 		, MonadFix, MonadPlus, MonadWindow
 		)
 
--- ~ instance MonadReader r m => MonadReader r (GL m) where
-	-- ~ ask = lift $ ask
-	-- ~ local f = withw $ mapReaderT (local f)
-		-- ~ where
-		-- ~ withw g = GL . g . unGL
+instance MonadReader r m => MonadReader r (GL m) where
+	ask = lift $ ask
+	local f = withw $ mapReaderT (local f)
+		where
+		withw g = GL . g . unGL
 
 instance Monad m => Semigroup (GL m a) where
 	(<>) = (>>)
@@ -387,8 +385,11 @@ class Storable a => AttrType a b where
 	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
 
 instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
-instance AttrType Int (Expr V Int) where setAttribute = setupAttribute1
+-- ~ instance AttrType Int (Expr V Int) where setAttribute = setupAttribute1
 instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
+
+-- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
+	-- ~ setAttribute i a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 i a
 
 instance AttrType (Normalized Float) (Expr V Float) where
 	setAttribute i a = fmap2 unNormalized $ setupAttribute1 i a
@@ -409,9 +410,6 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		(setAttribute s (err :: b))
 		(setAttribute s (err :: c))
 		(setAttribute s (err :: d))
-
--- ~ instance AttrType (V3 Float) (V3 (Expr V Float)) where
-	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
 
 instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a)) where
 	setAttribute s a = vecParts <$> setupAttribute1 s a
@@ -465,81 +463,122 @@ setupAttribute1 s a = do
 		return n
 	return $ (Expr $ Val $ runOnce initExpr)
 
+
 -- Uploadable (Uniforms) -----------------------------------------------------------------
 
 data Var a = Var { varAst :: Ast, varMVar :: MVar a }
 
-makeVar' :: (MonadGL m, GLtype a) => a -> m (Var a)
-makeVar' a = do
-	v <- makeVar
+makeVar :: (MonadGL m, GLtype a) => a -> m (Var a)
+makeVar a = do
+	v <- makeVar'
 	liftIO $ fuzzySwapMVar (varMVar v) a
 	return v
+
+makeVarF :: MonadGL m => Float -> m (Var Float)
+makeVarI :: MonadGL m => Int32 -> m (Var Int32)
+makeVarB :: MonadGL m => Bool -> m (Var Bool)
+makeVarV2F :: MonadGL m => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: MonadGL m => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: MonadGL m => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: MonadGL m => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: MonadGL m => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: MonadGL m => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: MonadGL m => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: MonadGL m => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: MonadGL m => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: MonadGL m => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: MonadGL m => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: MonadGL m => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+
+makeVarF   = makeVar
+makeVarI   = makeVar
+makeVarB   = makeVar
+makeVarV2F = makeVar
+makeVarV2I = makeVar
+makeVarV2B = makeVar
+makeVarV3F = makeVar
+makeVarV3I = makeVar
+makeVarV3B = makeVar
+makeVarV4F = makeVar
+makeVarV4I = makeVar
+makeVarV4B = makeVar
+makeVarM2  = makeVar
+makeVarM3  = makeVar
+makeVarM4  = makeVar
+
+-- ~ test :: MonadGL m => m ([VArray (V3 Float)] -> m ())
+-- ~ test = do
+	-- ~ cam <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
+	-- ~ compile
+		-- ~ (\v -> let
+				-- ~ (V3 x y z) = use cam **| v/2
+			-- ~ in (V4 x y z 1, ()))
+		-- ~ (\() -> V4 1 1 1 1)
 
 
 class Use a e r | a e -> r, r -> a e where
 	use :: Var a -> r
 
 
--- ~ instance Use Float e (Expr e Float) where
-	-- ~ use = Expr . varAst
 
--- ~ instance Use Int e (Expr e Int) where
-	-- ~ use = Expr . varAst
+instance Use (Var Float) e (Expr e Float) where
+	use = Expr . varAst
 
--- ~ instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where
-	-- ~ use v = vecParts $ Expr $ varAst v
+instance Use (Var Int32) e (Expr e Int32) where
+	use = Expr . varAst
 
--- ~ instance GLtype a => Use (V3 Int) e (V3 (Expr e Int)) where
-	-- ~ use v = vecParts $ Expr $ varAst v
+instance Use (Var Bool) e (Expr e Bool) where
+	use = Expr . varAst
 
--- ~ instance Use (Mat V3 V3 Float) e (Mat V3 V3 (Expr e Float)) where
-	-- ~ use v = vecParts <$> vecParts (Expr $ varAst v)
 
-instance Vector v => Use (Mat v v Float) e (Mat v v (Expr e Float)) where
+instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where
+	use v = vecParts $ Expr $ varAst v
+
+instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where
+	use v = vecParts $ Expr $ varAst v
+
+instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where
+	use v = vecParts $ Expr $ varAst v
+
+
+instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where
+	use v = vecParts $ Expr $ varAst v
+
+instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where
+	use v = vecParts $ Expr $ varAst v
+
+instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where
+	use v = vecParts $ Expr $ varAst v
+
+
+instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where
+	use v = vecParts $ Expr $ varAst v
+
+instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where
+	use v = vecParts $ Expr $ varAst v
+
+instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where
+	use v = vecParts $ Expr $ varAst v
+
+
+instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where
 	use v = vecParts <$> vecParts (Expr $ varAst v)
 
+instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where
+	use v = vecParts <$> vecParts (Expr $ varAst v)
 
--- ~ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
-	-- ~ use = Expr . varAst
+instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where
+	use v = vecParts <$> vecParts (Expr $ varAst v)
 
-
-test :: MonadGL m => m ([VArray (V3 Float)] -> m ())
-test = do
-	cam <- makeVar' $ (V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1) :: Mat V3 V3 Float) -- :: (Mat V3 V3 Float)
-	compile
-		(\v -> let
-				(V3 x y z) = use cam **| v/2
-			in (V4 x y z 1, ()))
-		(\() -> V4 1 1 1 1)
+instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
+	use = Expr . varAst
 
 
-
--- ~ instance (Vector v, GLtype (v (v a)), GLtype a) => Use (Var (v (v a))) where
-	-- ~ type ShaderType (Var (v (v a))) = (v (v (Expr A a)))
-	-- ~ use' v = vecParts <$> vecParts (Expr $ varAst v)
-
--- ~ class Use a e where
-	-- ~ use :: a -> e
-
--- ~ instance Use (Var Float) (Expr e Float) where
-	-- ~ use = Expr . varAst
-
--- ~ instance Use (Var Int) (Expr e Int) where
-	-- ~ use = Expr . varAst
-
--- ~ instance (Vector v, GLtype (v a), GLtype a) => Use (Var (v a)) (v (Expr e a)) where
-	-- ~ use v = vecParts $ Expr $ varAst v
-
--- ~ instance (Vector v, GLtype (v (v a)), GLtype a)
-	-- ~ => Use (Var (v (v a))) (v (v (Expr e a))) where
-	-- ~ use v = vecParts <$> vecParts (Expr $ varAst v)
-
--- ~ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) (Expr e (Arr s a)) where
-	-- ~ use = Expr . varAst
+default (Integer, Double, Int, Float)
 
 
-makeVar :: forall a m . (MonadGL m, GLtype a) => m (Var a)
-makeVar = do
+makeVar' :: forall a m . (MonadGL m, GLtype a) => m (Var a)
+makeVar' = do
 	let a = (err :: a)
 	m <- liftIO $ newEmptyMVar
 	vname <- ((glShortName a)++) <$> generateName a
@@ -586,6 +625,7 @@ newArr = liftIO $ Arr 0 <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)
 modifyArr :: MonadIO m => Arr s a -> (StorableArray Int a -> m b) -> m (Arr s a)
 modifyArr (Arr i sa) f = do
 	f sa
+	-- TODO add StableNamed hash as change marker
 	return $ Arr (succ i) sa
 
 instance Eq (Arr s a) where
@@ -941,7 +981,7 @@ instance GLtype Bool where
 	glType _ = GL_BOOL
 	glUpload i b = glUniform1i i $ boolToInt b
 
-instance GLtype Int where
+instance GLtype Int32 where
 	glCName _ = "int"
 	glType _ = GL_INT
 	glUpload i = glUniform1i i . itoi
@@ -970,19 +1010,19 @@ instance GLtype (V4 Float) where
 	glUpload i (V4 a b c d) = glUniform4f i a b c d
 
 
-instance GLtype (V2 Int) where
+instance GLtype (V2 Int32) where
 	glCName _ = "ivec2"
 	glType _ = GL_INT
 	glComponents _ = 2
 	glUpload i (V2 a b) = glUniform2i i (itoi a) (itoi b)
 
-instance GLtype (V3 Int) where
+instance GLtype (V3 Int32) where
 	glCName _ = "ivec3"
 	glType _ = GL_INT
 	glComponents _ = 3
 	glUpload i (V3 a b c) = glUniform3i i (itoi a) (itoi b) (itoi c)
 
-instance GLtype (V4 Int) where
+instance GLtype (V4 Int32) where
 	glCName _ = "ivec4"
 	glType _ = GL_INT
 	glComponents _ = 4
@@ -1005,7 +1045,8 @@ instance GLtype (V4 Bool) where
 	glCName _ = "bvec4"
 	glType _ = GL_BOOL
 	glComponents _ = 4
-	glUpload i (V4 a b c d) = glUniform4i i (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+	glUpload i (V4 a b c d) =
+		glUniform4i i (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
 
 boolToInt :: Bool -> Int32
 boolToInt True = 1
@@ -1050,7 +1091,7 @@ instance GLtype a => GLtype (Normalized a) where
 	glCName _ = glCName (err :: a)
 	glType _ = glType (err :: a)
 	glComponents _ = glComponents (err :: a)
-	glUpload i _ = glUpload i (err :: a)
+	glUpload i (Normalized e) = glUpload i e
 
 
 instance (KnownNat s, GLtype e) => GLtype (Arr s e) where
@@ -1059,3 +1100,8 @@ instance (KnownNat s, GLtype e) => GLtype (Arr s e) where
 	glComponents a = glComponents (err :: e) * sizeArr a
 	glUpload i a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv i (glComponents a) $ castPtr p
 
+
+class GLtype a => GLBaseType a
+instance GLBaseType Int32
+instance GLBaseType Float
+instance GLBaseType Bool
