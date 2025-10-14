@@ -381,7 +381,7 @@ setAttributes s a = do
 	e <- evalStateT (unAttrib $ setAttribute s a) 0
 	return (i, e)
 
-class Storable a => AttrType a b where
+class Storable a => AttrType a b | a -> b, b -> a where
 	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
 
 instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
@@ -391,8 +391,8 @@ instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
 -- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
 	-- ~ setAttribute i a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 i a
 
-instance AttrType (Normalized Float) (Expr V Float) where
-	setAttribute i a = fmap2 unNormalized $ setupAttribute1 i a
+-- ~ instance AttrType (Normalized Float) (Expr V Float) where
+	-- ~ setAttribute i a = fmap2 unNormalized $ setupAttribute1 i a
 
 instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
 	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
@@ -411,12 +411,44 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		(setAttribute s (err :: c))
 		(setAttribute s (err :: d))
 
-instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a)) where
-	setAttribute s a = vecParts <$> setupAttribute1 s a
+-- ~ instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a)) where
+	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
 
-instance (Storable (v (v a)), Vector v, GLtype (v (v a))) =>
-	AttrType (v (v a)) (v (v (Expr V a))) where
-	setAttribute s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
+attribPartsVec :: (BuildShader m, Attrib m, GLtype (v a), Storable (v a), Vector v)
+	=> Shader -> v a -> m (v (Expr V a))
+attribPartsVec s a = vecParts <$> setupAttribute1 s a
+
+instance AttrType (V2 Float) (V2 (Expr V Float)) where setAttribute = attribPartsVec
+instance AttrType (V2 Int32) (V2 (Expr V Int32)) where setAttribute = attribPartsVec
+instance AttrType (V2 Bool) (V2 (Expr V Bool)) where setAttribute = attribPartsVec
+
+instance AttrType (V3 Float) (V3 (Expr V Float)) where setAttribute = attribPartsVec
+instance AttrType (V3 Int32) (V3 (Expr V Int32)) where setAttribute = attribPartsVec
+instance AttrType (V3 Bool) (V3 (Expr V Bool)) where setAttribute = attribPartsVec
+
+instance AttrType (V4 Float) (V4 (Expr V Float)) where setAttribute = attribPartsVec
+instance AttrType (V4 Int32) (V4 (Expr V Int32)) where setAttribute = attribPartsVec
+instance AttrType (V4 Bool) (V4 (Expr V Bool)) where setAttribute = attribPartsVec
+
+-- ~ instance (Storable (v (v a)), Vector v, GLtype (v (v a))) =>
+	-- ~ AttrType (v (v a)) (v (v (Expr V a))) where
+	-- ~ setAttribute s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
+
+attribPartsMat :: (BuildShader m, Attrib m, GLtype (v (v a)), Storable (v (v a)), Vector v)
+	=> Shader -> v (v a) -> m (v (v (Expr V a)))
+attribPartsMat s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
+
+instance AttrType (V2 (V2 Float)) (V2 (V2 (Expr V Float))) where
+	setAttribute = attribPartsMat
+
+instance AttrType (V3 (V3 Float)) (V3 (V3 (Expr V Float))) where
+	setAttribute = attribPartsMat
+
+instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where
+	setAttribute = attribPartsMat
+
+
+
 
 instance (Storable a, GLtype a, KnownNat s) => AttrType (Arr s a) (Expr V (Arr s a)) where
 	setAttribute s a = setupAttribute1 s a
@@ -506,69 +538,33 @@ makeVarM2  = makeVar
 makeVarM3  = makeVar
 makeVarM4  = makeVar
 
--- ~ test :: MonadGL m => m ([VArray (V3 Float)] -> m ())
--- ~ test = do
-	-- ~ cam <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
-	-- ~ compile
-		-- ~ (\v -> let
-				-- ~ (V3 x y z) = use cam **| v/2
-			-- ~ in (V4 x y z 1, ()))
-		-- ~ (\() -> V4 1 1 1 1)
-
 
 class Use a e r | a e -> r, r -> a e where
 	use :: Var a -> r
 
+instance Use (Var Float) e (Expr e Float) where use = Expr . varAst
+instance Use (Var Int32) e (Expr e Int32) where use = Expr . varAst
+instance Use (Var Bool) e (Expr e Bool) where use = Expr . varAst
 
+usePartsVec :: Vector v => Var (v a) -> v (Expr e a)
+usePartsVec = vecParts . Expr . varAst
 
-instance Use (Var Float) e (Expr e Float) where
-	use = Expr . varAst
+instance Use (V2 Float) e (V2 (Expr e Float)) where use = usePartsVec
+instance Use (V2 Int32) e (V2 (Expr e Int32)) where use = usePartsVec
+instance Use (V2 Bool) e (V2 (Expr e Bool)) where use = usePartsVec
+instance Use (V3 Float) e (V3 (Expr e Float)) where use = usePartsVec
+instance Use (V3 Int32) e (V3 (Expr e Int32)) where use = usePartsVec
+instance Use (V3 Bool) e (V3 (Expr e Bool)) where use = usePartsVec
+instance Use (V4 Float) e (V4 (Expr e Float)) where use = usePartsVec
+instance Use (V4 Int32) e (V4 (Expr e Int32)) where use = usePartsVec
+instance Use (V4 Bool) e (V4 (Expr e Bool)) where use = usePartsVec
 
-instance Use (Var Int32) e (Expr e Int32) where
-	use = Expr . varAst
+usePartsMat :: Vector v => Var (v (v a)) -> v (v (Expr e a))
+usePartsMat v = vecParts <$> vecParts (Expr $ varAst v)
 
-instance Use (Var Bool) e (Expr e Bool) where
-	use = Expr . varAst
-
-
-instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where
-	use v = vecParts $ Expr $ varAst v
-
-instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where
-	use v = vecParts $ Expr $ varAst v
-
-instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where
-	use v = vecParts $ Expr $ varAst v
-
-
-instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where
-	use v = vecParts $ Expr $ varAst v
-
-instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where
-	use v = vecParts $ Expr $ varAst v
-
-instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where
-	use v = vecParts $ Expr $ varAst v
-
-
-instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where
-	use v = vecParts $ Expr $ varAst v
-
-instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where
-	use v = vecParts $ Expr $ varAst v
-
-instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where
-	use v = vecParts $ Expr $ varAst v
-
-
-instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where
-	use v = vecParts <$> vecParts (Expr $ varAst v)
-
-instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where
-	use v = vecParts <$> vecParts (Expr $ varAst v)
-
-instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where
-	use v = vecParts <$> vecParts (Expr $ varAst v)
+instance Use (V2 (V2 Float)) e (V2 (V2 (Expr e Float))) where use = usePartsMat
+instance Use (V3 (V3 Float)) e (V3 (V3 (Expr e Float))) where use = usePartsMat
+instance Use (V4 (V4 Float)) e (V4 (V4 (Expr e Float))) where use = usePartsMat
 
 instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
 	use = Expr . varAst
