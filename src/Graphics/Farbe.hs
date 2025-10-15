@@ -391,9 +391,6 @@ instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
 -- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
 	-- ~ setAttribute i a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 i a
 
--- ~ instance AttrType (Normalized Float) (Expr V Float) where
-	-- ~ setAttribute i a = fmap2 unNormalized $ setupAttribute1 i a
-
 instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
 	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
 
@@ -542,9 +539,9 @@ makeVarM4  = makeVar
 class Use a e r | a e -> r, r -> a e where
 	use :: Var a -> r
 
-instance Use (Var Float) e (Expr e Float) where use = Expr . varAst
-instance Use (Var Int32) e (Expr e Int32) where use = Expr . varAst
-instance Use (Var Bool) e (Expr e Bool) where use = Expr . varAst
+instance Use Float e (Expr e Float) where use = Expr . varAst
+instance Use Int32 e (Expr e Int32) where use = Expr . varAst
+instance Use Bool e (Expr e Bool) where use = Expr . varAst
 
 usePartsVec :: Vector v => Var (v a) -> v (Expr e a)
 usePartsVec = vecParts . Expr . varAst
@@ -622,6 +619,7 @@ modifyArr :: MonadIO m => Arr s a -> (StorableArray Int a -> m b) -> m (Arr s a)
 modifyArr (Arr i sa) f = do
 	f sa
 	-- TODO add StableNamed hash as change marker
+	-- or add count as a change marker
 	return $ Arr (succ i) sa
 
 instance Eq (Arr s a) where
@@ -633,7 +631,7 @@ instance (Storable e, KnownNat s) => Storable (Arr s e) where
 	peek p = liftIO $ do
 		ar <- newArr
 		modifyArr ar (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr ar))
-	poke p a@(Arr _ sa) = withStorableArray sa $ \ p2 -> copyArray p2 (castPtr p) (sizeArr a)
+	poke p a@(Arr _ sa) = withStorableArray sa $ \p2 -> copyArray p2 (castPtr p) (sizeArr a)
 	-- i cant help but feel that this is borked
 
 

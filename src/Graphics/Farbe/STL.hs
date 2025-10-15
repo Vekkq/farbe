@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module STL where
+module Graphics.Farbe.STL where
 
 import Data.Binary
 import Data.Binary.Get

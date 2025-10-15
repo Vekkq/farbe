@@ -21,7 +21,7 @@ main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
-  u <- makeVar' (1.0 :: Float)
+  u <- makeVarF 1
 
   f <- compile (\v -> let (V3 x y z) = v*0.02 in (V4 x y z 1, x)) (\x -> V4 (use u) 1 x 1)
   g <- compile (\v -> let (V3 x y z) = v*0.04 in (V4 x y z 1, x)) (\x -> V4 1 x (use u) (use u))
