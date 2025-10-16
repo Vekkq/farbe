@@ -298,8 +298,11 @@ compose s e = (compose1 $ ast e) >>= addCExpr s
 
 -- Expr functions ------------------------------------------------------------------------
 
-liftE :: String -> Expr e a1 -> Expr e a2
-liftE s (Expr a) = Expr $ Fn s [a]
+liftE0 :: String -> Expr e a
+liftE0 s = Expr $ Fn s []
+
+liftE1 :: String -> Expr e a1 -> Expr e a2
+liftE1 s (Expr a) = Expr $ Fn s [a]
 
 liftE2 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3
 liftE2 s (Expr a) (Expr b) = Expr $ Fn s [a,b]
@@ -315,41 +318,59 @@ instance Num a => Num (Expr e a) where
 	(+) = liftE2 "+"
 	(*) = liftE2 "*"
 	(-) = liftE2 "-"
-	abs = liftE "abs"
-	signum = liftE "sign"
+	abs = liftE1 "abs"
+	signum = liftE1 "sign"
 	fromInteger = Expr . Val . return . ($ []) . showFFloat Nothing . fromInteger
 
 instance Fractional a => Fractional (Expr e a) where
 	fromRational = Expr . Val . return . ($ []) . showFFloat Nothing . fromRat
 	(/) = liftE2 "/"
 
+napier :: Fractional a => a
+napier = fromRational 2.718281828459045235360287471352
+
+-- | Unicode alias for Napier's constant
+e :: Fractional a => a
+e = napier
+
 instance Floating a => Floating (Expr e a) where
 	pi = Expr $ Val $ return $ show pi
-	exp = liftE "exp"
-	log = liftE "log"
-	sqrt = liftE "sqrt"
+	exp = liftE1 "exp"
+	log = liftE1 "log"
+	sqrt = liftE1 "sqrt"
 	(**) = liftE2 "^"
-	sin = liftE "sin"
-	cos = liftE "cos"
-	tan = liftE "tan"
-	asin = liftE "asin"
-	acos = liftE "acos"
-	atan = liftE "atan"
-	sinh = liftE "sinh"
-	cosh = liftE "cosh"
-	tanh = liftE "tanh"
-	asinh = liftE "asinh"
-	acosh = liftE "acosh"
-	atanh = liftE "atanh"
+	sin = liftE1 "sin"
+	cos = liftE1 "cos"
+	tan = liftE1 "tan"
+	asin = liftE1 "asin"
+	acos = liftE1 "acos"
+	atan = liftE1 "atan"
+	-- following functions not available in glsl es 1
+	sinh x = (e ** x - e ** (negate x)) / 2
+	cosh x = (e ** x + e ** (negate x)) / 2
+	tanh x = sinh x / cosh x
+	asinh x = ln (x + sqrt (x**2 + 1))
+	acosh x = ln (x + sqrt (x**2 - 1))
+	atanh x = 1/2 * ln ((1+x) / (1-x))
+
+ln :: Floating a => a -> a
+ln = logBase e
 
 modf :: Expr e Float -> Expr e Float -> Expr e Float
 modf = liftE2 "mod"
 
-equot, erem, ediv, emod :: Expr e Int -> Expr e Int -> Expr e Int
+equot, erem, ediv, emod :: Expr e Int32 -> Expr e Int32 -> Expr e Int32
 equot = liftE2 "/"
 erem = liftE2 "rem"
 ediv = liftE2 "div"
 emod = liftE2 "mod"
+
+
+fragCoord :: V4 (Expr F Float)
+fragCoord = vecParts $ liftE0 "gl_FragCoord"
+
+-- ~ vertexId :: Expr V Int -- not part of opengl es 2 / glsl es 1.0
+-- ~ vertexId = liftE0 "gl_VertexID"
 
 
 -- Attributes (VAO) ----------------------------------------------------------------------
@@ -464,7 +485,7 @@ exprVec2 v = undefined
 expr :: Show a => a -> Expr e a
 expr x = Expr $ Val $ return $ show x
 
-arrV :: Vector v => Expr e (v a) -> Expr e Int -> Expr e a
+arrV :: Vector v => Expr e (v a) -> Expr e Int32 -> Expr e a
 arrV = liftE2 "[]"
 
 
@@ -563,7 +584,7 @@ instance Use (V2 (V2 Float)) e (V2 (V2 (Expr e Float))) where use = usePartsMat
 instance Use (V3 (V3 Float)) e (V3 (V3 (Expr e Float))) where use = usePartsMat
 instance Use (V4 (V4 Float)) e (V4 (V4 (Expr e Float))) where use = usePartsMat
 
-instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
+instance (KnownNat s, GLtype a) => Use (Arr s a) e (Expr e (Arr s a)) where
 	use = Expr . varAst
 
 
@@ -600,6 +621,7 @@ modifyVar' v f = readVar v >>= maybe (return ()) (\x -> f x >>= putVar v)
 
 -- Array stub ----------------------------------------------------------------------------
 
+
 data Arr (s :: Nat) a = Arr
 	{ changeToken :: Int
 	, unArr :: StorableArray Int a
@@ -611,8 +633,11 @@ sizeArr _ = itoi (natVal (Proxy :: Proxy s))
 sizeArr' :: forall n s a p . (KnownNat s, Num n) => p (Arr s a) -> n
 sizeArr' _ = itoi (natVal (Proxy :: Proxy s))
 
-newArr :: forall m s a . (KnownNat s, Storable a, MonadIO m) => m (Arr s a)
-newArr = liftIO $ Arr 0 <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)))
+newArr :: forall m s a . (KnownNat s, Storable a, MonadIO m) => [a] -> m (Arr s a)
+newArr l = liftIO $ Arr 0 <$> newListArray (0, pred $ itoi (natVal (Proxy :: Proxy s))) l
+
+emptyArr :: forall m s a . (KnownNat s, Storable a, MonadIO m) => m (Arr s a)
+emptyArr = liftIO $ Arr 0 <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)))
 
 -- kinda cursed solution for tracking changes for Eq
 modifyArr :: MonadIO m => Arr s a -> (StorableArray Int a -> m b) -> m (Arr s a)
@@ -629,17 +654,18 @@ instance (Storable e, KnownNat s) => Storable (Arr s e) where
 	sizeOf a = sizeArr a * sizeOf (err :: e)
 	alignment _ = alignment (err :: e)
 	peek p = liftIO $ do
-		ar <- newArr
+		ar <- emptyArr
 		modifyArr ar (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr ar))
 	poke p a@(Arr _ sa) = withStorableArray sa $ \p2 -> copyArray p2 (castPtr p) (sizeArr a)
 	-- i cant help but feel that this is borked
 
 
-arr :: Expr e (Arr a) -> Int -> Expr e a
+arr :: Expr e (Arr s a) -> Int32 -> Expr e a
 arr e n = liftE2 "[]" e $ expr n
 
--- | arr' is ignoring constant expression requirement. May not work with old GL versions.
-arr' :: Expr e (Arr a) -> Expr e Int -> Expr e a
+-- | @arr'@ is ignoring constant expression requirement.
+--   May not work with some implementations.
+arr' :: Expr e (Arr s a) -> Expr e Int32 -> Expr e a
 arr' = liftE2 "[]"
 
 
@@ -720,7 +746,7 @@ compile sv sf = do
 		(i,ef,sf') <- addShader sp GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes sp (err :: a)
 			let (v,r) = sv e
-			(ef,sf') <-runWriterT (transfer r)
+			(ef,sf') <- runWriterT (transfer r)
 			v' <- fmap Expr $ shrinkEnds $ ast $ exprVec v
 			compose "gl_Position" $ v'
 			return (i,ef,sf')

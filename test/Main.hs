@@ -1,3 +1,6 @@
+
+{-# LANGUAGE DataKinds #-}
+
 module Main (main) where
 
 import Graphics.Farbe
@@ -13,6 +16,7 @@ import Graphics.GL
 
 
 
+
 loadSTL :: MonadGL m => String -> m (VArray (V3 Float))
 loadSTL s = readFileSTL s >>= newVArray
 
@@ -21,16 +25,17 @@ main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
-  u <- makeVarF 1
+  u <- makeVar =<< (newArr [0.1..1] :: MonadIO m => m (Arr 10 Float))
+  i <- makeVarI 1
 
-  f <- compile (\v -> let (V3 x y z) = v*0.02 in (V4 x y z 1, x)) (\x -> V4 (use u) 1 x 1)
-  g <- compile (\v -> let (V3 x y z) = v*0.04 in (V4 x y z 1, x)) (\x -> V4 1 x (use u) (use u))
+  f <- compile (\v -> let (V3 x y z) = v*0.02 in (V4 x y z 1, x)) (\x -> V4 (use u `arr'` use i) 1 x 1)
+  g <- compile (\v -> let (V3 x y z) = v*0.04 in (V4 x y z 1, x)) (\x -> V4 1 x 1 1)
 
 
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
     t <- getTime
-    liftIO $ swapMVar (varMVar u) $ sin t
+    putVar i $ mod (floor t) 10
     g [b]
     f [a,b]
     display
