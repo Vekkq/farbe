@@ -28,14 +28,23 @@ main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   u <- makeVar =<< (newArr [0.1..1] :: MonadIO m => m (Arr 10 Float))
   i <- makeVarI 1
 
-  f <- compile (\v -> let (V3 x y z) = v*0.02 in (V4 x y z 1, x)) (\x -> V4 (use u `arr'` use i) 1 x 1)
-  g <- compile (\v -> let (V3 x y z) = v*0.04 in (V4 x y z 1, x)) (\x -> V4 1 x 1 1)
+  f <- compile $ \v -> do
+    let (V3 x y z) = v*0.02
+    let pos = V4 x y z 1
+    x' <- transfer x
+    return (pos, V4 (use u `arr'` use i) x' 1 1)
+
+  g <- compile $ \v -> do
+    let (V3 x y z) = v*0.04
+    let pos = V4 x y z 1
+    x' <- transfer x
+    return (pos, V4 1 x' 1 1)
 
 
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
     t <- getTime
-    putVar i $ mod (floor t) 10
+    putVar i $ mod (floor t) 8
     g [b]
     f [a,b]
     display

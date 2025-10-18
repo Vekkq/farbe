@@ -248,6 +248,12 @@ data Ast
 
 type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
 
+instance Semigroup (AstM a) where
+	(<>) = (>>)
+
+instance Monoid (AstM a) where
+	mempty = return $ error ""
+
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
 
@@ -478,9 +484,9 @@ vecParts e = fromListFill err $ map (\i -> arrV e i) $ map expr [0..]
 exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
 exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
 
-exprVec2 :: forall v e a . (Vector v, GLtype (v (v a)))
+exprMat :: forall v e a . (Vector v, GLtype (v a), GLtype (v (v a)))
 	=> v (v (Expr e a)) -> Expr e (v (v a))
-exprVec2 v = undefined
+exprMat v = Expr $ Fn (glCName (err :: v a)) $ map ast $ concatMap toList $ toList v
 
 expr :: Show a => a -> Expr e a
 expr x = Expr $ Val $ return $ show x
@@ -669,98 +675,63 @@ arr' :: Expr e (Arr s a) -> Expr e Int32 -> Expr e a
 arr' = liftE2 "[]"
 
 
--- Rasterization -------------------------------------------------------------------------
 
-class Raster a b where
-	transfer :: a -> WriterT (AstM ()) AstM b
-
-instance Raster () () where
-	transfer e = return ()
-
-instance GLtype a => Raster (Expr V a) (Expr F a) where
-	transfer e = do
-		let a = err :: a
-		n <- generateName a
-		compose n e
-		addHeader "varying" a $ n
-		tell $ do
-			addHeader "in" a n
-		return $ Expr $ Val $ return n
-
-instance (Vector v, GLtype (v a)) => Raster (v (Expr V a)) (v (Expr F a)) where
-	transfer e = do
-		let va = err :: v a
-		n <- generateName va
-		compose n $ exprVec e
-		addHeader "varying" va $ n
-		tell $ do
-			addHeader "in" va n
-		return $ vecParts $ Expr $ Val $ return n
-
-instance (Vector v, GLtype (v (v a))) => Raster (v (v (Expr V a))) (v (v (Expr F a))) where
-	transfer e = do
-		let vva = err :: v (v a)
-		n <- generateName vva
-		compose n $ exprVec2 e
-		addHeader "varying" vva $ n
-		tell $ do
-			addHeader "in" vva n
-		return $ fmap vecParts $ vecParts $ Expr $ Val $ return n
-
-instance (Raster a b, Raster c d) => Raster (a,c) (b,d) where
-	transfer (a,b) = liftM2 (,) (transfer a) (transfer b)
-
-instance (Raster a b, Raster c d, Raster e f) => Raster (a,c,e) (b,d,f) where
-	transfer (a,b,c) = liftM3 (,,) (transfer a) (transfer b) (transfer c)
-
-
-instance (Raster a b, Raster c d, Raster e f, Raster g h)
-	=> Raster (a,c,e,g) (b,d,f,h) where
-	transfer (a,b,c,d) = liftM4 (,,,)
-		(transfer a) (transfer b) (transfer c) (transfer d)
-
-
-
-instance Semigroup (AstM a) where
-	(<>) = (>>)
-
-instance Monoid (AstM a) where
-	mempty = return $ error ""
 
 -- Compilation ---------------------------------------------------------------------------
 
-data RenderSet a v f = Raster v f => RenderSet
-	{ shaderV :: (a -> (V4 (Expr V Float), v))
-	, shaderF :: (f -> V4 (Expr F Float))
-	} --, renderConfig :: RenderConfig
-	-- if the resulting texture can be of different type, make it a type variable
-
--- perhaps its better to keep the shader in a writerT-like state like the raster function
-compile :: forall a b m v f. (MonadGL m, AttrType a b, Raster v f)
-	=> (b -> (V4 (Expr V Float), v))
-	-> (f -> V4 (Expr F Float))
+compile :: forall a b m. (MonadGL m, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
 	-> m ([VArray a] -> m ())
-compile sv sf = do
+compile f = do
 	sp <- glCreateProgram
-	let g = do
-		(i,ef,sf') <- addShader sp GL_VERTEX_SHADER $ do
+	(vao,exec) <- liftGL $ collectPreRender $ runPostShaderProgram $
+		join $ addShader sp GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes sp (err :: a)
-			let (v,r) = sv e
-			(ef,sf') <- runWriterT (transfer r)
-			v' <- fmap Expr $ shrinkEnds $ ast $ exprVec v
-			compose "gl_Position" $ v'
-			return (i,ef,sf')
-		addShader sp GL_FRAGMENT_SHADER $ do
-			compose "gl_FragColor" $ exprVec $ sf ef
-			sf'
-		return i
-	(vao,exec) <- liftGL $ collectPreRender $ runPostShaderProgram g
+			((v,f),fm) <- runWriterT $ f e
+			compose "gl_Position" $ exprVec v
+			return $ addShader sp GL_FRAGMENT_SHADER $ do
+				compose "gl_FragColor" $ exprVec $ f
+				fm
+				return i
 	return $ \varrs -> do
 		glBindVertexArray vao
 		glUseProgram sp
 		liftGL $ exec
 		drawArrays varrs
 
+
+type ShaderM a = WriterT (AstM ()) AstM a
+
+
+-- | Transfer values from vertex shader to fragment shader. Floating point numbers will be interpolated among its triangle space. Integers are taken from the first point of the triangle.
+
+class Transfer a b | a -> b, b -> a where
+	transfer :: a -> ShaderM b
+
+transfer1 :: forall a e. GLtype a => Expr e a -> ShaderM Ast
+transfer1 e = do
+		let a = err :: a
+		n <- generateName a
+		compose n e
+		addHeader "varying" a $ n
+		tell $ do
+			addHeader "in" a n
+		return $ Val $ return n
+
+instance GLtype a => Transfer (Expr V a) (Expr F a) where
+	transfer = fmap Expr . transfer1
+
+instance GLtype (V2 a) => Transfer (V2 (Expr V a)) (V2 (Expr F a)) where
+	transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+
+instance GLtype (V3 a) => Transfer (V3 (Expr V a)) (V3 (Expr F a)) where
+	transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+
+instance GLtype (V4 a) => Transfer (V4 (Expr V a)) (V4 (Expr F a)) where
+	transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+
+instance (GLtype (V2 a), GLtype (V2 (V2 a))) => Transfer (V2 (V2 (Expr V a))) (V2 (V2 (Expr F a))) where
+	transfer = fmap (fmap vecParts . vecParts . Expr) . transfer1 . exprMat
 
 
 
