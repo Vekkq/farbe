@@ -13,7 +13,8 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Graphics.GL
 
-
+import Data.Array.MArray
+import Data.Array.Storable
 
 
 
@@ -23,9 +24,10 @@ loadSTL s = readFileSTL s >>= newVArray
 
 main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
+
   a <- loadSTL "test/teapot.stl"
   b <- loadSTL "test/cube.stl"
-  u <- makeVar =<< (newArr [0.1..1] :: MonadIO m => m (Arr 10 Float))
+  u <- makeVar =<< (newArr [0.1, 0.2..] :: MonadIO m => m (Arr 10 Float))
   i <- makeVarI 1
 
   f <- compile $ \v -> do
@@ -39,7 +41,6 @@ main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
     let pos = V4 x y z 1
     x' <- transfer x
     return (pos, V4 1 x' 1 1)
-
 
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e

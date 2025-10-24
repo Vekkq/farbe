@@ -19,6 +19,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Char
 import Data.List
+import Data.Maybe
 import Data.Ord (comparing)
 import Data.Function
 import Data.Foldable
@@ -51,6 +52,8 @@ import Control.Monad.RWS (RWST)
 
 import GHC.TypeNats
 import Data.Proxy
+
+import System.Mem.StableName
 
 -- ~ import Data.Typeable
 
@@ -121,7 +124,7 @@ data GLConfig = GLConfig
 	, glDebug :: Bool }
 
 glDefaultConfig :: GLConfig
-glDefaultConfig = GLConfig { glVBOSize = (2^24), glDebug = True }
+glDefaultConfig = GLConfig { glVBOSize = (2^24), glDebug = False }
 
 debug :: MonadGL m => m a -> m ()
 debug io = do
@@ -612,16 +615,21 @@ makeVar' = do
 		return vname
 	return $ Var (Val r) m
 
-putVar :: MonadGL m => Var a -> a -> m ()
+putVar :: MonadIO m => Var a -> a -> m ()
 putVar v a = liftIO . void $ fuzzySwapMVar (varMVar v) a
 
-readVar :: MonadGL m => Var a -> m (Maybe a)
+readVar :: MonadIO m => Var a -> m (Maybe a)
 readVar = liftIO . tryReadMVar . varMVar
 
-modifyVar :: MonadGL m => Var a -> (a -> a) -> m ()
+-- | @readVar'@ is unsafe for uninitialized variables.
+readVar' :: MonadIO m => Var a -> m a
+readVar' = fmap fromJust . readVar
+
+
+modifyVar :: MonadIO m => Var a -> (a -> a) -> m ()
 modifyVar v f = readVar v >>= maybe (return ()) (putVar v . f)
 
-modifyVar' :: MonadGL m => Var a -> (a -> m a) -> m ()
+modifyVar' :: MonadIO m => Var a -> (a -> m a) -> m ()
 modifyVar' v f = readVar v >>= maybe (return ()) (\x -> f x >>= putVar v)
 
 
@@ -645,13 +653,14 @@ newArr l = liftIO $ Arr 0 <$> newListArray (0, pred $ itoi (natVal (Proxy :: Pro
 emptyArr :: forall m s a . (KnownNat s, Storable a, MonadIO m) => m (Arr s a)
 emptyArr = liftIO $ Arr 0 <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)))
 
--- kinda cursed solution for tracking changes for Eq
 modifyArr :: MonadIO m => Arr s a -> (StorableArray Int a -> m b) -> m (Arr s a)
-modifyArr (Arr i sa) f = do
-	f sa
-	-- TODO add StableNamed hash as change marker
-	-- or add count as a change marker
-	return $ Arr (succ i) sa
+modifyArr a@(Arr _ sa) f = do
+	i <- hashStableName <$> liftIO (makeStableName $ f sa)
+	return $ Arr i sa
+
+readArr :: forall m s a . (KnownNat s, MonadIO m, MArray StorableArray a m)
+	=> Arr s a -> m [a]
+readArr (Arr _ sa) = foldrMArray' (:) [] sa
 
 instance Eq (Arr s a) where
 	(Arr i _) == (Arr i2 _) = i == i2
@@ -945,6 +954,10 @@ glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
 
 glBindVertexArray :: MonadIO m => GLuint -> m ()
 glBindVertexArray = liftIO . glBindVertexArrayOES
+
+
+
+-- Textures ------------------------------------------------------------------------------
 
 
 
