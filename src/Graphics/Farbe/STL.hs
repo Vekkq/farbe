@@ -7,6 +7,7 @@ import Data.Binary
 import Data.Binary.Get
 import Data.ByteString.Lazy (ByteString)
 import Data.Int
+import Graphics.Farbe
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Utils
 import Graphics.Farbe.Tuple
@@ -65,6 +66,10 @@ readSTL = catMaybes . map f . map words . lines
 	where
 	f (('v':_):x:y:z:_) = Just $ V3 (read x) (read y) (read z)
 	f _ = Nothing
+
+
+loadSTL :: MonadGL m => String -> m (VArray (V3 Float))
+loadSTL s = readFileSTL s >>= newVArray
 
 
 

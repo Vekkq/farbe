@@ -13,13 +13,6 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Graphics.GL
 
-import Data.Array.MArray
-import Data.Array.Storable
-
-
-
-loadSTL :: MonadGL m => String -> m (VArray (V3 Float))
-loadSTL s = readFileSTL s >>= newVArray
 
 
 main :: IO ()
