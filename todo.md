@@ -1,12 +1,13 @@
 
-* add array type
 * add textures
-* add other glsl functions
-* integrate Data.Bits
+* add render to texture
+* add other glsl functions (e.g. matrix ops)
 * add function to cover renders over other renders through masks
+* add flexible parameters to compile
 
 * write optimizer to turn multiused asts into shared variables
 * maybe break vectors back down to Expr e (V4 Float) and provide a means to access the floats
+* integrate Data.Bits
 
 * extending tuple instances
 * integrate Data.Boolean (boolean package)

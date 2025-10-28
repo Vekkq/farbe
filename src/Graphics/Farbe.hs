@@ -260,9 +260,9 @@ instance Monoid (AstM a) where
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
 
-class ShaderSign a
-instance ShaderSign V
-instance ShaderSign F
+class ShaderType a
+instance ShaderType V
+instance ShaderType F
 
 -- | Expression for shaders.
 -- | e states the environment, which is either vertex or fragment shader.
@@ -533,6 +533,40 @@ makeVar a = do
 	liftIO $ fuzzySwapMVar (varMVar v) a
 	return v
 
+
+makeVar' :: forall a m . (MonadGL m, GLtype a) => m (Var a)
+makeVar' = do
+	let a = (err :: a)
+	m <- liftIO $ newEmptyMVar
+	vname <- ((glShortName a)++) <$> generateName a
+	let r = do
+		addHeader "uniform" a vname
+		s <- getShader
+		postShaderProgram vname $ do
+			l <- withString vname $ glGetUniformLocation s
+			wc <- makeRunWhenChanged (glUpload l)
+			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
+		return vname
+	return $ Var (Val r) m
+
+putVar :: MonadIO m => Var a -> a -> m ()
+putVar v a = liftIO . void $ fuzzySwapMVar (varMVar v) a
+
+readVar :: MonadIO m => Var a -> m (Maybe a)
+readVar = liftIO . tryReadMVar . varMVar
+
+-- | @readVar'@ is unsafe for uninitialized variables.
+readVar' :: MonadIO m => Var a -> m a
+readVar' = fmap fromJust . readVar
+
+
+modifyVar :: MonadIO m => Var a -> (a -> a) -> m ()
+modifyVar v f = readVar v >>= maybe (return ()) (putVar v . f)
+
+modifyVar' :: MonadIO m => Var a -> (a -> m a) -> m ()
+modifyVar' v f = readVar v >>= maybe (return ()) (\x -> f x >>= putVar v)
+
+
 makeVarF :: MonadGL m => Float -> m (Var Float)
 makeVarI :: MonadGL m => Int32 -> m (Var Int32)
 makeVarB :: MonadGL m => Bool -> m (Var Bool)
@@ -595,42 +629,6 @@ instance Use (V4 (V4 Float)) e (V4 (V4 (Expr e Float))) where use = usePartsMat
 
 instance (KnownNat s, GLtype a) => Use (Arr s a) e (Expr e (Arr s a)) where
 	use = Expr . varAst
-
-
-default (Integer, Double, Int, Float)
-
-
-makeVar' :: forall a m . (MonadGL m, GLtype a) => m (Var a)
-makeVar' = do
-	let a = (err :: a)
-	m <- liftIO $ newEmptyMVar
-	vname <- ((glShortName a)++) <$> generateName a
-	let r = do
-		addHeader "uniform" a vname
-		s <- getShader
-		postShaderProgram vname $ do
-			l <- withString vname $ glGetUniformLocation s
-			wc <- makeRunWhenChanged (glUpload l)
-			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
-		return vname
-	return $ Var (Val r) m
-
-putVar :: MonadIO m => Var a -> a -> m ()
-putVar v a = liftIO . void $ fuzzySwapMVar (varMVar v) a
-
-readVar :: MonadIO m => Var a -> m (Maybe a)
-readVar = liftIO . tryReadMVar . varMVar
-
--- | @readVar'@ is unsafe for uninitialized variables.
-readVar' :: MonadIO m => Var a -> m a
-readVar' = fmap fromJust . readVar
-
-
-modifyVar :: MonadIO m => Var a -> (a -> a) -> m ()
-modifyVar v f = readVar v >>= maybe (return ()) (putVar v . f)
-
-modifyVar' :: MonadIO m => Var a -> (a -> m a) -> m ()
-modifyVar' v f = readVar v >>= maybe (return ()) (\x -> f x >>= putVar v)
 
 
 -- Array stub ----------------------------------------------------------------------------
