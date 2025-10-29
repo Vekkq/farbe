@@ -476,9 +476,9 @@ instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where
 
 
 
-
-instance (Storable a, GLtype a, KnownNat s) => AttrType (Arr s a) (Expr V (Arr s a)) where
-	setAttribute s a = setupAttribute1 s a
+-- "disallowed by spec"
+-- ~ instance (Storable a, GLtype a, KnownNat s) => AttrType (Arr s a) (Expr V (Arr s a)) where
+	-- ~ setAttribute s a = setupAttribute1 s a
 
 
 vecParts :: forall e v a . Vector v => Expr e (v a) -> v (Expr e a)
@@ -601,33 +601,33 @@ makeVarM4  = makeVar
 
 
 class Use a e r | a e -> r, r -> a e where
-	use :: Var a -> r
+	use :: a -> r
 
-instance Use Float e (Expr e Float) where use = Expr . varAst
-instance Use Int32 e (Expr e Int32) where use = Expr . varAst
-instance Use Bool e (Expr e Bool) where use = Expr . varAst
+instance Use (Var Float) e (Expr e Float) where use = Expr . varAst
+instance Use (Var Int32) e (Expr e Int32) where use = Expr . varAst
+instance Use (Var Bool) e (Expr e Bool) where use = Expr . varAst
 
 usePartsVec :: Vector v => Var (v a) -> v (Expr e a)
 usePartsVec = vecParts . Expr . varAst
 
-instance Use (V2 Float) e (V2 (Expr e Float)) where use = usePartsVec
-instance Use (V2 Int32) e (V2 (Expr e Int32)) where use = usePartsVec
-instance Use (V2 Bool) e (V2 (Expr e Bool)) where use = usePartsVec
-instance Use (V3 Float) e (V3 (Expr e Float)) where use = usePartsVec
-instance Use (V3 Int32) e (V3 (Expr e Int32)) where use = usePartsVec
-instance Use (V3 Bool) e (V3 (Expr e Bool)) where use = usePartsVec
-instance Use (V4 Float) e (V4 (Expr e Float)) where use = usePartsVec
-instance Use (V4 Int32) e (V4 (Expr e Int32)) where use = usePartsVec
-instance Use (V4 Bool) e (V4 (Expr e Bool)) where use = usePartsVec
+instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where use = usePartsVec
+instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where use = usePartsVec
+instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where use = usePartsVec
 
 usePartsMat :: Vector v => Var (v (v a)) -> v (v (Expr e a))
 usePartsMat v = vecParts <$> vecParts (Expr $ varAst v)
 
-instance Use (V2 (V2 Float)) e (V2 (V2 (Expr e Float))) where use = usePartsMat
-instance Use (V3 (V3 Float)) e (V3 (V3 (Expr e Float))) where use = usePartsMat
-instance Use (V4 (V4 Float)) e (V4 (V4 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where use = usePartsMat
 
-instance (KnownNat s, GLtype a) => Use (Arr s a) e (Expr e (Arr s a)) where
+instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
 	use = Expr . varAst
 
 

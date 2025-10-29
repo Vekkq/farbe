@@ -13,19 +13,28 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Graphics.GL
 
+import Graphics.GL.Embedded20
+import Graphics.Farbe.Utils
+import Codec.Picture
 
-data Texture
 
-makeVarT :: MonadGL m => Float -> m (Var Texture)
+
+data Texture f = Texture { texId :: GLenum, width :: Int, height :: Int }
+
+makeVarT :: MonadGL m => Texture f -> m (Var (Texture f))
 makeVarT = makeVar
 
-instance
+instance Use (Var (Texture f)) e (Expr e (Texture f)) where
+  use = undefined
 
+foo = do
+  Right img <- readImage "KorDrTtaa4.png"
+  withPtr_ $ glGenTextures 1
 
 
 main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
-
+  undefined
 
 
 -- ~ main :: IO ()
