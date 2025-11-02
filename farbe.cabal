@@ -21,6 +21,7 @@ library
                    , Graphics.Farbe.Window
                    , Graphics.Farbe.Utils
                    , Graphics.Farbe.STL
+                   , Graphics.Farbe.Texture
 
     build-depends: base ^>=4.21
                  , containers^>=0.7
@@ -28,8 +29,10 @@ library
                  , gl^>=0.9
                  , GLFW-b^>=3.3
                  , array^>=0.5
+                 , JuicyPixels^>=3.3
                  , bytestring^>=0.12
-                 , binary
+                 , binary^>=0.8.9
+                 , vector^>=0.13
 
     hs-source-dirs:   src
     default-language: GHC2021
@@ -49,8 +52,7 @@ test-suite farbe-test
     build-depends: base ^>=4.21
                  , farbe
                  , gl^>=0.9
-                 , binary
-                 , bytestring
-                 , JuicyPixels^>=3.3
+                 , bytestring^>=0.12
+                 , binary^>=0.8.9
 
 

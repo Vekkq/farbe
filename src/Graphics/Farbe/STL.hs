@@ -5,7 +5,6 @@ module Graphics.Farbe.STL where
 
 import Data.Binary
 import Data.Binary.Get
-import Data.ByteString.Lazy (ByteString)
 import Data.Int
 import Graphics.Farbe
 import Graphics.Farbe.Vec

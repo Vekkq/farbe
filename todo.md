@@ -1,5 +1,8 @@
 
 * add textures
+* convert uses of array to vector package
+* remove binary and bytestring for template haskell dependency
+* make juicypixels and Texture module optional
 * add render to texture
 * add other glsl functions (e.g. matrix ops)
 * add function to cover renders over other renders through masks

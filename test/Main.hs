@@ -7,34 +7,37 @@ import Graphics.Farbe
 import Graphics.Farbe.Window
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL
+import Graphics.Farbe.Texture
 import Data.Function
+import Data.Either
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
-import Graphics.GL
+-- ~ import Graphics.GL
 
 import Graphics.GL.Embedded20
 import Graphics.Farbe.Utils
-import Codec.Picture
 
 
-
-data Texture f = Texture { texId :: GLenum, width :: Int, height :: Int }
-
-makeVarT :: MonadGL m => Texture f -> m (Var (Texture f))
-makeVarT = makeVar
-
-instance Use (Var (Texture f)) e (Expr e (Texture f)) where
-  use = undefined
-
-foo = do
-  Right img <- readImage "KorDrTtaa4.png"
-  withPtr_ $ glGenTextures 1
 
 
 main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
-  undefined
+  i <- (fromRight undefined) <$> loadImage RGB "test-resources/ayataka512.jpg"
+  t <- makeVarT i
+
+  f <- compile $ \(V3 x y z) -> do
+    let pos = V4 x y z 1
+    V2 x' y' <- transfer (V2 x y)
+    return (pos, texture (use t) (V2 x' y'))
+
+  v <- frame
+
+  fix $ \loop -> processEvents $ \es -> do
+    -- ~ liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+    f [v]
+    display
+    loop
 
 
 -- ~ main :: IO ()

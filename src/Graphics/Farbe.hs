@@ -248,6 +248,7 @@ data Ast
 	= Val { val :: AstM String }
 -- propose: Val { val :: Int, type :: Enum, astM :: astM () }
 	| Fn { fnName :: String, fnAst :: [Ast] }
+	-- ~ | ValSet String
 
 type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
 
@@ -374,6 +375,7 @@ erem = liftE2 "rem"
 ediv = liftE2 "div"
 emod = liftE2 "mod"
 
+-- TODO add non-component-wise vector and matrix functions
 
 fragCoord :: V4 (Expr F Float)
 fragCoord = vecParts $ liftE0 "gl_FragCoord"
@@ -954,12 +956,6 @@ glBindVertexArray :: MonadIO m => GLuint -> m ()
 glBindVertexArray = liftIO . glBindVertexArrayOES
 
 
-
--- Textures ------------------------------------------------------------------------------
-
-
-
-
 -- GL type information -------------------------------------------------------------------
 
 class Eq a => GLtype a where
@@ -1107,3 +1103,90 @@ class GLtype a => GLBaseType a
 instance GLBaseType Int32
 instance GLBaseType Float
 instance GLBaseType Bool
+
+
+
+-- Textures ------------------------------------------------------------------------------
+
+
+data Texture f = Texture { texId :: GLuint, width :: GLsizei, height :: GLsizei } deriving Eq
+
+
+data TConfig = TConfig GLenum GLint | TConfigMipMap
+
+apTConfig :: MonadIO m => GLenum -> TConfig -> m ()
+apTConfig t (TConfig i i2) = glTexParameteri t i i2
+apTConfig t TConfigMipMap = glGenerateMipmap GL_TEXTURE_2D
+
+tconf =
+	[ TConfig GL_TEXTURE_WRAP_S GL_CLAMP_TO_EDGE
+	, TConfig GL_TEXTURE_WRAP_T GL_CLAMP_TO_EDGE
+	, TConfig GL_TEXTURE_MIN_FILTER GL_LINEAR
+	, TConfig GL_TEXTURE_MAG_FILTER GL_LINEAR
+	-- ~ , TConfigMipMap
+	-- ~ , TConfig GL_TEXTURE_MIN_FILTER GL_LINEAR_MIPMAP_LINEAR
+	-- ~ , TConfig GL_TEXTURE_MAG_FILTER GL_LINEAR_MIPMAP_LINEAR
+	]
+
+loadTexture :: (MonadIO m, TextureFormat t)
+	=> t -> (GLsizei, GLsizei) -> [TConfig] -> Ptr a -> m (Texture t)
+loadTexture t (w,h) cs p = do
+	tex <- liftIO $ withPtr_ $ glGenTextures 1
+	glBindTexture GL_TEXTURE_2D tex
+	glTexImage2D GL_TEXTURE_2D 0 (itoi $ glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
+	mapM_ (apTConfig GL_TEXTURE_2D) cs
+	return $ Texture tex w h
+
+loadTexture' :: forall a t m. (MonadIO m, TextureFormat t) =>
+	(GLsizei, GLsizei) -> [TConfig] -> Ptr a -> m (Texture t)
+loadTexture' = loadTexture (err :: t)
+
+data L = L
+data LA = LA
+data RGB = RGB
+data RGBA = RGBA
+
+class TextureFormat a where
+	glTex :: a -> GLenum
+
+instance TextureFormat L where
+	glTex _ = GL_LUMINANCE
+
+instance TextureFormat LA where
+	glTex _ = GL_LUMINANCE_ALPHA
+
+instance TextureFormat RGB where
+	glTex _ = GL_RGB
+
+instance TextureFormat RGBA where
+	glTex _ = GL_RGBA
+
+
+
+makeVarT :: MonadGL m => Texture t -> m (Var (Texture t))
+makeVarT = makeVar
+
+instance GLtype (Texture f) where
+	glCName _ = "sampler2D"
+	glType _ = GL_INT
+	glUpload i = glUniform1i i . itoi . texId
+
+instance Use (Var (Texture f)) e (Expr e (Texture f)) where
+  use = Expr . varAst
+
+-- add expr texture shader access functions
+
+texture :: Expr e (Texture f) -> V2 (Expr e Float) -> V4 (Expr e Float)
+texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)
+
+
+-- Extras --------------------------------------------------------------------------------
+
+
+frame :: MonadGL m => m (VArray (V3 Float))
+frame = newVArray $
+  [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
+  , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
+  ]
+
+
