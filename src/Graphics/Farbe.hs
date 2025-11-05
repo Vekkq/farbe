@@ -67,6 +67,7 @@ data GLState = GLState
 	{ glConfig :: GLConfig
 	, counter :: MVar Int
 	, vboMan :: MVar VBOMan
+	, texUnits :: MVar [(GLenum, GLuint)]
 	-- ~ , glWork :: MVar [(GLint, IO ())]
 	-- ~ , resource :: MVar (M.IntMap GLint) -- do i need that?
 	-- ~ , glLog :: MVar [String] -- make a new monad transformer for log
@@ -117,14 +118,22 @@ runGL :: MonadIO m => GLConfig -> GL m a -> m a
 runGL conf (GL m) = do
 	vbom <- liftIO $ initVBOMan (glVBOSize conf) >>= newMVar
 	counter <- liftIO $ newMVar 0
-	runReaderT m $ GLState conf counter vbom
+	tex <- liftIO $ newMVar =<< initTexUnits
+	runReaderT m $ GLState conf counter vbom tex
 
 data GLConfig = GLConfig
 	{ glVBOSize :: GLintptr
 	, glDebug :: Bool }
 
 glDefaultConfig :: GLConfig
-glDefaultConfig = GLConfig { glVBOSize = (2^24), glDebug = False }
+glDefaultConfig = GLConfig { glVBOSize = (2^24), glDebug = True }
+
+initTexUnits :: IO [(GLenum, GLuint)]
+initTexUnits = do
+	i <- withPtr_ $ glGetIntegerv GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS
+	return $ map ((, 0)) [1.. itoi $ pred $ i `quot` 3]
+
+
 
 debug :: MonadGL m => m a -> m ()
 debug io = do
@@ -496,6 +505,9 @@ exprMat v = Expr $ Fn (glCName (err :: v a)) $ map ast $ concatMap toList $ toLi
 expr :: Show a => a -> Expr e a
 expr x = Expr $ Val $ return $ show x
 
+exprAny :: String -> Expr e a
+exprAny = Expr . Val . return
+
 arrV :: Vector v => Expr e (v a) -> Expr e Int32 -> Expr e a
 arrV = liftE2 "[]"
 
@@ -546,10 +558,16 @@ makeVar' = do
 		s <- getShader
 		postShaderProgram vname $ do
 			l <- withString vname $ glGetUniformLocation s
-			wc <- makeRunWhenChanged (glUpload l)
-			when (l >= 0) $ preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
+			setupUpload l m
 		return vname
 	return $ Var (Val r) m
+
+setupUpload' :: (Eq a, MonadGL m, PreRender m) => (a -> GL IO ()) -> MVar a -> m ()
+setupUpload' f m = do
+	wc <- makeRunWhenChanged f
+	preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
+
+
 
 putVar :: MonadIO m => Var a -> a -> m ()
 putVar v a = liftIO . void $ fuzzySwapMVar (varMVar v) a
@@ -967,8 +985,8 @@ class Eq a => GLtype a where
 	glNormalized _ = GL_FALSE
 	glShortName :: a -> String
 	glShortName a = take 1 $ glCName a
-	glUpload :: MonadIO m => GLint -> a -> m ()
-	-- ~ glUploads :: MonadIO m => Arr s a -> m () -- TODO
+	setupUpload :: (MonadGL m, PreRender m) => GLint -> MVar a -> m ()
+	-- ~ setupUploads :: MonadIO m => Arr s a -> m () -- TODO
 	glPrecision :: a -> String
 	glPrecision _ = "highp"
 	glCNameWithPrec :: a -> String
@@ -977,74 +995,75 @@ class Eq a => GLtype a where
 instance GLtype Bool where
 	glCName _ = "bool"
 	glType _ = GL_BOOL
-	glUpload i b = glUniform1i i $ boolToInt b
+	setupUpload l = setupUpload' (glUniform1i l . boolToInt)
 
 instance GLtype Int32 where
 	glCName _ = "int"
 	glType _ = GL_INT
-	glUpload i = glUniform1i i . itoi
+	setupUpload l = setupUpload' (glUniform1i l . itoi)
 
 instance GLtype Float where
 	glCName _ = "float"
 	glType _ = GL_FLOAT
-	glUpload = glUniform1f
+	setupUpload l = setupUpload' (glUniform1f l)
 
 instance GLtype (V2 Float) where
 	glCName _ = "vec2"
 	glType _ = GL_FLOAT
 	glComponents _ = 2
-	glUpload i (V2 a b) = glUniform2f i a b
+	setupUpload l = setupUpload' (\(V2 a b) -> glUniform2f l a b)
 
 instance GLtype (V3 Float) where
 	glCName _ = "vec3"
 	glType _ = GL_FLOAT
 	glComponents _ = 3
-	glUpload i (V3 a b c) = glUniform3f i a b c
+	setupUpload l = setupUpload' (\(V3 a b c) -> glUniform3f l a b c)
 
 instance GLtype (V4 Float) where
 	glCName _ = "vec4"
 	glType _ = GL_FLOAT
 	glComponents _ = 4
-	glUpload i (V4 a b c d) = glUniform4f i a b c d
+	setupUpload l = setupUpload' (\(V4 a b c d) -> glUniform4f l a b c d)
 
 
 instance GLtype (V2 Int32) where
 	glCName _ = "ivec2"
 	glType _ = GL_INT
 	glComponents _ = 2
-	glUpload i (V2 a b) = glUniform2i i (itoi a) (itoi b)
+	setupUpload l = setupUpload' (\(V2 a b) -> glUniform2i l (itoi a) (itoi b))
 
 instance GLtype (V3 Int32) where
 	glCName _ = "ivec3"
 	glType _ = GL_INT
 	glComponents _ = 3
-	glUpload i (V3 a b c) = glUniform3i i (itoi a) (itoi b) (itoi c)
+	setupUpload l = setupUpload' (\(V3 a b c) -> glUniform3i l (itoi a) (itoi b) (itoi c))
 
 instance GLtype (V4 Int32) where
 	glCName _ = "ivec4"
 	glType _ = GL_INT
 	glComponents _ = 4
-	glUpload i (V4 a b c d) = glUniform4i i (itoi a) (itoi b) (itoi c) (itoi d)
-
+	setupUpload l = setupUpload'
+		(\(V4 a b c d) -> glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d))
 
 instance GLtype (V2 Bool) where
 	glCName _ = "bvec2"
 	glType _ = GL_BOOL
 	glComponents _ = 2
-	glUpload i (V2 a b) = glUniform2i i (boolToInt a) (boolToInt b)
+	setupUpload l = setupUpload' (\(V2 a b) -> glUniform2i l (boolToInt a) (boolToInt b))
 
 instance GLtype (V3 Bool) where
 	glCName _ = "bvec3"
 	glType _ = GL_BOOL
 	glComponents _ = 3
-	glUpload i (V3 a b c) = glUniform3i i (boolToInt a) (boolToInt b) (boolToInt c)
+	setupUpload l = setupUpload'
+		(\(V3 a b c) -> glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c))
 
 instance GLtype (V4 Bool) where
 	glCName _ = "bvec4"
 	glType _ = GL_BOOL
 	glComponents _ = 4
-	glUpload i (V4 a b c d) =
-		glUniform4i i (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+	setupUpload l = setupUpload' (\(V4 a b c d) ->
+		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d))
 
 boolToInt :: Bool -> Int32
 boolToInt True = 1
@@ -1055,19 +1074,21 @@ instance GLtype (Mat V2 V2 Float) where
 	glCName _ = "mat2"
 	glType _ = GL_FLOAT
 	glComponents _ = 4
-	glUpload i (V2 (V2 a b) (V2 c d)) = glUniform4f i a b c d
+	setupUpload l = setupUpload' (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
 
 instance GLtype (Mat V3 V3 Float) where
 	glCName _ = "mat3"
 	glType _ = GL_FLOAT
 	glComponents _ = 9
-	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv i 1 GL_FALSE p
+	setupUpload l = setupUpload'
+		(\m -> withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p)
 
 instance GLtype (Mat V4 V4 Float) where
 	glCName _ = "mat4"
 	glType _ = GL_FLOAT
 	glComponents _ = 16
-	glUpload i m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv i 1 GL_FALSE p
+	setupUpload l = setupUpload'
+		(\m -> withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p)
 
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
@@ -1089,14 +1110,16 @@ instance GLtype a => GLtype (Normalized a) where
 	glCName _ = glCName (err :: a)
 	glType _ = glType (err :: a)
 	glComponents _ = glComponents (err :: a)
-	glUpload i (Normalized e) = glUpload i e
-
+	-- ~ setupUpload l (Normalized e) = setupUpload l e
+	setupUpload = undefined
+	-- TODO
 
 instance (KnownNat s, GLtype e) => GLtype (Arr s e) where
 	glCName a = glCName (err :: e) ++ "[" ++ show (sizeArr a) ++ "]"
 	glType _ = glType (err :: e)
 	glComponents a = glComponents (err :: e) * sizeArr a
-	glUpload i a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv i (glComponents a) $ castPtr p
+	setupUpload l = setupUpload'
+		(\a -> liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv l (glComponents a) $ castPtr p)
 
 
 class GLtype a => GLBaseType a
@@ -1109,7 +1132,17 @@ instance GLBaseType Bool
 -- Textures ------------------------------------------------------------------------------
 
 
-data Texture f = Texture { texId :: GLuint, width :: GLsizei, height :: GLsizei } deriving Eq
+data Texture f = Texture
+	{ texId :: GLuint
+	, texLastUnit :: GLenum
+	, changeTokenT :: Int
+	, width :: GLsizei
+	, height :: GLsizei
+	} deriving Eq
+
+
+instance Show (Texture f) where
+	show = show . texId
 
 
 data TConfig = TConfig GLenum GLint | TConfigMipMap
@@ -1118,28 +1151,41 @@ apTConfig :: MonadIO m => GLenum -> TConfig -> m ()
 apTConfig t (TConfig i i2) = glTexParameteri t i i2
 apTConfig t TConfigMipMap = glGenerateMipmap GL_TEXTURE_2D
 
-tconf =
-	[ TConfig GL_TEXTURE_WRAP_S GL_CLAMP_TO_EDGE
-	, TConfig GL_TEXTURE_WRAP_T GL_CLAMP_TO_EDGE
+applyTexConfig :: MonadIO m => Texture f -> [TConfig] -> m ()
+applyTexConfig (Texture i _ _ _ _) cs = do
+	liftIO $ glBindTexture GL_TEXTURE_2D i
+	mapM_ (apTConfig GL_TEXTURE_2D) cs
+
+
+tconfAny =
+	[ TConfig GL_TEXTURE_WRAP_S GL_REPEAT
+	, TConfig GL_TEXTURE_WRAP_T GL_REPEAT
+	-- fails without min/mag filter
 	, TConfig GL_TEXTURE_MIN_FILTER GL_LINEAR
 	, TConfig GL_TEXTURE_MAG_FILTER GL_LINEAR
-	-- ~ , TConfigMipMap
-	-- ~ , TConfig GL_TEXTURE_MIN_FILTER GL_LINEAR_MIPMAP_LINEAR
-	-- ~ , TConfig GL_TEXTURE_MAG_FILTER GL_LINEAR_MIPMAP_LINEAR
 	]
 
-loadTexture :: (MonadIO m, TextureFormat t)
-	=> t -> (GLsizei, GLsizei) -> [TConfig] -> Ptr a -> m (Texture t)
-loadTexture t (w,h) cs p = do
-	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	glBindTexture GL_TEXTURE_2D tex
-	glTexImage2D GL_TEXTURE_2D 0 (itoi $ glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
-	mapM_ (apTConfig GL_TEXTURE_2D) cs
-	return $ Texture tex w h
+tconfMip =
+	[ TConfigMipMap
+	-- fails with min/mag filter options, but which are set by default
+	]
 
-loadTexture' :: forall a t m. (MonadIO m, TextureFormat t) =>
-	(GLsizei, GLsizei) -> [TConfig] -> Ptr a -> m (Texture t)
-loadTexture' = loadTexture (err :: t)
+-- @loadTexture2Base@ requires an image with same width and height, and a base of 2 .
+loadTexture2Base :: (MonadIO m, TextureFormat t)
+	=> t -> GLsizei -> [TConfig] -> Ptr a -> m (Texture t)
+loadTexture2Base t wh cs p = do
+	tex <- liftIO $ withPtr_ $ glGenTextures 1
+	glActiveTexture $ GL_TEXTURE0
+	glBindTexture GL_TEXTURE_2D tex
+	glTexImage2D GL_TEXTURE_2D 0 (glTex t) wh wh 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
+	glGenerateMipmap GL_TEXTURE_2D
+	return $ Texture tex 0 0 wh wh
+
+
+
+-- ~ loadTexture' :: forall a t m. (MonadIO m, TextureFormat t) =>
+	-- ~ (GLsizei, GLsizei) -> [TConfig] -> Ptr a -> m (Texture t)
+-- ~ loadTexture' = loadTexture2Base (err :: t)
 
 data L = L
 data LA = LA
@@ -1147,7 +1193,7 @@ data RGB = RGB
 data RGBA = RGBA
 
 class TextureFormat a where
-	glTex :: a -> GLenum
+	glTex :: (Eq n, Num n) => a -> n
 
 instance TextureFormat L where
 	glTex _ = GL_LUMINANCE
@@ -1162,14 +1208,29 @@ instance TextureFormat RGBA where
 	glTex _ = GL_RGBA
 
 
-
 makeVarT :: MonadGL m => Texture t -> m (Var (Texture t))
 makeVarT = makeVar
 
 instance GLtype (Texture f) where
 	glCName _ = "sampler2D"
 	glType _ = GL_INT
-	glUpload i = glUniform1i i . itoi . texId
+	glPrecision _ = ""
+	setupUpload l m = preRender $ do
+		(Texture i u c w h) <- liftIO $ takeMVar m -- borked TODO
+		mts <- texUnits <$> glState
+		ts <- liftIO $ readMVar mts
+		if Just i == lookup u ts
+		then return ()
+		else do
+			let u' = fst . last $ ts
+			glActiveTexture $ GL_TEXTURE0 + u'
+			glBindTexture GL_TEXTURE_2D i
+			glUniform1i l $ itoi u'
+			liftIO $ putMVar m $ Texture i u' c w h
+			liftIO $ modifyMVar_ mts $ (return . ((u',i):) . init)
+
+
+
 
 instance Use (Var (Texture f)) e (Expr e (Texture f)) where
   use = Expr . varAst
@@ -1179,6 +1240,12 @@ instance Use (Var (Texture f)) e (Expr e (Texture f)) where
 texture :: Expr e (Texture f) -> V2 (Expr e Float) -> V4 (Expr e Float)
 texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)
 
+-- ~ texUnits :: MVar (M.Map GLenum GLuint)
+	--
+-- ~ modifyArr :: MonadIO m => Arr s a -> (StorableArray Int a -> m b) -> m (Arr s a)
+-- ~ modifyArr a@(Arr _ sa) f = do
+	-- ~ i <- hashStableName <$> liftIO (makeStableName $ f sa)
+	-- ~ return $ Arr i sa
 
 -- Extras --------------------------------------------------------------------------------
 

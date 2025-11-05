@@ -23,22 +23,28 @@ import Graphics.Farbe.Utils
 
 main :: IO ()
 main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
-  i <- (fromRight undefined) <$> loadImage RGB "test-resources/ayataka512.jpg"
+  i <- fromRight undefined <$> loadImage RGB "test-resources/KorDrTtaa42.png"
   t <- makeVarT i
+
+  i2 <- fromRight undefined <$> loadImage RGB "test-resources/ayataka512.jpg"
+  t2 <- makeVarT i2
+
 
   f <- compile $ \(V3 x y z) -> do
     let pos = V4 x y z 1
     V2 x' y' <- transfer (V2 x y)
-    return (pos, texture (use t) (V2 x' y'))
-
+    let (V4 a b c d) = texture (use t) (V2 x' y')
+    return (pos, V4 a x' y' 0)
+  -- ~ liftIO $ print =<< texId <$> readVar' t
   v <- frame
 
   fix $ \loop -> processEvents $ \es -> do
-    -- ~ liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+    liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+    -- ~ putVar t i
+    -- ~ putVar t2 i2
     f [v]
     display
     loop
-
 
 -- ~ main :: IO ()
 -- ~ main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do

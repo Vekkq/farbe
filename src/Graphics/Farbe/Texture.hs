@@ -26,7 +26,7 @@ loadImage t s = do
   ei <- liftIO $ readImage s
   right ei $ \i -> do
     let (Image w h v) = toRGB i
-    liftIO $ unsafeWith v $ \p -> loadTexture t (itoi w, itoi h) tconf p
+    liftIO $ unsafeWith v $ \p -> loadTexture2Base t (itoi w) tconfMip p
 
 
 right :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
