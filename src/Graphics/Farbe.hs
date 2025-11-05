@@ -23,8 +23,10 @@ import Data.Maybe
 import Data.Ord (comparing)
 import Data.Function
 import Data.Foldable
+import Data.Array.IO
 import Data.Array.Storable
 import Data.Array.Base
+import Data.Array.MArray as MA
 import Numeric
 import Foreign hiding (void)
 import Foreign.C
@@ -67,7 +69,7 @@ data GLState = GLState
 	{ glConfig :: GLConfig
 	, counter :: MVar Int
 	, vboMan :: MVar VBOMan
-	, texUnits :: MVar [(GLenum, GLuint)]
+	, texUnits :: MVar (Word32, IOUArray Word32 GLuint) -- (last used, array)
 	-- ~ , glWork :: MVar [(GLint, IO ())]
 	-- ~ , resource :: MVar (M.IntMap GLint) -- do i need that?
 	-- ~ , glLog :: MVar [String] -- make a new monad transformer for log
@@ -114,6 +116,8 @@ count = do
 		c <- counter <$> glState
 		liftIO $ modifyMVar c (\i -> return (succ i, i))
 
+
+
 runGL :: MonadIO m => GLConfig -> GL m a -> m a
 runGL conf (GL m) = do
 	vbom <- liftIO $ initVBOMan (glVBOSize conf) >>= newMVar
@@ -128,10 +132,11 @@ data GLConfig = GLConfig
 glDefaultConfig :: GLConfig
 glDefaultConfig = GLConfig { glVBOSize = (2^24), glDebug = True }
 
-initTexUnits :: IO [(GLenum, GLuint)]
+initTexUnits :: IO (Word32, IOUArray Word32 GLuint)
 initTexUnits = do
 	i <- withPtr_ $ glGetIntegerv GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS
-	return $ map ((, 0)) [1.. itoi $ pred $ i `quot` 3]
+	ar <- MA.newArray (1, itoi $ i `quot` 3) 0
+	return $ (1, ar)
 
 
 
@@ -541,17 +546,10 @@ setupAttribute1 s a = do
 
 data Var a = Var { varAst :: Ast, varMVar :: MVar a }
 
-makeVar :: (MonadGL m, GLtype a) => a -> m (Var a)
+
+makeVar :: forall a m . (MonadGL m, GLtype a) => a -> m (Var a)
 makeVar a = do
-	v <- makeVar'
-	liftIO $ fuzzySwapMVar (varMVar v) a
-	return v
-
-
-makeVar' :: forall a m . (MonadGL m, GLtype a) => m (Var a)
-makeVar' = do
-	let a = (err :: a)
-	m <- liftIO $ newEmptyMVar
+	m <- liftIO $ newMVar a
 	vname <- ((glShortName a)++) <$> generateName a
 	let r = do
 		addHeader "uniform" a vname
@@ -565,26 +563,15 @@ makeVar' = do
 setupUpload' :: (Eq a, MonadGL m, PreRender m) => (a -> GL IO ()) -> MVar a -> m ()
 setupUpload' f m = do
 	wc <- makeRunWhenChanged f
-	preRender $ liftIO (tryReadMVar m) >>= maybe (pure ()) (runwc wc)
+	preRender $ (liftIO $ readMVar m) >>= runwc wc
 
 
+swapVar :: MonadIO m => Var a -> a -> m a
+swapVar v = liftIO . swapMVar (varMVar v)
 
-putVar :: MonadIO m => Var a -> a -> m ()
-putVar v a = liftIO . void $ fuzzySwapMVar (varMVar v) a
+readVar :: MonadIO m => Var a -> m a
+readVar = liftIO . readMVar . varMVar
 
-readVar :: MonadIO m => Var a -> m (Maybe a)
-readVar = liftIO . tryReadMVar . varMVar
-
--- | @readVar'@ is unsafe for uninitialized variables.
-readVar' :: MonadIO m => Var a -> m a
-readVar' = fmap fromJust . readVar
-
-
-modifyVar :: MonadIO m => Var a -> (a -> a) -> m ()
-modifyVar v f = readVar v >>= maybe (return ()) (putVar v . f)
-
-modifyVar' :: MonadIO m => Var a -> (a -> m a) -> m ()
-modifyVar' v f = readVar v >>= maybe (return ()) (\x -> f x >>= putVar v)
 
 
 makeVarF :: MonadGL m => Float -> m (Var Float)
@@ -1145,35 +1132,10 @@ instance Show (Texture f) where
 	show = show . texId
 
 
-data TConfig = TConfig GLenum GLint | TConfigMipMap
-
-apTConfig :: MonadIO m => GLenum -> TConfig -> m ()
-apTConfig t (TConfig i i2) = glTexParameteri t i i2
-apTConfig t TConfigMipMap = glGenerateMipmap GL_TEXTURE_2D
-
-applyTexConfig :: MonadIO m => Texture f -> [TConfig] -> m ()
-applyTexConfig (Texture i _ _ _ _) cs = do
-	liftIO $ glBindTexture GL_TEXTURE_2D i
-	mapM_ (apTConfig GL_TEXTURE_2D) cs
-
-
-tconfAny =
-	[ TConfig GL_TEXTURE_WRAP_S GL_REPEAT
-	, TConfig GL_TEXTURE_WRAP_T GL_REPEAT
-	-- fails without min/mag filter
-	, TConfig GL_TEXTURE_MIN_FILTER GL_LINEAR
-	, TConfig GL_TEXTURE_MAG_FILTER GL_LINEAR
-	]
-
-tconfMip =
-	[ TConfigMipMap
-	-- fails with min/mag filter options, but which are set by default
-	]
-
 -- @loadTexture2Base@ requires an image with same width and height, and a base of 2 .
 loadTexture2Base :: (MonadIO m, TextureFormat t)
-	=> t -> GLsizei -> [TConfig] -> Ptr a -> m (Texture t)
-loadTexture2Base t wh cs p = do
+	=> t -> GLsizei -> Ptr a -> m (Texture t)
+loadTexture2Base t wh p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
 	glActiveTexture $ GL_TEXTURE0
 	glBindTexture GL_TEXTURE_2D tex
@@ -1216,20 +1178,24 @@ instance GLtype (Texture f) where
 	glType _ = GL_INT
 	glPrecision _ = ""
 	setupUpload l m = preRender $ do
-		(Texture i u c w h) <- liftIO $ takeMVar m -- borked TODO
+		(Texture i u c w h) <- liftIO $ readMVar m -- borked TODO
 		mts <- texUnits <$> glState
-		ts <- liftIO $ readMVar mts
-		if Just i == lookup u ts
-		then return ()
-		else do
-			let u' = fst . last $ ts
+		(u', ts) <- liftIO $ readMVar mts
+		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		when (i /= i') $ do
 			glActiveTexture $ GL_TEXTURE0 + u'
 			glBindTexture GL_TEXTURE_2D i
 			glUniform1i l $ itoi u'
-			liftIO $ putMVar m $ Texture i u' c w h
-			liftIO $ modifyMVar_ mts $ (return . ((u',i):) . init)
+			liftIO $ swapMVar m $ Texture i u' c w h
+			u'' <- succU ts u'
+			liftIO $ writeArray ts u'' i
+			liftIO $ void $ swapMVar mts (u'',ts)
 
 
+succU ts x = do
+	let x' = succ x
+	(l,h) <- liftIO $ getBounds ts
+	return $ if x' >= h then l else x'
 
 
 instance Use (Var (Texture f)) e (Expr e (Texture f)) where
