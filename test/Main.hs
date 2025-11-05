@@ -38,6 +38,8 @@ main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   -- ~ liftIO $ print =<< texId <$> readVar' t
   v <- frame
 
+  -- ~ liftIO $ withPtr_ (glGetIntegerv GL_MAX_TEXTURE_SIZE) >>= print
+
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
     -- ~ putVar t i
