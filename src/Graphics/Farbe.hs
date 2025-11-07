@@ -1132,16 +1132,16 @@ instance Show (Texture f) where
 	show = show . texId
 
 
--- @loadTexture2Base@ requires an image with same width and height, and a base of 2 .
+-- @loadTexture2Base@ requires an image with width and height at base of 2 .
 loadTexture2Base :: (MonadIO m, TextureFormat t)
-	=> t -> GLsizei -> Ptr a -> m (Texture t)
-loadTexture2Base t wh p = do
+	=> t -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
+loadTexture2Base t (w,h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
 	glActiveTexture $ GL_TEXTURE0
 	glBindTexture GL_TEXTURE_2D tex
-	glTexImage2D GL_TEXTURE_2D 0 (glTex t) wh wh 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
+	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
 	glGenerateMipmap GL_TEXTURE_2D
-	return $ Texture tex 0 0 wh wh
+	return $ Texture tex 0 0 w h
 
 
 
@@ -1222,4 +1222,4 @@ frame = newVArray $
   , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
   ]
 
-
+-- ~ glTexSubImage2D -- the atlas-building function

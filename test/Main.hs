@@ -22,8 +22,8 @@ import Graphics.Farbe.Utils
 
 
 main :: IO ()
-main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
-  i <- fromRight undefined <$> loadImage RGB "test-resources/KorDrTtaa42.png"
+main = runWindowT "" (InWindow (1000,1024)) $ runGL glDefaultConfig $ do
+  i <- fromRight undefined <$> loadImage RGB "test-resources/iwi.jpg"
   t <- makeVarT i
 
   i2 <- fromRight undefined <$> loadImage RGB "test-resources/ayataka512.jpg"
@@ -33,8 +33,7 @@ main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do
   f <- compile $ \(V3 x y z) -> do
     let pos = V4 x y z 1
     V2 x' y' <- transfer (V2 x y)
-    let (V4 a b c d) = texture (use t) (V2 x' y')
-    return (pos, V4 a x' y' 0)
+    return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
   -- ~ liftIO $ print =<< texId <$> readVar' t
   v <- frame
 
