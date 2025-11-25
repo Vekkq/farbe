@@ -25,6 +25,7 @@ library
                    , Graphics.Farbe.VertexArray
                    , Graphics.Farbe.Shader
                    , Graphics.Farbe.GL
+                   , Graphics.Farbe.Counter
 
     build-depends: base ^>=4.21
                  , containers^>=0.7

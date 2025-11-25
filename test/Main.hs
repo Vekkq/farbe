@@ -19,7 +19,9 @@ import Graphics.GL.Embedded20
 import Graphics.Farbe.Utils
 
 
+main = undefined
 
+{-
 
 main :: IO ()
 main = runWindowT "" (InWindow (1000,1024)) $ runGL glDefaultConfig $ do
@@ -46,6 +48,9 @@ main = runWindowT "" (InWindow (1000,1024)) $ runGL glDefaultConfig $ do
     f [v]
     display
     loop
+
+-}
+
 
 -- ~ main :: IO ()
 -- ~ main = runWindowT "" (InWindow (600,400)) $ runGL glDefaultConfig $ do

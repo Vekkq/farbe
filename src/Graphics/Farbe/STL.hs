@@ -67,8 +67,8 @@ readSTL = catMaybes . map f . map words . lines
 	f _ = Nothing
 
 
-loadSTL :: MonadGL m => String -> m (VArray (V3 Float))
-loadSTL s = readFileSTL s >>= newVArray
+-- ~ loadSTL :: MonadGL m => String -> m (VArray (V3 Float))
+-- ~ loadSTL s = readFileSTL s >>= newVArray
 
 
 

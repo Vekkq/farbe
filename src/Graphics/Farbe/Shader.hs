@@ -16,6 +16,7 @@ import Graphics.Farbe.GL
 -- ~ import Graphics.Farbe.Utils
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
+import Graphics.Farbe.Counter
 
 
 import qualified Data.Map as M
@@ -72,31 +73,6 @@ compose = undefined
 
 -- Tasks ---------------------------------------------------------------------------------
 
-newtype CounterT m a = CounterT { counter :: StateT Int m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative, MonadTrans
-		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadFix, MonadPlus
-		)
-
-instance MonadState s m => MonadState s (CounterT m) where
-	get = lift get
-	put = lift . put
-
-
-instance Monad m => Semigroup (CounterT m a) where
-	(<>) = (>>)
-
-instance Monad m => Monoid (CounterT m ()) where
-	mempty = return $ error ""
-
-class Monad m => Count m where
-	count :: m Int
-
-instance Monad m => Count (CounterT m) where
-	count = CounterT $ state $ \s -> (s, succ s)
-
-
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
@@ -104,21 +80,6 @@ instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }           
 instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
 instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
-
-SIMPLEFUNCTION_CLASSINSTANCES(count,Count,)
-
-runCounterT :: Monad m => Int -> CounterT m a -> m a
-runCounterT i (CounterT st) = evalStateT st i
-
-joinCounter :: (Count m, Monad m) => CounterT m a -> m a
-joinCounter c = do
-	i <- count
-	runCounterT i c
-
-
-generateName :: Count m => String -> m String
-generateName s = count >>= return . (s++) . ("_"++) . show
-
 
 
 newtype PreRenderT m a = PreRenderT { unprp :: WriterT (IO ()) m a }
@@ -146,29 +107,29 @@ liftGL = undefined
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 
-newtype PostShaderProgramT m a = PostShaderProgramT { unpsp :: WriterT [(String, PreRenderT IO ())] m a }
+newtype PostShaderProgramT m a = PostShaderProgramT { unpsp :: WriterT [(String, PreRenderT (CounterT (HandTexT IO)) ())] m a }
 	deriving
 		( Functor, Applicative, Monad, MonadTrans, Alternative
 		, MonadIO, Count, PreRender, HandTex
 		)
 
 class Monad m => PostShaderProgram m where
-	postShaderProgramList :: [(String, PreRenderT IO ())] -> m ()
+	postShaderProgramList :: [(String, PreRenderT (CounterT (HandTexT IO)) ())] -> m ()
 
 instance Monad m => PostShaderProgram (PostShaderProgramT m) where
 	postShaderProgramList = PostShaderProgramT . tell
 
 SIMPLEFUNCTION_CLASSINSTANCES(postShaderProgramList,PostShaderProgram,.)
 
-postShaderProgram :: PostShaderProgram m => String -> PreRenderM ((CounterT (HandTexT IO))) () -> m ()
+postShaderProgram :: PostShaderProgram m => String -> PreRenderT (CounterT (HandTexT IO)) () -> m ()
 postShaderProgram s a = postShaderProgramList [(s,a)]
 
-runPostShaderProgram :: (MonadIO m, Count m) => PostShaderProgramT m a -> m (a, m ())
+runPostShaderProgram :: (MonadIO m, PreRender m) => PostShaderProgramT m a -> m (a, m ())
 runPostShaderProgram p = do
 	(a,w) <- runWriterT $ unpsp p
 	let b = sequence $ map snd $ nubBy ((==) `on` fst) w
 	preRender =<< (liftGL $ snd <$> collectPreRender b)
-	return a
+	undefined -- return a
 
 
 -- Shader building monad -----------------------------------------------------------------
@@ -210,7 +171,7 @@ SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)
 
 addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m ()
 addHeader i a n = buildShaderState $ \s -> ((),) $
-		s { header = S.insert (unwords [i, glCNameWithPrec a, n, ";"]) $ header s }
+		s { header = S.insert (unwords [i, slNameWithPrec a, n, ";"]) $ header s }
 
 -- ~ addCExpr :: BuildShader m => String -> String -> m ()
 -- ~ addCExpr n sa = buildShaderState $ \s -> ((),) $
