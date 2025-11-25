@@ -1,22 +1,107 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 
 module Graphics.Farbe.Texture where
 
 
-import Codec.Picture
-import Codec.Picture.Types
 
+
+import qualified Data.Map as M
+import qualified Data.Set as S
+import Data.Char
+import Data.List
+import Data.Maybe
+import Data.Ord (comparing)
+import Data.Function
+import Data.Foldable
+import Data.Array.IO
+import Data.Array.Storable
+import Data.Array.Base
+import Data.Array.MArray as MA
+import Numeric
+import Foreign hiding (void)
+import Foreign.C
+
+import Control.Applicative
+import Control.Monad
+import Control.Monad.Reader
+import Control.Monad.State
+import Control.Monad.Writer
+import Control.Monad.Except
+import Control.Monad.Fix
+import Control.Monad.Cont
+import Control.Monad.RWS
 import Data.List
 import Graphics.Farbe.Vec
 import Graphics.GL
 import Graphics.GL.Embedded20
-import Graphics.Farbe.Utils
+-- ~ import Graphics.Farbe.Utils
+-- ~ import Graphics.Farbe.GL
+import Graphics.Farbe.Window
 import Data.Vector.Storable (unsafeWith)
 import Control.Monad.IO.Class
 
-import Foreign.Ptr
 
+
+
+newtype HandTexT m a = HandTexT { unTex :: StateT TexState m a }
+	deriving
+		( Functor, Applicative, Monad, Alternative, MonadTrans
+		, MonadReader r, MonadWriter w, MonadError e, MonadIO
+		, MonadFix, MonadPlus, MonadWindow --, PostShaderProgram, PreRender
+		)
+
+instance MonadState s m => MonadState s (HandTexT m) where
+	get = lift get
+	put = lift . put
+
+data TexState = TexState
+	{ lastUsed :: Word32
+	, texArr :: (IOUArray Word32 GLuint)
+	}
+
+initTexState :: MonadIO m => m TexState
+initTexState = liftIO $ do
+	i <- withPtr_ $ glGetIntegerv GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS
+	ar <- MA.newArray (1, itoi $ i `quot` 3) 0
+	return $ TexState 1 ar
+
+runHandTex :: MonadIO m => HandTexT m a -> m a
+runHandTex (HandTexT m) = do
+	t <- initTexState
+	evalStateT m t
+
+joinHandTex :: (MonadIO m, HandTex m) => HandTexT m a -> m a
+joinHandTex (HandTexT m) = do
+	t <- getTex
+	(a,s) <- runStateT m t
+	setTex s
+	return a
+
+
+class HandTex m where
+	stateTex :: (TexState -> (a, TexState)) -> m a
+
+	getTex :: m TexState
+	getTex = stateTex (\s -> (s, s))
+	setTex :: TexState -> m ()
+	setTex s = stateTex (\_ -> ((), s))
+
+
+instance Monad m => HandTex (HandTexT m) where
+	stateTex = HandTexT . state
+
+#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
+instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+
+SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
 
 
 data Texture f = Texture
@@ -27,25 +112,9 @@ data Texture f = Texture
 	, height :: GLsizei
 	} deriving Eq
 
--- ~ data L = L
--- ~ data LA = LA
--- ~ data RGB = RGB
--- ~ data RGBA = RGBA
+instance Show (Texture f) where
+	show = show . texId
 
--- ~ class TextureFormat a where
-	-- ~ glTex :: (Eq n, Num n) => a -> n
-
--- ~ instance TextureFormat L where
-	-- ~ glTex _ = GL_LUMINANCE
-
--- ~ instance TextureFormat LA where
-	-- ~ glTex _ = GL_LUMINANCE_ALPHA
-
--- ~ instance TextureFormat RGB where
-	-- ~ glTex _ = GL_RGB
-
--- ~ instance TextureFormat RGBA where
-	-- ~ glTex _ = GL_RGBA
 
 data TextureFormat = L | LA | RGB | RGBA
 
@@ -54,160 +123,60 @@ glTex LA = GL_LUMINANCE_ALPHA
 glTex RGB = GL_RGB
 glTex RGBA = GL_RGBA
 
+
 -- @loadTexture2Base@ requires an image with width and height at base of 2 .
 loadTexture2Base :: MonadIO m
-  => TextureFormat -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
+	=> TextureFormat -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
 loadTexture2Base t (w,h) p = do
-  tex <- liftIO $ withPtr_ $ glGenTextures 1
-  glActiveTexture $ GL_TEXTURE0
-  glBindTexture GL_TEXTURE_2D tex
-  glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
-  glGenerateMipmap GL_TEXTURE_2D
-  return $ Texture tex 0 0 w h
+	tex <- liftIO $ withPtr_ $ glGenTextures 1
+	glActiveTexture $ GL_TEXTURE0
+	glBindTexture GL_TEXTURE_2D tex
+	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
+	glGenerateMipmap GL_TEXTURE_2D
+	return $ Texture tex 0 0 w h
 
 
-loadImage :: MonadIO m => TextureFormat -> String -> m (Either String (Texture t))
-loadImage t s = do
-  ei <- liftIO $ readImage s
-  right ei $ \i -> do
-    let (Image w h v) = toRGB i
-    liftIO $ unsafeWith v $ \p -> loadTexture2Base t (itoi w, itoi h) p
+withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)
+withPtr f = liftIO $ alloca $ \p -> do
+		x <- f p
+		y <- peek p
+		return (y, x)
+
+withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
+withPtr_ f = fst <$> withPtr f
+
+-- ~ makeVarT :: MonadGL m => Texture t -> m (Var (Texture t))
+-- ~ makeVarT = makeVar
+
+-- ~ instance GLtype (Texture f) where
+	-- ~ glCName _ = "sampler2D"
+	-- ~ glType _ = GL_INT
+	-- ~ glPrecision _ = ""
+	-- ~ setupUpload l m = preRender $ do
+		-- ~ (Texture i u c w h) <- liftIO $ readMVar m -- borked TODO
+		-- ~ mts <- texUnits <$> glState
+		-- ~ (u', ts) <- liftIO $ readMVar mts
+		-- ~ i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		-- ~ when (i /= i') $ do
+			-- ~ glActiveTexture $ GL_TEXTURE0 + u'
+			-- ~ glBindTexture GL_TEXTURE_2D i
+			-- ~ glUniform1i l $ itoi u'
+			-- ~ liftIO $ swapMVar m $ Texture i u' c w h
+			-- ~ u'' <- succU ts u'
+			-- ~ liftIO $ writeArray ts u'' i
+			-- ~ liftIO $ void $ swapMVar mts (u'',ts)
+	-- ~ glShortName _ = "t"
+
+-- ~ succU ts x = do
+	-- ~ let x' = succ x
+	-- ~ (l,h) <- liftIO $ getBounds ts
+	-- ~ return $ if x' >= h then l else x'
 
 
-right :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
-right (Right b) f = Right <$> f b
-right (Left a) _ = pure (Left a)
+-- ~ instance Use (Var (Texture f)) e (Expr e (Texture f)) where
+  -- ~ use = Expr . varAst
 
+-- add expr texture shader access functions
 
-toRGB :: DynamicImage -> Image PixelRGB8
-toRGB (ImageY8 i) = promoteImage i
-toRGB (ImageY16 i) = promoteImage $ trimImage i
-toRGB (ImageY32 i) = promoteImage $ trimImage i
-toRGB (ImageYF i) = promoteImage $ intImage i
-toRGB (ImageYA8 i) = promoteImage i
-toRGB (ImageYA16 i) = promoteImage $ trimImage i
-toRGB (ImageRGB8 i) = i
-toRGB (ImageRGB16 i) = trimImage i
-toRGB (ImageRGBF i) = intImage i
-toRGB (ImageRGBA8 i) = collapseImage i
-toRGB (ImageRGBA16 i) = collapseImage $ trimImage i
-toRGB (ImageYCbCr8 i) = convertImage i
-toRGB (ImageCMYK8 i) = convertImage i
-toRGB (ImageCMYK16 i) = convertImage $ trimImage i
-
-
-toRGBA :: DynamicImage -> Image PixelRGBA8
-toRGBA (ImageY8 i) = promoteImage i
-toRGBA (ImageY16 i) = promoteImage $ trimImage i
-toRGBA (ImageY32 i) = promoteImage $ trimImage i
-toRGBA (ImageYF i) = promoteImage $ intImage i
-toRGBA (ImageYA8 i) = promoteImage i
-toRGBA (ImageYA16 i) = promoteImage $ trimImage i
-toRGBA (ImageRGB8 i) = promoteImage i
-toRGBA (ImageRGB16 i) = promoteImage $ trimImage i
-toRGBA (ImageRGBF i) = promoteImage $ intImage i
-toRGBA (ImageRGBA8 i) = i
-toRGBA (ImageRGBA16 i) = trimImage i
-toRGBA (ImageYCbCr8 i) = promoteImageRGBA $ convertImage i
-toRGBA (ImageCMYK8 i) = promoteImageRGBA $ convertImage i
-toRGBA (ImageCMYK16 i) = promoteImageRGBA $ convertImage $ trimImage i
-
-promoteImageRGBA :: Image PixelRGB8 -> Image PixelRGBA8
-promoteImageRGBA = promoteImage
-
-
-toY :: DynamicImage -> Image Pixel8
-toY (ImageY8 i) = i
-toY (ImageY16 i) = trimImage i
-toY (ImageY32 i) = trimImage i
-toY (ImageYF i) = intImage i
-toY (ImageYA8 i) = collapseImage i
-toY (ImageYA16 i) = collapseImage $ trimImage i
-toY (ImageRGB8 i) = collapseImage i
-toY (ImageRGB16 i) = collapseImage $ trimImage i
-toY (ImageRGBF i) = collapseImage $ intImage i
-toY (ImageRGBA8 i) = collapseImage i
-toY (ImageRGBA16 i) = collapseImage $ trimImage i
-toY (ImageYCbCr8 i) =
-  collapseImage $ (convertImage :: Image PixelYCbCr8 -> Image PixelRGB8) i
-toY (ImageCMYK8 i) =
-  collapseImage $ (convertImage :: Image PixelCMYK8 -> Image PixelRGB8) i
-toY (ImageCMYK16 i) =
-  collapseImage $ (convertImage :: Image PixelCMYK8 -> Image PixelRGB8) $ trimImage i
-
-
-class (Pixel a, Pixel r) => TrimPixel a r | a -> r where
-  trimPixel :: a -> r
-
-instance TrimPixel Pixel16 Pixel8 where trimPixel = itoi . (`quot` 2^8)
-instance TrimPixel Pixel32 Pixel8 where trimPixel = itoi . (`quot` 2^16)
--- ~ instance TrimPixel Pixel32 Pixel16 where trimPixel = itoi . (`quot` 2^8)
-
-instance TrimPixel PixelYA16 PixelYA8 where
-  trimPixel (PixelYA16 a b) = PixelYA8 (trimPixel a) (trimPixel b)
-
-instance TrimPixel PixelRGB16 PixelRGB8 where
-  trimPixel (PixelRGB16 a b c) = PixelRGB8 (trimPixel a) (trimPixel b) (trimPixel c)
-
-instance TrimPixel PixelRGBA16 PixelRGBA8 where
-  trimPixel (PixelRGBA16 a b c d) =
-    PixelRGBA8 (trimPixel a) (trimPixel b) (trimPixel c) (trimPixel d)
-
-instance TrimPixel PixelCMYK16 PixelCMYK8 where
-  trimPixel (PixelCMYK16 a b c d) =
-    PixelCMYK8 (trimPixel a) (trimPixel b) (trimPixel c) (trimPixel d)
-
-trimImage :: TrimPixel a b => Image a -> Image b
-trimImage = pixelMap trimPixel
-
-
-averageInt xs = itoi $ sum (map itoi xs) `quot` length xs
-
-class (Pixel a, Pixel r) => CollapsePixel a r where
-  collapsePixel :: a -> r
-
-instance CollapsePixel PixelYA8 Pixel8 where
-  collapsePixel (PixelYA8 y a) = itoi $ averageInt [y,a]
-
-instance CollapsePixel PixelRGB8 Pixel8 where
-  collapsePixel (PixelRGB8 r g b) = itoi $ averageInt [r,g,b]
-
-instance CollapsePixel PixelRGBA8 PixelRGB8 where
-  collapsePixel (PixelRGBA8 r g b _) = PixelRGB8 r g b
-
-instance CollapsePixel PixelRGBA8 Pixel8 where
-  collapsePixel = (collapsePixel :: (PixelRGB8 -> Pixel8)) . collapsePixel
-
-collapseImage :: CollapsePixel a b => Image a -> Image b
-collapseImage = pixelMap collapsePixel
-
-
-class (Pixel a, Pixel r) => IntPixel a r | a -> r, r -> a where
-  intPixel :: a -> r
-
-instance IntPixel PixelF Pixel8 where
-  intPixel = round . (*256)
-
-instance IntPixel PixelRGBF PixelRGB8 where
-  intPixel (PixelRGBF r g b) = PixelRGB8 (intPixel r) (intPixel g) (intPixel b)
-
-intImage :: IntPixel a b => Image a -> Image b
-intImage = pixelMap intPixel
-
--- ~ toRGBA :: DynamicImage -> Image PixelRGBA8
--- ~ toRGBA (ImageY8 i) = promoteImage i
--- ~ toRGBA (ImageY16 i) = promoteImage $ trimImage i
--- ~ toRGBA (ImageY32 i) = promoteImage $ trimImage i
--- ~ toRGBA (ImageYF i) = undefined
--- ~ toRGBA (ImageYA8 i) = promoteImage i
--- ~ toRGBA (ImageYA16 i) = promoteImage $ trimImage i
--- ~ toRGBA (ImageRGB8 i) = i
--- ~ toRGBA (ImageRGB16 i) = trimImage i
--- ~ toRGBA (ImageRGBF i) = undefined
--- ~ toRGBA (ImageRGBA8 i) = collapseImage i
--- ~ toRGBA (ImageRGBA16 i) = collapseImage $ trimImage i
--- ~ toRGBA (ImageYCbCr8 i) = convertImage i
--- ~ toRGBA (ImageCMYK8 i) = convertImage i
--- ~ toRGBA (ImageCMYK16 i) = convertImage $ trimImage i
-
-
+-- ~ texture :: Expr e (Texture f) -> V2 (Expr e Float) -> V4 (Expr e Float)
+-- ~ texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)

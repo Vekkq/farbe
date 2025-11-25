@@ -67,8 +67,9 @@ data ExprS = ExprS { fnName :: ShaderEnv String, rtype :: TypeS, fnAst :: [ExprS
 
 data Expr e a = Expr ExprS
 
-compose :: ExprS -> BuildShaderT String
+compose :: ExprS -> ShaderEnv String
 compose = undefined
+
 -- Tasks ---------------------------------------------------------------------------------
 
 newtype CounterT m a = CounterT { counter :: StateT Int m a }
@@ -134,9 +135,13 @@ instance Monad m => PreRender (PreRenderT m) where
 
 SIMPLEFUNCTION_CLASSINSTANCES(preRender,PreRender,.)
 
-collectPreRender :: MonadIO m => PreRenderT m a -> m (a, m ())
-collectPreRender (PreRenderT m) = runWriterT m
 
+collectPreRender :: MonadIO m => PreRenderT m a -> m (a, m ())
+collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
+
+fmap2 f = fmap (fmap f)
+
+liftGL = undefined
 
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
@@ -155,15 +160,15 @@ instance Monad m => PostShaderProgram (PostShaderProgramT m) where
 
 SIMPLEFUNCTION_CLASSINSTANCES(postShaderProgramList,PostShaderProgram,.)
 
-postShaderProgram :: PostShaderProgram m => String -> m () -> m ()
+postShaderProgram :: PostShaderProgram m => String -> PreRenderM ((CounterT (HandTexT IO))) () -> m ()
 postShaderProgram s a = postShaderProgramList [(s,a)]
 
 runPostShaderProgram :: (MonadIO m, Count m) => PostShaderProgramT m a -> m (a, m ())
 runPostShaderProgram p = do
 	(a,w) <- runWriterT $ unpsp p
-	let b = sequence_ $ map snd $ nubBy ((==) `on` fst) w
-	-- ~ preRender =<< (liftGL $ snd <$> collectPreRender b)
-	return (a,b)
+	let b = sequence $ map snd $ nubBy ((==) `on` fst) w
+	preRender =<< (liftGL $ snd <$> collectPreRender b)
+	return a
 
 
 -- Shader building monad -----------------------------------------------------------------
@@ -215,20 +220,20 @@ getShader :: BuildShader m => m Shader
 getShader = buildShaderState $ \s -> (shaderId s, s)
 
 
-class Eq a => GLtype a where
-	glCName :: a -> String
-	glType :: a -> GLenum
-	glComponents :: a -> GLint
-	glComponents _ = 1
-	glNormalized :: a -> GLboolean
-	glNormalized _ = GL_FALSE
-	glShortName :: a -> String
-	glShortName a = take 1 $ glCName a
-	setupUpload :: (PreRender m, HandTex m, MonadIO m) => GLint -> MVar a -> m ()
-	glPrecision :: a -> String
-	glPrecision _ = "highp"
-	glCNameWithPrec :: a -> String
-	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
+-- ~ class Eq a => GLtype a where
+	-- ~ glCName :: a -> String
+	-- ~ glType :: a -> GLenum
+	-- ~ glComponents :: a -> GLint
+	-- ~ glComponents _ = 1
+	-- ~ glNormalized :: a -> GLboolean
+	-- ~ glNormalized _ = GL_FALSE
+	-- ~ glShortName :: a -> String
+	-- ~ glShortName a = take 1 $ glCName a
+	-- ~ setupUpload :: (PreRender m, HandTex m, MonadIO m) => GLint -> MVar a -> m ()
+	-- ~ glPrecision :: a -> String
+	-- ~ glPrecision _ = "highp"
+	-- ~ glCNameWithPrec :: a -> String
+	-- ~ glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
 
 
 {-
