@@ -7,16 +7,15 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
-module Graphics.Farbe where
+module Graphics.Farbe.Shader where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
+import Graphics.Farbe.GL
 -- ~ import Graphics.Farbe.Window
 -- ~ import Graphics.Farbe.Utils
-import VertexArrayCopy
-import TextureCopy
--- ~ import Graphics.Farbe.Texture
-
+import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Texture
 
 
 import qualified Data.Map as M
@@ -67,9 +66,6 @@ type ShaderEnv = BuildShaderT (PostShaderProgramT (PreRenderT (CounterT (HandTex
 data ExprS = ExprS { fnName :: ShaderEnv String, rtype :: TypeS, fnAst :: [ExprS] }
 
 data Expr e a = Expr ExprS
-
-data TypeS = TDouble | TInt | TBool | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS
-
 
 compose :: ExprS -> BuildShaderT String
 compose = undefined

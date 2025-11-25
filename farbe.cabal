@@ -22,6 +22,9 @@ library
                    , Graphics.Farbe.Utils
                    , Graphics.Farbe.STL
                    , Graphics.Farbe.Texture
+                   , Graphics.Farbe.VertexArray
+                   , Graphics.Farbe.Shader
+                   , Graphics.Farbe.GL
 
     build-depends: base ^>=4.21
                  , containers^>=0.7

@@ -12,6 +12,14 @@ module Graphics.Farbe where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.Window
+import Graphics.Farbe.Shader
+-- ~ import Graphics.Farbe.Utils
+
+{-
+
+import Graphics.Farbe.Vec
+import Graphics.Farbe.Tuple
+import Graphics.Farbe.Window
 import Graphics.Farbe.Utils
 
 
@@ -60,8 +68,6 @@ import System.Mem.StableName
 -- ~ import Data.Typeable
 
 -- ~ import Debug.Trace
-
-
 
 -- GL Monad ------------------------------------------------------------------------------
 
@@ -1132,22 +1138,22 @@ instance Show (Texture f) where
 	show = show . texId
 
 
--- @loadTexture2Base@ requires an image with width and height at base of 2 .
-loadTexture2Base :: (MonadIO m, TextureFormat t)
-	=> t -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
-loadTexture2Base t (w,h) p = do
-	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	glActiveTexture $ GL_TEXTURE0
-	glBindTexture GL_TEXTURE_2D tex
-	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
-	glGenerateMipmap GL_TEXTURE_2D
-	return $ Texture tex 0 0 w h
+	-- @loadTexture2Base@ requires an image with width and height at base of 2 .
+	loadTexture2Base :: (MonadIO m, TextureFormat t)
+		=> t -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
+	loadTexture2Base t (w,h) p = do
+		tex <- liftIO $ withPtr_ $ glGenTextures 1
+		glActiveTexture $ GL_TEXTURE0
+		glBindTexture GL_TEXTURE_2D tex
+		glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
+		glGenerateMipmap GL_TEXTURE_2D
+		return $ Texture tex 0 0 w h
 
 
 
--- ~ loadTexture' :: forall a t m. (MonadIO m, TextureFormat t) =>
-	-- ~ (GLsizei, GLsizei) -> [TConfig] -> Ptr a -> m (Texture t)
--- ~ loadTexture' = loadTexture2Base (err :: t)
+	-- ~ loadTexture' :: forall a t m. (MonadIO m, TextureFormat t) =>
+		-- ~ (GLsizei, GLsizei) -> [TConfig] -> Ptr a -> m (Texture t)
+	-- ~ loadTexture' = loadTexture2Base (err :: t)
 
 data L = L
 data LA = LA
@@ -1223,3 +1229,5 @@ frame = newVArray $
   ]
 
 -- ~ glTexSubImage2D -- the atlas-building function
+
+-}

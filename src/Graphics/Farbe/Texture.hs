@@ -1,4 +1,4 @@
-
+{-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 module Graphics.Farbe.Texture where
@@ -11,17 +11,62 @@ import Data.List
 import Graphics.Farbe.Vec
 import Graphics.GL
 import Graphics.GL.Embedded20
-import Graphics.Farbe
 import Graphics.Farbe.Utils
 import Data.Vector.Storable (unsafeWith)
 import Control.Monad.IO.Class
 
+import Foreign.Ptr
 
 
 
+data Texture f = Texture
+	{ texId :: GLuint
+	, texLastUnit :: GLenum
+	, changeTokenT :: Int
+	, width :: GLsizei
+	, height :: GLsizei
+	} deriving Eq
+
+-- ~ data L = L
+-- ~ data LA = LA
+-- ~ data RGB = RGB
+-- ~ data RGBA = RGBA
+
+-- ~ class TextureFormat a where
+	-- ~ glTex :: (Eq n, Num n) => a -> n
+
+-- ~ instance TextureFormat L where
+	-- ~ glTex _ = GL_LUMINANCE
+
+-- ~ instance TextureFormat LA where
+	-- ~ glTex _ = GL_LUMINANCE_ALPHA
+
+-- ~ instance TextureFormat RGB where
+	-- ~ glTex _ = GL_RGB
+
+-- ~ instance TextureFormat RGBA where
+	-- ~ glTex _ = GL_RGBA
+
+data TextureFormat = L | LA | RGB | RGBA
+
+glTex L = GL_LUMINANCE
+glTex LA = GL_LUMINANCE_ALPHA
+glTex RGB = GL_RGB
+glTex RGBA = GL_RGBA
+
+-- @loadTexture2Base@ requires an image with width and height at base of 2 .
+loadTexture2Base :: MonadIO m
+  => TextureFormat -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
+loadTexture2Base t (w,h) p = do
+  tex <- liftIO $ withPtr_ $ glGenTextures 1
+  glActiveTexture $ GL_TEXTURE0
+  glBindTexture GL_TEXTURE_2D tex
+  glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
+  glGenerateMipmap GL_TEXTURE_2D
+  return $ Texture tex 0 0 w h
 
 
-loadImage :: (MonadIO m, TextureFormat t) => t -> String -> m (Either String (Texture t))
+loadImage :: MonadIO m => TextureFormat -> String -> m (Either String (Texture t))
 loadImage t s = do
   ei <- liftIO $ readImage s
   right ei $ \i -> do
