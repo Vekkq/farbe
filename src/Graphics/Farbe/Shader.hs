@@ -60,9 +60,19 @@ import Data.Proxy
 import System.Mem.StableName
 
 
-data ShaderEnv = ShaderEnv { unShaderEnv :: CounterT (WriterT (WriterT (HandTexT IO))) }
+-- ~ type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
+
+type ShaderEnv = BuildShaderT (PostShaderProgramT (PreRenderT (CounterT (HandTexT IO))))
+
+data ExprS = ExprS { fnName :: ShaderEnv String, rtype :: TypeS, fnAst :: [ExprS] }
+
+data Expr e a = Expr ExprS
+
+data TypeS = TDouble | TInt | TBool | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS
 
 
+compose :: ExprS -> BuildShaderT String
+compose = undefined
 -- Tasks ---------------------------------------------------------------------------------
 
 newtype CounterT m a = CounterT { counter :: StateT Int m a }
@@ -112,7 +122,7 @@ joinCounter c = do
 generateName :: Count m => String -> m String
 generateName s = count >>= return . (s++) . ("_"++) . show
 
-{-
+
 
 newtype PreRenderT m a = PreRenderT { unprp :: WriterT (IO ()) m a }
 	deriving
@@ -162,10 +172,12 @@ runPostShaderProgram p = do
 
 -- Shader building monad -----------------------------------------------------------------
 
+type Shader = GLuint
+
 data BuildShaderState = BuildShaderState
 	{ shaderId :: Shader
 	, header :: S.Set String
-	, cExpr :: [AstM ()]
+	, cExpr :: [ExprS]
 	}
 
 emptyShaderState :: Shader -> BuildShaderState
@@ -206,6 +218,24 @@ addHeader i a n = buildShaderState $ \s -> ((),) $
 getShader :: BuildShader m => m Shader
 getShader = buildShaderState $ \s -> (shaderId s, s)
 
+
+class Eq a => GLtype a where
+	glCName :: a -> String
+	glType :: a -> GLenum
+	glComponents :: a -> GLint
+	glComponents _ = 1
+	glNormalized :: a -> GLboolean
+	glNormalized _ = GL_FALSE
+	glShortName :: a -> String
+	glShortName a = take 1 $ glCName a
+	setupUpload :: (PreRender m, HandTex m, MonadIO m) => GLint -> MVar a -> m ()
+	glPrecision :: a -> String
+	glPrecision _ = "highp"
+	glCNameWithPrec :: a -> String
+	glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
+
+
+{-
 
 
 -- Expr ----------------------------------------------------------------------------------
@@ -474,5 +504,71 @@ setupAttribute1 s a = do
 
 name :: (Count m, GLtype a) => String -> a -> m String
 name s a = generateName $ s ++ glShortName a
+
+
+
+data Ast
+	= Val { val :: AstM String }
+-- propose: Val { val :: Int, type :: Enum, astM :: astM () }
+	| Fn { fnName :: String, fnAst :: [Ast] }
+	-- ~ | ValSet String
+
+type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
+
+instance Semigroup (AstM a) where
+	(<>) = (>>)
+
+instance Monoid (AstM a) where
+	mempty = return $ error ""
+
+data V -- | Vertex shader signifier.
+data F -- | Fragment/pixel shader signifier.
+
+class ShaderType a
+instance ShaderType V
+instance ShaderType F
+
+-- | Expression for shaders.
+-- | e states the environment, which is either vertex or fragment shader.
+data Expr e a = Expr { ast :: Ast } deriving (Functor)
+
+liftBuildShaderExt
+	:: (MonadGL m, BuildShader m, PreRender m, PostShaderProgram m)
+	=> BuildShaderM (PostShaderProgramM (PreRenderM (GL IO))) a
+	-> m a
+liftBuildShaderExt g = do
+	b <- buildShaderStateGet
+	(((a, b'), post), pre) <-
+		liftGL $ runWriterT $ unprp $ runWriterT $ unpsp $ runStateT (unBuildShaderM g) b
+	buildShaderStatePut b'
+	preRender pre
+	postShaderProgramList post
+	return a
+
+compose1 :: BuildShader m => Ast -> m String
+compose1 ast = case ast of
+	Val s -> liftBuildShaderExt s
+	Fn "[]" (p1:p2:[]) -> liftM2 (\a b -> a ++ "[" ++ b ++ "]")
+		(compose1 p1) (compose1 p2)
+	Fn s (p1:p2:[]) | isOp s -> liftM2 (\a b -> par $ a ++ s ++ b)
+		(compose1 p1) (compose1 p2)
+	Fn "if" (p1:p2:p3:[]) -> liftM3 (\a b c -> par $ a ++ "?" ++ b ++ ":" ++ c)
+		(compose1 p1) (compose1 p2) (compose1 p3)
+	Fn s as -> (s++) . par . intercalate ", " <$> mapM compose1 as
+	where
+		isOp :: String -> Bool
+		isOp (x:_) = not $ isAlpha x
+		isOp [] = False
+
+par :: String -> String
+par s = "(" ++ s ++ ")"
+
+
+compose :: BuildShader m => String -> Expr e r -> m ()
+compose s e = (compose1 $ ast e) >>= addCExpr s
+
+
+
+
 
 -}
