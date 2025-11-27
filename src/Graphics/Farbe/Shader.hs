@@ -62,16 +62,46 @@ import System.Mem.StableName
 
 -- ~ type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
 
-type ShaderEnv = BuildShaderT (PostShaderProgramT (PreRenderT (CounterT (HandTexT IO))))
+-- ~ type ShaderEnv = BuildShaderT (PostShaderProgramT (PreRenderT (CounterT (HandTexT IO))))
 
-data ExprS = ExprS { fnName :: ShaderEnv String, rtype :: TypeS, fnAst :: [ExprS] }
 
-data Expr e a = Expr ExprS
+-- ~ data ShaderEnv m a = ShaderEnv { unShdr :: CounterT (WriterT (WriterT (HandTexT m) m) m a) }
 
-compose :: ExprS -> ShaderEnv String
+data ExprEnv m = ExprEnv { fnName :: m String, rtype :: TypeS, fnAst :: [ExprEnv m] }
+
+data ExprS = ExprS String TypeS [ExprS]
+
+data Expr m e a = Expr (ExprEnv m)
+
+compose :: ExprS -> String
 compose = undefined
 
--- Tasks ---------------------------------------------------------------------------------
+
+newtype DeferT m a = DeferT { unDefer :: WriterT [m ()] m a }
+	deriving
+		( Functor, Applicative, Monad, Alternative
+		, MonadIO, Count, HandTex
+		)
+
+
+instance MonadTrans DeferT where
+	lift = DeferT . lift
+
+
+runDeferT :: Monad m => DeferT m a -> m (m a)
+runDeferT m = do
+	(a,w) <- runWriterT $ unDefer m
+	return $ sequence w >> return a
+
+runDeferT' :: Monad m => DeferT m a -> m a
+runDeferT' = join . runDeferT
+
+class Monad m => Defer n m where
+	defer :: n () -> m ()
+
+instance Monad m => Defer m (DeferT m) where
+	defer = DeferT . tell . (:[])
+
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
@@ -81,55 +111,15 @@ instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }            
 instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
 
-
-newtype PreRenderT m a = PreRenderT { unprp :: WriterT (IO ()) m a }
-	deriving
-		( Functor, Applicative, Monad, MonadTrans
-		, MonadIO, Count, PostShaderProgram, HandTex
-		)
-
-class Monad m => PreRender m where
-	preRender :: IO () -> m ()
-
-instance Monad m => PreRender (PreRenderT m) where
-	preRender = PreRenderT . tell
-
-SIMPLEFUNCTION_CLASSINSTANCES(preRender,PreRender,.)
+SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
 
 
-collectPreRender :: MonadIO m => PreRenderT m a -> m (a, m ())
-collectPreRender p = fmap2 liftGL $ runWriterT $ unprp p
 
-fmap2 f = fmap (fmap f)
+data ShaderEnv m a = ShaderEnv { unShaderEnv :: CounterT (DeferT (DeferT m)) a }
 
-liftGL = undefined
+runShaderEnv :: (HandTex m, Monad m) => ShaderEnv m a -> m (m a)
+runShaderEnv = runDeferT . runDeferT' . runCounterT 1 . unShaderEnv
 
-(.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
-(.:) = (.).(.)
-
-newtype PostShaderProgramT m a = PostShaderProgramT { unpsp :: WriterT [(String, PreRenderT (CounterT (HandTexT IO)) ())] m a }
-	deriving
-		( Functor, Applicative, Monad, MonadTrans, Alternative
-		, MonadIO, Count, PreRender, HandTex
-		)
-
-class Monad m => PostShaderProgram m where
-	postShaderProgramList :: [(String, PreRenderT (CounterT (HandTexT IO)) ())] -> m ()
-
-instance Monad m => PostShaderProgram (PostShaderProgramT m) where
-	postShaderProgramList = PostShaderProgramT . tell
-
-SIMPLEFUNCTION_CLASSINSTANCES(postShaderProgramList,PostShaderProgram,.)
-
-postShaderProgram :: PostShaderProgram m => String -> PreRenderT (CounterT (HandTexT IO)) () -> m ()
-postShaderProgram s a = postShaderProgramList [(s,a)]
-
-runPostShaderProgram :: (MonadIO m, PreRender m) => PostShaderProgramT m a -> m (a, m ())
-runPostShaderProgram p = do
-	(a,w) <- runWriterT $ unpsp p
-	let b = sequence $ map snd $ nubBy ((==) `on` fst) w
-	preRender =<< (liftGL $ snd <$> collectPreRender b)
-	undefined -- return a
 
 
 -- Shader building monad -----------------------------------------------------------------
@@ -139,7 +129,7 @@ type Shader = GLuint
 data BuildShaderState = BuildShaderState
 	{ shaderId :: Shader
 	, header :: S.Set String
-	, cExpr :: [ExprS]
+	, expr :: [(String, ExprS)]
 	}
 
 emptyShaderState :: Shader -> BuildShaderState
@@ -149,14 +139,14 @@ newtype BuildShaderT m r = BuildShaderT { unBuildShaderT :: StateT BuildShaderSt
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, MonadTrans
-		, Count, PostShaderProgram, PreRender, HandTex
+		, Count, HandTex
 		)
 
 runBuildShader :: Shader -> BuildShaderT m a -> m (a, BuildShaderState)
 runBuildShader i b = runStateT (unBuildShaderT b) $ emptyShaderState i
 
 
-class (Count m, MonadIO m, PostShaderProgram m, PreRender m) => BuildShader m where
+class BuildShader m where
 	buildShaderState :: (BuildShaderState -> (a, BuildShaderState)) -> m a
 
 	buildShaderStateGet :: m BuildShaderState
@@ -164,7 +154,7 @@ class (Count m, MonadIO m, PostShaderProgram m, PreRender m) => BuildShader m wh
 	buildShaderStatePut :: BuildShaderState -> m ()
 	buildShaderStatePut a = buildShaderState $ \_ -> ((),a)
 
-instance (Count m, MonadIO m, PostShaderProgram m, PreRender m) => BuildShader (BuildShaderT m) where
+instance Monad m => BuildShader (BuildShaderT m) where
 	buildShaderState = BuildShaderT . state
 
 SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)
@@ -180,25 +170,15 @@ addHeader i a n = buildShaderState $ \s -> ((),) $
 getShader :: BuildShader m => m Shader
 getShader = buildShaderState $ \s -> (shaderId s, s)
 
+data V -- | Vertex shader signifier.
+data F -- | Fragment/pixel shader signifier.
 
--- ~ class Eq a => GLtype a where
-	-- ~ glCName :: a -> String
-	-- ~ glType :: a -> GLenum
-	-- ~ glComponents :: a -> GLint
-	-- ~ glComponents _ = 1
-	-- ~ glNormalized :: a -> GLboolean
-	-- ~ glNormalized _ = GL_FALSE
-	-- ~ glShortName :: a -> String
-	-- ~ glShortName a = take 1 $ glCName a
-	-- ~ setupUpload :: (PreRender m, HandTex m, MonadIO m) => GLint -> MVar a -> m ()
-	-- ~ glPrecision :: a -> String
-	-- ~ glPrecision _ = "highp"
-	-- ~ glCNameWithPrec :: a -> String
-	-- ~ glCNameWithPrec a = glPrecision a ++ " " ++ glCName a
+class ShaderType a
+instance ShaderType V
+instance ShaderType F
 
 
 {-
-
 
 -- Expr ----------------------------------------------------------------------------------
 

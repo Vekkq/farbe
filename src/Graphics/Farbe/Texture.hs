@@ -53,6 +53,13 @@ newtype HandTexT m a = HandTexT { unTex :: StateT TexState m a }
 		, MonadFix, MonadPlus, MonadWindow --, PostShaderProgram, PreRender
 		)
 
+instance Monad m => Semigroup (HandTexT m a) where
+	(<>) = (>>)
+
+instance Monad m => Monoid (HandTexT m a) where
+	mempty = return $ error ""
+
+
 instance MonadState s m => MonadState s (HandTexT m) where
 	get = lift get
 	put = lift . put
