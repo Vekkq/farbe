@@ -59,60 +59,6 @@ runwc (RunWhenChanged f ml) a = do
 			fuzzySwapMVar ml a
 			f a
 
--- Pager - calculations for Buffer allocation --------------------------------------------
-
-data Pager n = Pager
-	{ imap :: M.Map n n -- | position - length
-	, lastCheck :: n
-	} deriving (Read, Show, Eq, Ord)
-
-
-newPager :: Integral n
-	=> n -- | total size
-	-> Pager n
-newPager s = Pager (M.fromList [((-1), 1), (s,negate s)]) 0
-
-calcAlloc :: Integral n
-	=> n -- | alignment
-	-> Pager n
-	-> n -- | size to be allocated
-	-> Maybe (Pager n, n)
-calcAlloc a mm@(Pager imap c) size
-	| size > 0 = (\i -> (Pager (M.insert i size imap) (i+size), i)) <$> nextSpace a mm start size
-	| otherwise = Nothing
-	where
-		start = fromMaybe (error "Pager: corrupted") $ uncurry (+) <$> M.lookupLE c imap
-
-align :: (Integral a) => a -> a -> a
-align a p
-	| a <= 0 = p
-	| mod p a == 0 = p
-	| otherwise = p + a - mod p a
-
-nextSpace :: Integral n => n -> Pager n -> n -> n -> Maybe n
-nextSpace a (Pager imap c) start size =
-	case (M.lookupLE c imap, M.lookupGE c imap) of
-		(Just (p,l), Just (p2,l2))
-			| aln <- (align a $ p+l), aln + size <= p2 -> Just aln
-			| p+l == start -> Nothing
-			| otherwise -> nextSpace a (Pager imap (p2+l2)) start size
-		_ -> error "Pager: out of bounds"
-
-calcLength :: Integral n => n -> Pager n -> n
-calcLength k mm = fromMaybe 0 $ M.lookup k $ imap mm
-
-calcRemove :: Integral n => n -> Pager n -> Pager n
-calcRemove k (Pager imap c) = Pager imap' c
-	where
-		imap' = if k /= min' && k /= max' then M.delete k imap else imap
-		min' = fst $ fromJust $ M.lookupMin imap
-		max' = fst $ fromJust $ M.lookupMax imap
-
-pagerSize :: Integral n => Pager n -> n
-pagerSize = fst . fromJust . M.lookupMax . imap
-
-------------------------------------------------------------------------------------------
-
 
 updateMVar :: MonadIO m => MVar a -> a -> m ()
 updateMVar m a = liftIO $ void $ fuzzySwapMVar m a

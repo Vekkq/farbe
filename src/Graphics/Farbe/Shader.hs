@@ -13,10 +13,10 @@ import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
 -- ~ import Graphics.Farbe.Window
--- ~ import Graphics.Farbe.Utils
+import Graphics.Farbe.Utils
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
-import Graphics.Farbe.Counter
+-- ~ import Graphics.Farbe.Counter
 
 
 import qualified Data.Map as M
@@ -60,43 +60,43 @@ import Data.Proxy
 import System.Mem.StableName
 
 
--- ~ type AstM = BuildShaderM (PostShaderProgramM (PreRenderM (GL IO)))
 
--- ~ type ShaderEnv = BuildShaderT (PostShaderProgramT (PreRenderT (CounterT (HandTexT IO))))
-
-
--- ~ data ShaderEnv m a = ShaderEnv { unShdr :: CounterT (WriterT (WriterT (HandTexT m) m) m a) }
+data Expr m e a = Expr { unExpr :: ExprEnv m }
 
 data ExprEnv m = ExprEnv { fnName :: m String, rtype :: TypeS, fnAst :: [ExprEnv m] }
+-- ´m´ holding BuildShaderT (ShaderEnv m)
 
 data ExprS = ExprS String TypeS [ExprS]
 
-data Expr m e a = Expr (ExprEnv m)
-
-compose :: ExprS -> String
-compose = undefined
-
+runExprEnv :: Monad m => ExprEnv m -> m ExprS
+runExprEnv (ExprEnv m r ps) = do
+	s <- m
+	ps' <- mapM runExprEnv ps
+	return $ ExprS s r ps'
 
 newtype DeferT m a = DeferT { unDefer :: WriterT [m ()] m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative
-		, MonadIO, Count, HandTex
+		, MonadPlus, Attrib
+		, MonadIO, Count, HandTex, BuildShader
 		)
-
 
 instance MonadTrans DeferT where
 	lift = DeferT . lift
 
 
-runDeferT :: Monad m => DeferT m a -> m (m a)
+runDeferT :: Monad m => DeferT m a -> m (a, m ())
 runDeferT m = do
 	(a,w) <- runWriterT $ unDefer m
-	return $ sequence w >> return a
+	return $ (a, sequence_ w)
 
 runDeferT' :: Monad m => DeferT m a -> m a
-runDeferT' = join . runDeferT
+runDeferT' m = do
+	(a,e) <- runDeferT m
+	e
+	return a
 
-class Monad m => Defer n m where
+class Monad m => Defer n m | m -> n where
 	defer :: n () -> m ()
 
 instance Monad m => Defer m (DeferT m) where
@@ -115,11 +115,62 @@ SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
 
 
 
-data ShaderEnv m a = ShaderEnv { unShaderEnv :: CounterT (DeferT (DeferT m)) a }
+newtype ShaderEnv m a = ShaderEnv { unShaderEnv :: CounterT (DeferT (DeferT m)) a }
+	deriving
+		( Functor, Applicative, Monad, Alternative
+		, MonadIO, Count, HandTex, BuildShader, Attrib
+		)
 
-runShaderEnv :: (HandTex m, Monad m) => ShaderEnv m a -> m (m a)
+instance MonadTrans ShaderEnv where
+	lift = ShaderEnv . lift . lift . lift
+
+instance Monad m => Defer (DeferT m) (ShaderEnv m) where
+	defer :: DeferT m () -> ShaderEnv m ()
+	defer = ShaderEnv . lift . defer
+
+
+
+runShaderEnv :: (HandTex m, Monad m) => ShaderEnv m a -> m (a, m ())
 runShaderEnv = runDeferT . runDeferT' . runCounterT 1 . unShaderEnv
 
+
+
+
+
+newtype CounterT m a = CounterT { counter :: StateT Int m a }
+	deriving
+		( Functor, Applicative, Monad, Alternative, MonadTrans
+		, MonadReader r, MonadWriter w, MonadError e, MonadIO
+		, MonadFix, MonadPlus, BuildShader, HandTex, Defer m, Attrib
+		)
+
+instance MonadState s m => MonadState s (CounterT m) where
+	get = lift get
+	put = lift . put
+
+
+instance Monad m => Semigroup (CounterT m a) where
+	(<>) = (>>)
+
+instance Monad m => Monoid (CounterT m ()) where
+	mempty = return ()
+
+class Monad m => Count m where
+	count :: m Int
+
+instance Monad m => Count (CounterT m) where
+	count = CounterT $ state $ \s -> (s, succ s)
+
+SIMPLEFUNCTION_CLASSINSTANCES(count,Count,)
+
+runCounterT :: Monad m => Int -> CounterT m a -> m a
+runCounterT i (CounterT st) = evalStateT st i
+
+runCounterT' :: Monad m => CounterT m a -> m a
+runCounterT' = runCounterT 1
+
+generateName :: Count m => String -> m String
+generateName s = count >>= return . (s++) . ("_"++) . show
 
 
 -- Shader building monad -----------------------------------------------------------------
@@ -129,7 +180,7 @@ type Shader = GLuint
 data BuildShaderState = BuildShaderState
 	{ shaderId :: Shader
 	, header :: S.Set String
-	, expr :: [(String, ExprS)]
+	, bexpr :: [(String, ExprS)]
 	}
 
 emptyShaderState :: Shader -> BuildShaderState
@@ -146,7 +197,7 @@ runBuildShader :: Shader -> BuildShaderT m a -> m (a, BuildShaderState)
 runBuildShader i b = runStateT (unBuildShaderT b) $ emptyShaderState i
 
 
-class BuildShader m where
+class Monad m => BuildShader m where
 	buildShaderState :: (BuildShaderState -> (a, BuildShaderState)) -> m a
 
 	buildShaderStateGet :: m BuildShaderState
@@ -163,12 +214,14 @@ addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m ()
 addHeader i a n = buildShaderState $ \s -> ((),) $
 		s { header = S.insert (unwords [i, slNameWithPrec a, n, ";"]) $ header s }
 
--- ~ addCExpr :: BuildShader m => String -> String -> m ()
--- ~ addCExpr n sa = buildShaderState $ \s -> ((),) $
-	-- ~ s { cExpr = (n ++ " = " ++ sa) : cExpr s }
+
+addExpr :: BuildShader m => String -> Expr m e a -> m ()
+addExpr n (Expr a) = do
+	e <- runExprEnv a
+	buildShaderState $ \s -> ((), s { bexpr = (n,e) : bexpr s })
 
 getShader :: BuildShader m => m Shader
-getShader = buildShaderState $ \s -> (shaderId s, s)
+getShader = shaderId <$> buildShaderStateGet
 
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
@@ -176,6 +229,273 @@ data F -- | Fragment/pixel shader signifier.
 class ShaderType a
 instance ShaderType V
 instance ShaderType F
+
+
+compile :: forall a b m. (MonadIO m, HandTex m, AttrType a b)
+	=> (b -> DeferT (BuildShaderT (ShaderEnv m)) (V4 (Expr (BuildShaderT (ShaderEnv m)) V Float), V4 (Expr (BuildShaderT (ShaderEnv m)) F Float)))
+	-> m ([VArray a] -> m ())
+compile f = do
+	sp <- glCreateProgram
+	(vao,exec) <- runShaderEnv $
+		join $ addShader sp GL_VERTEX_SHADER $ do
+			(i,e) <- setAttributes sp (err :: a)
+			((vs,fs),fm) <- runDeferT $ f e
+			addExpr "gl_Position" $ exprVec vs
+			return $ addShader sp GL_FRAGMENT_SHADER $ do
+				addExpr "gl_FragColor" $ exprVec $ fs
+				fm
+				return i
+	return $ \varrs -> do
+		glBindVertexArray vao
+		glUseProgram sp
+		exec
+		drawArrays varrs
+
+
+addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
+addShader sp t shdr = do
+	(a,st) <- runBuildShader sp shdr
+	let str
+		=  "#version 100\n"
+		++ unlines (toList $ header st)
+		++ "\n\nvoid main(){\n"
+		++ toCExpr (bexpr st)
+		++ "}"
+	-- ~ debug $ liftIO $ putStrLn str
+	liftIO $ bracket (newCAString str) free $ \cs -> do
+		i <- glCreateShader t
+		with cs $ \p -> glShaderSource i 1 p nullPtr
+		glCompileShader i
+		checkShaderError str i
+		glAttachShader sp i
+		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
+	return a
+
+checkShaderError :: String -> GLuint -> IO ()
+checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
+	bracket malloc free $ \errLength -> do
+		glGetShaderInfoLog shdr (2^10) errLength er
+		peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
+			"" -> return ()
+			e -> do
+				putStrLn str
+				putStrLn e
+
+
+toCExpr :: [(String, ExprS)] -> String
+toCExpr = undefined
+	-- s ++ " = " ++ e
+	-- ~ ++ unlines (map (("  "++) . (++";")) $ reverse $ toCExpr st)
+
+
+-- Attributes (VAO) ----------------------------------------------------------------------
+
+newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
+	deriving
+		( Functor, Applicative, Monad, MonadTrans, MonadIO
+		, Count, BuildShader, Defer m
+		)
+
+class Monad m => Attrib m where
+	advanceBy :: Storable s => s -> m Int
+
+instance Monad m => Attrib (AttribM m) where
+	advanceBy a = AttribM $ do
+		i <- get
+		modify (sizeOf a +)
+		return i
+
+SIMPLEFUNCTION_CLASSINSTANCES(advanceBy,Attrib,.)
+
+type Vao = GLuint
+
+-- | Make VAO
+setAttributes :: (BuildShader m, MonadIO m, AttrType a b) => Shader -> a -> m (Vao, b)
+setAttributes s a = do
+	i <- glGenVertexArray
+	glBindVertexArray i
+	e <- evalStateT (unAttrib $ setAttribute s a) 0
+	return (i, e)
+
+class Storable a => AttrType a b where --  | a -> b, b -> a
+	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
+
+-- ~ instance AttrType Bool (Expr m V Bool) where setAttribute = setupAttribute1
+-- ~ instance AttrType Int32 (Expr m V Int32) where setAttribute = setupAttribute1
+-- ~ instance AttrType Float (Expr m V Float) where setAttribute = setupAttribute1
+
+-- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
+	-- ~ setAttribute i a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 i a
+
+instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
+	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
+
+instance (AttrType a x, AttrType b y, AttrType c z) => AttrType (a,b,c) (x,y,z) where
+	setAttribute s _ = liftM3 (,,)
+		(setAttribute s (err :: a))
+		(setAttribute s (err :: b))
+		(setAttribute s (err :: c))
+
+instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
+	AttrType (a,b,c,d) (x,y,z,w) where
+	setAttribute s _ = liftM4 (,,,)
+		(setAttribute s (err :: a))
+		(setAttribute s (err :: b))
+		(setAttribute s (err :: c))
+		(setAttribute s (err :: d))
+
+-- ~ instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr m V a)) where
+	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
+
+-- ~ attribPartsVec :: (BuildShader m, Attrib m, GLtype (v a), Storable (v a), Vector v)
+	-- ~ => Shader -> v a -> m (v (Expr m V a))
+-- ~ attribPartsVec s a = vecParts <$> setupAttribute1 s a
+
+-- ~ instance AttrType (V2 Float) (V2 (Expr m V Float)) where setAttribute = attribPartsVec
+-- ~ instance AttrType (V2 Int32) (V2 (Expr m V Int32)) where setAttribute = attribPartsVec
+-- ~ instance AttrType (V2 Bool)  (V2 (Expr m V Bool)) where setAttribute = attribPartsVec
+
+-- ~ instance AttrType (V3 Float) (V3 (Expr m V Float)) where setAttribute = attribPartsVec
+-- ~ instance AttrType (V3 Int32) (V3 (Expr m V Int32)) where setAttribute = attribPartsVec
+-- ~ instance AttrType (V3 Bool)  (V3 (Expr m V Bool)) where setAttribute = attribPartsVec
+
+-- ~ instance AttrType (V4 Float) (V4 (Expr m V Float)) where setAttribute = attribPartsVec
+-- ~ instance AttrType (V4 Int32) (V4 (Expr m V Int32)) where setAttribute = attribPartsVec
+-- ~ instance AttrType (V4 Bool)  (V4 (Expr m V Bool)) where setAttribute = attribPartsVec
+
+-- ~ instance (Storable (v (v a)), Vector v, GLtype (v (v a))) =>
+	-- ~ AttrType (v (v a)) (v (v (Expr m V a))) where
+	-- ~ setAttribute s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
+
+-- ~ attribPartsMat :: (BuildShader m, Attrib m, GLtype (v (v a)), Storable (v (v a)), Vector v)
+	-- ~ => Shader -> v (v a) -> m (v (v (Expr m V a)))
+-- ~ attribPartsMat s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
+
+-- ~ instance AttrType (V2 (V2 Float)) (V2 (V2 (Expr m V Float))) where
+	-- ~ setAttribute = attribPartsMat
+
+-- ~ instance AttrType (V3 (V3 Float)) (V3 (V3 (Expr m V Float))) where
+	-- ~ setAttribute = attribPartsMat
+
+-- ~ instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr m V Float))) where
+	-- ~ setAttribute = attribPartsMat
+
+
+
+-- "disallowed by spec"
+-- ~ instance (Storable a, GLtype a, KnownNat s) => AttrType (Arr s a) (Expr V (Arr s a)) where
+	-- ~ setAttribute s a = setupAttribute1 s a
+
+
+
+liftExpr :: forall m e a . (Monad m, GLtype a) => String -> [ExprEnv m] -> Expr m e a
+liftExpr s p = liftExpr' (return s) p
+
+liftExpr' :: forall m e a . (Monad m, GLtype a) => m String -> [ExprEnv m] -> Expr m e a
+liftExpr' s p = Expr $ ExprEnv s (toTypeS (err :: a)) p
+
+liftExpr'' s = liftExpr' s []
+
+-- overload it for multiple parameters
+
+liftE0 :: forall m e a . (Monad m, GLtype a) => String -> Expr m e a
+liftE0 s = liftExpr s  []
+
+liftE1 :: forall m e a a1 a2 . (Monad m, GLtype a2) => String -> Expr m e a1 -> Expr m e a2
+liftE1 s (Expr a) = liftExpr s [a]
+
+liftE2 :: forall m e a a1 a2 a3 . (Monad m, GLtype a3) => String -> Expr m e a1 -> Expr m e a2 -> Expr m e a3
+liftE2 s (Expr a) (Expr b) = liftExpr s [a,b]
+
+-- ~ liftE3 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
+-- ~ liftE3 s (Expr a) (Expr b) (Expr c) = Expr $ Fn s [a,b,c]
+
+-- ~ liftE4 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4 -> Expr e a5
+-- ~ liftE4 s (Expr a) (Expr b) (Expr c) (Expr d) = Expr $ Fn s [a,b,c,d]
+
+
+vecParts :: forall m e v a . (Monad m, GLtype a, Vector v) => Expr m e (v a) -> v (Expr m e a)
+vecParts e = fromListFill err $ map (\i -> arrV e i) $ map expr [0..]
+
+exprVec :: forall m v e a . (Monad m, GLtype a, Vector v, GLtype (v a)) => v (Expr m e a) -> Expr m e (v a)
+exprVec v = liftExpr (slName (err :: v a)) $ map unExpr $ toList v
+
+exprMat :: forall m v e a . (Monad m, GLtype a, Vector v, GLtype (v a), GLtype (v (v a)))
+	=> v (v (Expr m e a)) -> Expr m e (v (v a))
+exprMat v = liftExpr (slName (err :: v a)) $ map unExpr $ concatMap toList $ toList v
+
+expr :: (Monad m, Show b, GLtype a) => b -> Expr m e a
+expr x = liftExpr (show x) []
+
+
+arrV :: (Monad m, GLtype a, Vector v) => Expr m e (v a) -> Expr m e Int32 -> Expr m e a
+arrV = liftE2 "[]"
+
+
+
+setupAttribute1
+	:: (GLtype a, Storable a, BuildShader m, Attrib m, Count m, MonadIO m)
+	=> Shader
+	-> a
+	-> ShaderEnv m (Expr m V a)
+setupAttribute1 s a = do
+	-- todo obtain shader value from buildshader monad instead
+	n <- name "a" a
+	o <- advanceBy a
+	defer $ withString n $ \c -> do
+		p <- fromIntegral <$> glGetAttribLocation s c
+		glVertexAttribPointer p
+			(glComponents a)
+			(glType a)
+			(glNormalized a)
+			0
+			(intPtrToPtr $ IntPtr o)
+		glEnableVertexAttribArray p
+	initExpr <- makeRunOnce $ do
+		addHeader "attribute" a n
+		return n
+	return $ (liftExpr'' $ runOnce initExpr)
+
+name :: (Count m, GLtype a) => String -> a -> m String
+name s a = generateName $ s ++ glShortName a
+
+withString :: MonadIO m => String -> (CString -> IO a) -> m a
+withString n f = liftIO $ bracket (newCAString n) free f
+
+
+
+-- | Transfer values from vertex shader to fragment shader. Floating point numbers will be interpolated among its triangle space. Integers are taken from the first point of the triangle.
+
+class Transfer a b | a -> b, b -> a where
+	transfer :: a -> DeferT m b
+
+transfer1 :: forall m a e. (GLtype a, BuildShader m, Count m) => Expr m V a -> DeferT m (Expr m F a)
+transfer1 e = do
+		let a = err :: a
+		n <- name "t" a
+		-- ~ e' <- runShaderEnv e
+		lift $ addExpr n e
+		addHeader "varying" a $ n
+		defer $ do
+			addHeader "in" a n
+		return $ liftExpr'' $ return n
+
+-- ~ instance GLtype a => Transfer (Expr m V a) (Expr m F a) where
+	-- ~ transfer = fmap Expr . transfer1
+
+-- ~ instance GLtype (V2 a) => Transfer (V2 (Expr m V a)) (V2 (Expr m F a)) where
+	-- ~ transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+
+-- ~ instance GLtype (V3 a) => Transfer (V3 (Expr m V a)) (V3 (Expr m F a)) where
+	-- ~ transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+
+-- ~ instance GLtype (V4 a) => Transfer (V4 (Expr m V a)) (V4 (Expr m F a)) where
+	-- ~ transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+
+-- ~ instance (GLtype (V2 a), GLtype (V2 (V2 a))) => Transfer (V2 (V2 (Expr m V a))) (V2 (V2 (Expr m F a))) where
+	-- ~ transfer = fmap (fmap vecParts . vecParts . Expr) . transfer1 . exprMat
+
+
 
 
 {-
@@ -225,19 +545,19 @@ transfer1 e = do
 			addHeader "in" a n
 		return $ Val $ return n
 
-instance GLtype a => Transfer (Expr V a) (Expr F a) where
+instance GLtype a => Transfer (Expr m V a) (Expr m F a) where
 	transfer = fmap Expr . transfer1
 
-instance GLtype (V2 a) => Transfer (V2 (Expr V a)) (V2 (Expr F a)) where
+instance GLtype (V2 a) => Transfer (V2 (Expr m V a)) (V2 (Expr m F a)) where
 	transfer = fmap (vecParts . Expr) . transfer1 . exprVec
 
-instance GLtype (V3 a) => Transfer (V3 (Expr V a)) (V3 (Expr F a)) where
+instance GLtype (V3 a) => Transfer (V3 (Expr m V a)) (V3 (Expr m F a)) where
 	transfer = fmap (vecParts . Expr) . transfer1 . exprVec
 
-instance GLtype (V4 a) => Transfer (V4 (Expr V a)) (V4 (Expr F a)) where
+instance GLtype (V4 a) => Transfer (V4 (Expr m V a)) (V4 (Expr m F a)) where
 	transfer = fmap (vecParts . Expr) . transfer1 . exprVec
 
-instance (GLtype (V2 a), GLtype (V2 (V2 a))) => Transfer (V2 (V2 (Expr V a))) (V2 (V2 (Expr F a))) where
+instance (GLtype (V2 a), GLtype (V2 (V2 a))) => Transfer (V2 (V2 (Expr m V a))) (V2 (V2 (Expr m F a))) where
 	transfer = fmap (fmap vecParts . vecParts . Expr) . transfer1 . exprMat
 
 
@@ -302,150 +622,6 @@ class ShaderType a
 instance ShaderType V
 instance ShaderType F
 
-
--- Attributes (VAO) ----------------------------------------------------------------------
-
-newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
-	deriving
-		( Functor, Applicative, Monad, MonadTrans, MonadIO
-		, Count, PostShaderProgram, PreRender, BuildShader
-		)
-
-class Monad m => Attrib m where
-	offset :: m Int
-	advanceBy :: Storable s => s -> m ()
-
-instance Monad m => Attrib (AttribM m) where
-	offset = AttribM get
-	advanceBy a = AttribM $ modify (sizeOf a +)
-
-
-type Vao = GLuint
-
--- | Make VAO
-setAttributes :: (BuildShader m, AttrType a b) => Shader -> a -> m (Vao, b)
-setAttributes s a = do
-	i <- glGenVertexArray
-	glBindVertexArray i
-	e <- evalStateT (unAttrib $ setAttribute s a) 0
-	return (i, e)
-
-class Storable a => AttrType a b | a -> b, b -> a where
-	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
-
-instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
-instance AttrType Int32 (Expr V Int32) where setAttribute = setupAttribute1
-instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
-
--- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
-	-- ~ setAttribute i a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 i a
-
-instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
-	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
-
-instance (AttrType a x, AttrType b y, AttrType c z) => AttrType (a,b,c) (x,y,z) where
-	setAttribute s _ = liftM3 (,,)
-		(setAttribute s (err :: a))
-		(setAttribute s (err :: b))
-		(setAttribute s (err :: c))
-
-instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
-	AttrType (a,b,c,d) (x,y,z,w) where
-	setAttribute s _ = liftM4 (,,,)
-		(setAttribute s (err :: a))
-		(setAttribute s (err :: b))
-		(setAttribute s (err :: c))
-		(setAttribute s (err :: d))
-
--- ~ instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr V a)) where
-	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
-
-attribPartsVec :: (BuildShader m, Attrib m, GLtype (v a), Storable (v a), Vector v)
-	=> Shader -> v a -> m (v (Expr V a))
-attribPartsVec s a = vecParts <$> setupAttribute1 s a
-
-instance AttrType (V2 Float) (V2 (Expr V Float)) where setAttribute = attribPartsVec
-instance AttrType (V2 Int32) (V2 (Expr V Int32)) where setAttribute = attribPartsVec
-instance AttrType (V2 Bool) (V2 (Expr V Bool)) where setAttribute = attribPartsVec
-
-instance AttrType (V3 Float) (V3 (Expr V Float)) where setAttribute = attribPartsVec
-instance AttrType (V3 Int32) (V3 (Expr V Int32)) where setAttribute = attribPartsVec
-instance AttrType (V3 Bool) (V3 (Expr V Bool)) where setAttribute = attribPartsVec
-
-instance AttrType (V4 Float) (V4 (Expr V Float)) where setAttribute = attribPartsVec
-instance AttrType (V4 Int32) (V4 (Expr V Int32)) where setAttribute = attribPartsVec
-instance AttrType (V4 Bool) (V4 (Expr V Bool)) where setAttribute = attribPartsVec
-
--- ~ instance (Storable (v (v a)), Vector v, GLtype (v (v a))) =>
-	-- ~ AttrType (v (v a)) (v (v (Expr V a))) where
-	-- ~ setAttribute s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
-
-attribPartsMat :: (BuildShader m, Attrib m, GLtype (v (v a)), Storable (v (v a)), Vector v)
-	=> Shader -> v (v a) -> m (v (v (Expr V a)))
-attribPartsMat s a = (fmap vecParts . vecParts) <$> setupAttribute1 s a
-
-instance AttrType (V2 (V2 Float)) (V2 (V2 (Expr V Float))) where
-	setAttribute = attribPartsMat
-
-instance AttrType (V3 (V3 Float)) (V3 (V3 (Expr V Float))) where
-	setAttribute = attribPartsMat
-
-instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where
-	setAttribute = attribPartsMat
-
-
-
--- "disallowed by spec"
--- ~ instance (Storable a, GLtype a, KnownNat s) => AttrType (Arr s a) (Expr V (Arr s a)) where
-	-- ~ setAttribute s a = setupAttribute1 s a
-
-
-vecParts :: forall e v a . Vector v => Expr e (v a) -> v (Expr e a)
-vecParts e = fromListFill err $ map (\i -> arrV e i) $ map expr [0..]
-
-exprVec :: forall v e a . (Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
-exprVec v = Expr $ Fn (glCName (err :: v a)) $ map ast $ toList v
-
-exprMat :: forall v e a . (Vector v, GLtype (v a), GLtype (v (v a)))
-	=> v (v (Expr e a)) -> Expr e (v (v a))
-exprMat v = Expr $ Fn (glCName (err :: v a)) $ map ast $ concatMap toList $ toList v
-
-expr :: Show a => a -> Expr e a
-expr x = Expr $ Val $ return $ show x
-
-exprAny :: String -> Expr e a
-exprAny = Expr . Val . return
-
-arrV :: Vector v => Expr e (v a) -> Expr e Int32 -> Expr e a
-arrV = liftE2 "[]"
-
-
-
-setupAttribute1
-	:: (GLtype a, Storable a, BuildShader m, Attrib m)
-	=> Shader
-	-> a
-	-> m (Expr V a)
-setupAttribute1 s a = do
-	n <- name "a" a
-	o <- offset
-	postShaderProgram n $ withString n $ \c -> do
-		p <- fromIntegral <$> glGetAttribLocation s c
-		glVertexAttribPointer p
-			(glComponents a)
-			(glType a)
-			(glNormalized a)
-			0
-			(intPtrToPtr $ IntPtr o)
-		glEnableVertexAttribArray p
-	advanceBy a
-	initExpr <- makeRunOnce $ do
-		addHeader "attribute" a n
-		return n
-	return $ (Expr $ Val $ runOnce initExpr)
-
-name :: (Count m, GLtype a) => String -> a -> m String
-name s a = generateName $ s ++ glShortName a
 
 
 

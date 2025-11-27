@@ -18,6 +18,7 @@ module Graphics.Farbe.GL where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
+import Graphics.Farbe.Texture
 
 import Control.Monad.IO.Class
 import Foreign hiding (void)
@@ -73,7 +74,7 @@ data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | T
 
 class Eq a => GLtype a where
 	slName :: a -> String
-	fType :: a -> TypeS
+	toTypeS :: a -> TypeS
 	glType :: a -> GLenum
 	glComponents :: a -> GLint
 	glComponents _ = 1
@@ -88,73 +89,82 @@ class Eq a => GLtype a where
 
 instance GLtype Bool where
 	slName _ = "bool"
-	fType _ = TBool
+	toTypeS _ = TBool
 	glType _ = GL_BOOL
 
 instance GLtype Int32 where
 	slName _ = "int"
-	fType _ = TInt
+	toTypeS _ = TInt
 	glType _ = GL_INT
 
 instance GLtype Float where
 	slName _ = "float"
-	fType _ = TFloat
+	toTypeS _ = TFloat
 	glType _ = GL_FLOAT
 
 instance GLtype (V2 Float) where
 	slName _ = "vec2"
-	fType _ = TVec2 TFloat
+	toTypeS _ = TVec2 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 2
+	glShortName _ = "v2f"
 
 instance GLtype (V3 Float) where
 	slName _ = "vec3"
-	fType _ = TVec3 TFloat
+	toTypeS _ = TVec3 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 3
+	glShortName _ = "v3f"
 
 instance GLtype (V4 Float) where
 	slName _ = "vec4"
-	fType _ = TVec4 TFloat
+	toTypeS _ = TVec4 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 4
+	glShortName _ = "v4f"
 
 
 instance GLtype (V2 Int32) where
 	slName _ = "ivec2"
-	fType _ = TVec2 TInt
+	toTypeS _ = TVec2 TInt
 	glType _ = GL_INT
 	glComponents _ = 2
+	glShortName _ = "v2i"
 
 instance GLtype (V3 Int32) where
 	slName _ = "ivec3"
-	fType _ = TVec3 TInt
+	toTypeS _ = TVec3 TInt
 	glType _ = GL_INT
 	glComponents _ = 3
+	glShortName _ = "v3i"
 
 instance GLtype (V4 Int32) where
 	slName _ = "ivec4"
-	fType _ = TVec4 TInt
+	toTypeS _ = TVec4 TInt
 	glType _ = GL_INT
 	glComponents _ = 4
+	glShortName _ = "v4i"
 
 instance GLtype (V2 Bool) where
 	slName _ = "bvec2"
-	fType _ = TVec2 TBool
+	toTypeS _ = TVec2 TBool
 	glType _ = GL_BOOL
 	glComponents _ = 2
+	glShortName _ = "v2b"
 
 instance GLtype (V3 Bool) where
 	slName _ = "bvec3"
-	fType _ = TVec3 TBool
+	toTypeS _ = TVec3 TBool
 	glType _ = GL_BOOL
 	glComponents _ = 3
+	glShortName _ = "v3b"
 
 instance GLtype (V4 Bool) where
 	slName _ = "bvec4"
-	fType _ = TVec4 TBool
+	toTypeS _ = TVec4 TBool
 	glType _ = GL_BOOL
 	glComponents _ = 4
+	glShortName _ = "v4b"
 
 boolToInt :: Bool -> Int32
 boolToInt True = 1
@@ -163,21 +173,24 @@ boolToInt _ = 0
 
 instance GLtype (Mat V2 V2 Float) where
 	slName _ = "mat2"
-	fType _ = TVec2 $ TVec2 TFloat
+	toTypeS _ = TVec2 $ TVec2 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 4
+	glShortName _ = "m2"
 
 instance GLtype (Mat V3 V3 Float) where
 	slName _ = "mat3"
-	fType _ = TVec3 $ TVec3 TFloat
+	toTypeS _ = TVec3 $ TVec3 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 9
+	glShortName _ = "m3"
 
 instance GLtype (Mat V4 V4 Float) where
 	slName _ = "mat4"
-	fType _ = TVec4 $ TVec4 TFloat
+	toTypeS _ = TVec4 $ TVec4 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 16
+	glShortName _ = "m4"
 
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
@@ -198,9 +211,10 @@ instance Storable a => Storable (Normalized a) where
 instance GLtype a => GLtype (Normalized a) where
 	glNormalized _ = GL_TRUE
 	slName _ = slName (err :: a)
-	fType _ = fType (err :: a)
+	toTypeS _ = toTypeS (err :: a)
 	glType _ = glType (err :: a)
 	glComponents _ = glComponents (err :: a)
+	glShortName _ = "n" ++ glShortName (err :: a)
 	-- ~ setupUpload l (Normalized e) = setupUpload l e
 
 
