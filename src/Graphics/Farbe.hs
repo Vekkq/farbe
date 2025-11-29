@@ -13,6 +13,32 @@ import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.Window
 import Graphics.Farbe.Shader
+import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Texture
+import Graphics.Farbe.STL
+import Graphics.Farbe.Utils
+
+import Control.Monad.IO.Class
+
+
+
+runFarbe :: MonadIO m => HandTexT (HandVBOT m) a -> m a
+runFarbe = runHandVBOT (2^24) . runHandTexT
+
+foo :: MonadIO m => m ()
+foo = runFarbe $ do
+	let (u,arr',i) = undefined
+	a <- loadSTL "test/teapot.stl"
+	f <- compile $ \v -> do
+		let (V3 x y z) = v*0.02
+		let pos = V4 x y z 1
+		x' <- transfer x
+		return (pos, V4 (use u `arr'` use i) x' 1 1)
+
+	f [a]
+
+use = undefined
+
 -- ~ import Graphics.Farbe.Utils
 
 {-

@@ -6,10 +6,10 @@ module Graphics.Farbe.STL where
 import Data.Binary
 import Data.Binary.Get
 import Data.Int
-import Graphics.Farbe
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Utils
 import Graphics.Farbe.Tuple
+import Graphics.Farbe.VertexArray
 import Control.Monad
 import GHC.Generics
 import Control.Monad.IO.Class
@@ -67,8 +67,8 @@ readSTL = catMaybes . map f . map words . lines
 	f _ = Nothing
 
 
--- ~ loadSTL :: MonadGL m => String -> m (VArray (V3 Float))
--- ~ loadSTL s = readFileSTL s >>= newVArray
+loadSTL :: (HandVBO m, MonadIO m) => String -> m (VArray (V3 Float))
+loadSTL s = readFileSTL s >>= newVArray
 
 
 

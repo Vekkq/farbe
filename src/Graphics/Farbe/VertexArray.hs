@@ -60,8 +60,10 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 
 SIMPLEFUNCTION_CLASSINSTANCES(stateHandVBO,HandVBO,.)
 
-
-runHandVBO s = runStateT s . unHandVBO
+runHandVBOT :: MonadIO m => GLintptr -> HandVBOT m a -> m a
+runHandVBOT i m = do
+	s <- initHandVBOState i
+	evalStateT (unHandVBO m) s
 
 class MonadIO m => HandVBO m where
 	stateHandVBO :: (HandVBOState -> (a, HandVBOState)) -> m a

@@ -6,6 +6,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Graphics.Farbe.Shader where
 
@@ -113,7 +114,7 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 
 SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
 
-
+type ShdrEnv m = BuildShaderT (ShaderEnv m)
 
 newtype ShaderEnv m a = ShaderEnv { unShaderEnv :: CounterT (DeferT (DeferT m)) a }
 	deriving
@@ -128,12 +129,8 @@ instance Monad m => Defer (DeferT m) (ShaderEnv m) where
 	defer :: DeferT m () -> ShaderEnv m ()
 	defer = ShaderEnv . lift . defer
 
-
-
 runShaderEnv :: (HandTex m, Monad m) => ShaderEnv m a -> m (a, m ())
 runShaderEnv = runDeferT . runDeferT' . runCounterT 1 . unShaderEnv
-
-
 
 
 
@@ -141,7 +138,7 @@ newtype CounterT m a = CounterT { counter :: StateT Int m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadFix, MonadPlus, BuildShader, HandTex, Defer m, Attrib
+		, MonadFix, MonadPlus, BuildShader, HandTex, Defer n, Attrib
 		)
 
 instance MonadState s m => MonadState s (CounterT m) where
@@ -190,7 +187,7 @@ newtype BuildShaderT m r = BuildShaderT { unBuildShaderT :: StateT BuildShaderSt
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, MonadTrans
-		, Count, HandTex
+		, Count, HandTex, Defer n
 		)
 
 runBuildShader :: Shader -> BuildShaderT m a -> m (a, BuildShaderState)
@@ -231,14 +228,16 @@ instance ShaderType V
 instance ShaderType F
 
 
+
+
 compile :: forall a b m. (MonadIO m, HandTex m, AttrType a b)
-	=> (b -> DeferT (BuildShaderT (ShaderEnv m)) (V4 (Expr (BuildShaderT (ShaderEnv m)) V Float), V4 (Expr (BuildShaderT (ShaderEnv m)) F Float)))
+	=> (b -> DeferT (ShdrEnv m) (V4 (Expr (ShdrEnv m) V Float), V4 (Expr (ShdrEnv m) F Float)))
 	-> m ([VArray a] -> m ())
 compile f = do
 	sp <- glCreateProgram
 	(vao,exec) <- runShaderEnv $
 		join $ addShader sp GL_VERTEX_SHADER $ do
-			(i,e) <- setAttributes sp (err :: a)
+			(i,e) <- setAttributes (err :: a)
 			((vs,fs),fm) <- runDeferT $ f e
 			addExpr "gl_Position" $ exprVec vs
 			return $ addShader sp GL_FRAGMENT_SHADER $ do
@@ -293,7 +292,7 @@ toCExpr = undefined
 newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
 	deriving
 		( Functor, Applicative, Monad, MonadTrans, MonadIO
-		, Count, BuildShader, Defer m
+		, Count, BuildShader, Defer n
 		)
 
 class Monad m => Attrib m where
@@ -309,17 +308,46 @@ SIMPLEFUNCTION_CLASSINSTANCES(advanceBy,Attrib,.)
 
 type Vao = GLuint
 
+-- a -> BuildShaderT (ShaderEnv m) (GLuint, b)
 -- | Make VAO
-setAttributes :: (BuildShader m, MonadIO m, AttrType a b) => Shader -> a -> m (Vao, b)
-setAttributes s a = do
+setAttributes :: (MonadIO m, AttrType a b, BuildShader m, Count m, Defer m m)
+	=> a -> m (Vao, b)
+setAttributes a = do
 	i <- glGenVertexArray
 	glBindVertexArray i
-	e <- evalStateT (unAttrib $ setAttribute s a) 0
+	e <- evalStateT (unAttrib $ setAttribute a) 0
 	return (i, e)
 
-class Storable a => AttrType a b where --  | a -> b, b -> a
-	setAttribute :: (BuildShader m, Attrib m) => Shader -> a -> m b
 
+setupAttribute1
+	:: (GLtype a, Storable a, MonadIO m, BuildShader m, Count m, Attrib m
+	, Defer m m)
+	=> a
+	-> m (Expr m V a)
+setupAttribute1 a = do
+	-- todo obtain shader value from buildshader monad instead
+	s <- getShader
+	n <- name "a" a
+	o <- advanceBy a
+	defer $ withString n $ \c -> do
+		p <- fromIntegral <$> glGetAttribLocation s c
+		glVertexAttribPointer p
+			(glComponents a)
+			(glType a)
+			(glNormalized a)
+			0
+			(intPtrToPtr $ IntPtr o)
+		glEnableVertexAttribArray p
+	initExpr <- makeRunOnce $ do
+		addHeader "attribute" a n
+		return n
+	return $ (liftExpr'' $ runOnce initExpr)
+
+class (GLtype a, Storable a) => AttrType a b where --  | a -> b, b -> a
+	setAttribute :: (Defer m m, BuildShader m, Attrib m) => a -> m b
+
+instance MonadIO m => AttrType Bool (Expr m V a) where
+	setAttribute = setupAttribute1
 -- ~ instance AttrType Bool (Expr m V Bool) where setAttribute = setupAttribute1
 -- ~ instance AttrType Int32 (Expr m V Int32) where setAttribute = setupAttribute1
 -- ~ instance AttrType Float (Expr m V Float) where setAttribute = setupAttribute1
@@ -327,22 +355,22 @@ class Storable a => AttrType a b where --  | a -> b, b -> a
 -- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
 	-- ~ setAttribute i a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 i a
 
-instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
-	setAttribute s _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
+-- ~ instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
+	-- ~ setAttribute _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
 
-instance (AttrType a x, AttrType b y, AttrType c z) => AttrType (a,b,c) (x,y,z) where
-	setAttribute s _ = liftM3 (,,)
-		(setAttribute s (err :: a))
-		(setAttribute s (err :: b))
-		(setAttribute s (err :: c))
+-- ~ instance (AttrType a x, AttrType b y, AttrType c z) => AttrType (a,b,c) (x,y,z) where
+	-- ~ setAttribute _ = liftM3 (,,)
+		-- ~ (setAttribute s (err :: a))
+		-- ~ (setAttribute s (err :: b))
+		-- ~ (setAttribute s (err :: c))
 
-instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
-	AttrType (a,b,c,d) (x,y,z,w) where
-	setAttribute s _ = liftM4 (,,,)
-		(setAttribute s (err :: a))
-		(setAttribute s (err :: b))
-		(setAttribute s (err :: c))
-		(setAttribute s (err :: d))
+-- ~ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
+	-- ~ AttrType (a,b,c,d) (x,y,z,w) where
+	-- ~ setAttribute _ = liftM4 (,,,)
+		-- ~ (setAttribute s (err :: a))
+		-- ~ (setAttribute s (err :: b))
+		-- ~ (setAttribute s (err :: c))
+		-- ~ (setAttribute s (err :: d))
 
 -- ~ instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr m V a)) where
 	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
@@ -388,12 +416,13 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 
 
 
-liftExpr :: forall m e a . (Monad m, GLtype a) => String -> [ExprEnv m] -> Expr m e a
+liftExpr :: (Monad m, GLtype a) => String -> [ExprEnv m] -> Expr m e a
 liftExpr s p = liftExpr' (return s) p
 
 liftExpr' :: forall m e a . (Monad m, GLtype a) => m String -> [ExprEnv m] -> Expr m e a
 liftExpr' s p = Expr $ ExprEnv s (toTypeS (err :: a)) p
 
+liftExpr'' :: (Monad m, GLtype a) => m String -> Expr m e a
 liftExpr'' s = liftExpr' s []
 
 -- overload it for multiple parameters
@@ -431,30 +460,6 @@ expr x = liftExpr (show x) []
 arrV :: (Monad m, GLtype a, Vector v) => Expr m e (v a) -> Expr m e Int32 -> Expr m e a
 arrV = liftE2 "[]"
 
-
-
-setupAttribute1
-	:: (GLtype a, Storable a, BuildShader m, Attrib m, Count m, MonadIO m)
-	=> Shader
-	-> a
-	-> ShaderEnv m (Expr m V a)
-setupAttribute1 s a = do
-	-- todo obtain shader value from buildshader monad instead
-	n <- name "a" a
-	o <- advanceBy a
-	defer $ withString n $ \c -> do
-		p <- fromIntegral <$> glGetAttribLocation s c
-		glVertexAttribPointer p
-			(glComponents a)
-			(glType a)
-			(glNormalized a)
-			0
-			(intPtrToPtr $ IntPtr o)
-		glEnableVertexAttribArray p
-	initExpr <- makeRunOnce $ do
-		addHeader "attribute" a n
-		return n
-	return $ (liftExpr'' $ runOnce initExpr)
 
 name :: (Count m, GLtype a) => String -> a -> m String
 name s a = generateName $ s ++ glShortName a

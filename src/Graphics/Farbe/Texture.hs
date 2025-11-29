@@ -44,12 +44,13 @@ import Data.Vector.Storable (unsafeWith)
 import Control.Monad.IO.Class
 
 
+import Graphics.Farbe.VertexArray (HandVBO)
 
 
 newtype HandTexT m a = HandTexT { unTex :: StateT TexState m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
-		, MonadReader r, MonadWriter w, MonadError e, MonadIO
+		, MonadReader r, MonadWriter w, MonadError e, MonadIO, HandVBO
 		, MonadFix, MonadPlus, MonadWindow --, PostShaderProgram, PreRender
 		)
 
@@ -75,8 +76,8 @@ initTexState = liftIO $ do
 	ar <- MA.newArray (1, itoi $ i `quot` 3) 0
 	return $ TexState 1 ar
 
-runHandTex :: MonadIO m => HandTexT m a -> m a
-runHandTex (HandTexT m) = do
+runHandTexT :: MonadIO m => HandTexT m a -> m a
+runHandTexT (HandTexT m) = do
 	t <- initTexState
 	evalStateT m t
 
