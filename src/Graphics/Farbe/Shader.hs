@@ -6,7 +6,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Graphics.Farbe.Shader where
 
@@ -138,7 +137,7 @@ newtype CounterT m a = CounterT { counter :: StateT Int m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadFix, MonadPlus, BuildShader, HandTex, Defer n, Attrib
+		, MonadFix, MonadPlus, BuildShader, HandTex, Defer m, Attrib
 		)
 
 instance MonadState s m => MonadState s (CounterT m) where
@@ -187,7 +186,7 @@ newtype BuildShaderT m r = BuildShaderT { unBuildShaderT :: StateT BuildShaderSt
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, MonadTrans
-		, Count, HandTex, Defer n
+		, Count, HandTex
 		)
 
 runBuildShader :: Shader -> BuildShaderT m a -> m (a, BuildShaderState)
@@ -230,7 +229,7 @@ instance ShaderType F
 
 
 
-compile :: forall a b m. (MonadIO m, HandTex m, AttrType a b)
+compile :: forall a b m . (MonadIO m, HandTex m, AttrType m a b)
 	=> (b -> DeferT (ShdrEnv m) (V4 (Expr (ShdrEnv m) V Float), V4 (Expr (ShdrEnv m) F Float)))
 	-> m ([VArray a] -> m ())
 compile f = do
@@ -310,8 +309,8 @@ type Vao = GLuint
 
 -- a -> BuildShaderT (ShaderEnv m) (GLuint, b)
 -- | Make VAO
-setAttributes :: (MonadIO m, AttrType a b, BuildShader m, Count m, Defer m m)
-	=> a -> m (Vao, b)
+setAttributes :: (MonadIO m, AttrType m a b)
+	=> a -> BuildShaderT (ShaderEnv m) (Vao, b)
 setAttributes a = do
 	i <- glGenVertexArray
 	glBindVertexArray i
@@ -320,10 +319,9 @@ setAttributes a = do
 
 
 setupAttribute1
-	:: (GLtype a, Storable a, MonadIO m, BuildShader m, Count m, Attrib m
-	, Defer m m)
+	:: (GLtype a, Storable a, MonadIO m, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv m)))
 	=> a
-	-> m (Expr m V a)
+	-> AttribM (BuildShaderT (ShaderEnv m)) (Expr (BuildShaderT (ShaderEnv m)) V a)
 setupAttribute1 a = do
 	-- todo obtain shader value from buildshader monad instead
 	s <- getShader
@@ -343,10 +341,10 @@ setupAttribute1 a = do
 		return n
 	return $ (liftExpr'' $ runOnce initExpr)
 
-class (GLtype a, Storable a) => AttrType a b where --  | a -> b, b -> a
-	setAttribute :: (Defer m m, BuildShader m, Attrib m) => a -> m b
+class (MonadIO m, Storable a, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv m))) => AttrType m a b where --  | a -> b, b -> a
+	setAttribute :: a -> AttribM (BuildShaderT (ShaderEnv m)) b
 
-instance MonadIO m => AttrType Bool (Expr m V a) where
+instance (MonadIO m, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv m))) => AttrType m Bool (Expr (BuildShaderT (ShaderEnv m)) V Bool) where
 	setAttribute = setupAttribute1
 -- ~ instance AttrType Bool (Expr m V Bool) where setAttribute = setupAttribute1
 -- ~ instance AttrType Int32 (Expr m V Int32) where setAttribute = setupAttribute1
