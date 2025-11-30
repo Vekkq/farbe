@@ -21,11 +21,10 @@ import Graphics.Farbe.Utils
 import Control.Monad.IO.Class
 
 
-
 runFarbe :: MonadIO m => HandTexT (HandVBOT m) a -> m a
 runFarbe = runHandVBOT (2^24) . runHandTexT
 
-foo :: MonadIO m => m ()
+foo :: (MonadIO m, Defer (Shdr (HandTexT (HandVBOT m))) (Shdr (HandTexT (HandVBOT m)))) => m ()
 foo = runFarbe $ do
 	let (u,arr',i) = undefined
 	a <- loadSTL "test/teapot.stl"
@@ -38,6 +37,7 @@ foo = runFarbe $ do
 	f [a]
 
 use = undefined
+
 
 -- ~ import Graphics.Farbe.Utils
 

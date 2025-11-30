@@ -78,7 +78,7 @@ newtype DeferT m a = DeferT { unDefer :: WriterT [m ()] m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadPlus, Attrib
-		, MonadIO, Count, HandTex, BuildShader
+		, MonadIO, Count, HandTex, HandVBO, BuildShader
 		)
 
 instance MonadTrans DeferT where
@@ -341,7 +341,7 @@ setupAttribute1 a = do
 		return n
 	return $ (liftExpr'' $ runOnce initExpr)
 
-class (MonadIO m, Storable a, Defer (Shdr m) (Shdr m)) => AttrType m a b where --  | a -> b, b -> a
+class (MonadIO m, Storable a, Defer (Shdr m) (Shdr m)) => AttrType m a b | m a -> b, b -> a where
 	setAttribute :: a -> AttribM (Shdr m) b
 
 instance (MonadIO m, Defer (Shdr m) (Shdr m)) => AttrType m Bool (Expr (Shdr m) V Bool) where
@@ -381,9 +381,9 @@ instance (AttrType m a x, AttrType m b y, AttrType m c z, AttrType m d w) =>
 -- ~ instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr m V a)) where
 	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
 
--- ~ attribPartsVec :: (BuildShader m, Attrib m, GLtype (v a), Storable (v a), Vector v)
-	-- ~ => Shader -> v a -> m (v (Expr m V a))
--- ~ attribPartsVec s a = vecParts <$> setupAttribute1 s a
+attribPartsVec :: (GLtype a, Storable a, MonadIO m, Defer (Shdr m) (Shdr m), GLtype (v a), Storable (v a), Vector v)
+	=> v a -> AttribM (Shdr m) (v (Expr (Shdr m) V a))
+attribPartsVec a = vecParts <$> setupAttribute1 a
 
 -- ~ instance AttrType (V2 Float) (V2 (Expr m V Float)) where setAttribute = attribPartsVec
 -- ~ instance AttrType (V2 Int32) (V2 (Expr m V Int32)) where setAttribute = attribPartsVec
@@ -393,7 +393,7 @@ instance (AttrType m a x, AttrType m b y, AttrType m c z, AttrType m d w) =>
  -- ~ AttrType m (V3 Float) (V3 (Expr (BuildShaderT (ShaderEnv m)) V Float)) where
 	-- ~ setAttribute = attribPartsVec
 
--- ~ instance AttrType (V3 Float) (V3 (Expr m V Float)) where setAttribute = attribPartsVec
+instance (MonadIO m, Defer (Shdr m) (Shdr m)) => AttrType m (V3 Float) (V3 (Expr (Shdr m) V Float)) where setAttribute = attribPartsVec
 -- ~ instance AttrType (V3 Int32) (V3 (Expr m V Int32)) where setAttribute = attribPartsVec
 -- ~ instance AttrType (V3 Bool)  (V3 (Expr m V Bool)) where setAttribute = attribPartsVec
 
@@ -481,8 +481,8 @@ withString n f = liftIO $ bracket (newCAString n) free f
 
 -- | Transfer values from vertex shader to fragment shader. Floating point numbers will be interpolated among its triangle space. Integers are taken from the first point of the triangle.
 
-class Transfer a b | a -> b, b -> a where
-	transfer :: a -> DeferT m b
+class Transfer m a b | a -> b, b -> a where
+	transfer :: (GLtype a, BuildShader m, Count m) => a -> DeferT m b
 
 transfer1 :: forall m a e. (GLtype a, BuildShader m, Count m) => Expr m V a -> DeferT m (Expr m F a)
 transfer1 e = do
@@ -495,14 +495,14 @@ transfer1 e = do
 			addHeader "in" a n
 		return $ liftExpr'' $ return n
 
--- ~ instance GLtype a => Transfer (Expr m V a) (Expr m F a) where
-	-- ~ transfer = fmap Expr . transfer1
+instance GLtype a => Transfer m (Expr m V a) (Expr m F a) where
+	transfer =  transfer1
 
--- ~ instance GLtype (V2 a) => Transfer (V2 (Expr m V a)) (V2 (Expr m F a)) where
-	-- ~ transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+instance (GLtype a, GLtype (V2 a)) => Transfer m (V2 (Expr m V a)) (V2 (Expr m F a)) where
+	transfer = fmap (vecParts) . transfer1 . exprVec
 
--- ~ instance GLtype (V3 a) => Transfer (V3 (Expr m V a)) (V3 (Expr m F a)) where
-	-- ~ transfer = fmap (vecParts . Expr) . transfer1 . exprVec
+instance (GLtype a, GLtype (V3 a)) => Transfer m (V3 (Expr m V a)) (V3 (Expr m F a)) where
+	transfer = fmap (vecParts) . transfer1 . exprVec
 
 -- ~ instance GLtype (V4 a) => Transfer (V4 (Expr m V a)) (V4 (Expr m F a)) where
 	-- ~ transfer = fmap (vecParts . Expr) . transfer1 . exprVec
