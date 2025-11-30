@@ -113,7 +113,7 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 
 SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
 
-type ShdrEnv m = BuildShaderT (ShaderEnv m)
+type Shdr m = BuildShaderT (ShaderEnv m)
 
 newtype ShaderEnv m a = ShaderEnv { unShaderEnv :: CounterT (DeferT (DeferT m)) a }
 	deriving
@@ -230,7 +230,7 @@ instance ShaderType F
 
 
 compile :: forall a b m . (MonadIO m, HandTex m, AttrType m a b)
-	=> (b -> DeferT (ShdrEnv m) (V4 (Expr (ShdrEnv m) V Float), V4 (Expr (ShdrEnv m) F Float)))
+	=> (b -> DeferT (Shdr m) (V4 (Expr (Shdr m) V Float), V4 (Expr (Shdr m) F Float)))
 	-> m ([VArray a] -> m ())
 compile f = do
 	sp <- glCreateProgram
@@ -319,9 +319,9 @@ setAttributes a = do
 
 
 setupAttribute1
-	:: (GLtype a, Storable a, MonadIO m, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv m)))
+	:: (GLtype a, Storable a, MonadIO m, Defer (Shdr m) (Shdr m))
 	=> a
-	-> AttribM (BuildShaderT (ShaderEnv m)) (Expr (BuildShaderT (ShaderEnv m)) V a)
+	-> AttribM (Shdr m) (Expr (Shdr m) V a)
 setupAttribute1 a = do
 	-- todo obtain shader value from buildshader monad instead
 	s <- getShader
@@ -341,11 +341,19 @@ setupAttribute1 a = do
 		return n
 	return $ (liftExpr'' $ runOnce initExpr)
 
-class (MonadIO m, Storable a, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv m))) => AttrType m a b where --  | a -> b, b -> a
-	setAttribute :: a -> AttribM (BuildShaderT (ShaderEnv m)) b
+class (MonadIO m, Storable a, Defer (Shdr m) (Shdr m)) => AttrType m a b where --  | a -> b, b -> a
+	setAttribute :: a -> AttribM (Shdr m) b
 
-instance (MonadIO m, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv m))) => AttrType m Bool (Expr (BuildShaderT (ShaderEnv m)) V Bool) where
+instance (MonadIO m, Defer (Shdr m) (Shdr m)) => AttrType m Bool (Expr (Shdr m) V Bool) where
 	setAttribute = setupAttribute1
+
+instance (MonadIO m, Defer (Shdr m) (Shdr m)) => AttrType m Int32 (Expr (Shdr m) V Int32) where
+	setAttribute = setupAttribute1
+
+instance (MonadIO m, Defer (Shdr m) (Shdr m)) => AttrType m Float (Expr (Shdr m) V Float) where
+	setAttribute = setupAttribute1
+
+
 -- ~ instance AttrType Bool (Expr m V Bool) where setAttribute = setupAttribute1
 -- ~ instance AttrType Int32 (Expr m V Int32) where setAttribute = setupAttribute1
 -- ~ instance AttrType Float (Expr m V Float) where setAttribute = setupAttribute1
@@ -353,22 +361,22 @@ instance (MonadIO m, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv
 -- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
 	-- ~ setAttribute i a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 i a
 
--- ~ instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
-	-- ~ setAttribute _ = liftM2 (,) (setAttribute s (err :: a)) (setAttribute s (err :: b))
+instance (AttrType m a c, AttrType m b d) => AttrType m (a,b) (c,d) where
+	setAttribute _ = liftM2 (,) (setAttribute (err :: a)) (setAttribute (err :: b))
 
--- ~ instance (AttrType a x, AttrType b y, AttrType c z) => AttrType (a,b,c) (x,y,z) where
-	-- ~ setAttribute _ = liftM3 (,,)
-		-- ~ (setAttribute s (err :: a))
-		-- ~ (setAttribute s (err :: b))
-		-- ~ (setAttribute s (err :: c))
+instance (AttrType m a x, AttrType m b y, AttrType m c z) => AttrType m (a,b,c) (x,y,z) where
+	setAttribute _ = liftM3 (,,)
+		(setAttribute (err :: a))
+		(setAttribute (err :: b))
+		(setAttribute (err :: c))
 
--- ~ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
-	-- ~ AttrType (a,b,c,d) (x,y,z,w) where
-	-- ~ setAttribute _ = liftM4 (,,,)
-		-- ~ (setAttribute s (err :: a))
-		-- ~ (setAttribute s (err :: b))
-		-- ~ (setAttribute s (err :: c))
-		-- ~ (setAttribute s (err :: d))
+instance (AttrType m a x, AttrType m b y, AttrType m c z, AttrType m d w) =>
+	AttrType m (a,b,c,d) (x,y,z,w) where
+	setAttribute _ = liftM4 (,,,)
+		(setAttribute (err :: a))
+		(setAttribute (err :: b))
+		(setAttribute (err :: c))
+		(setAttribute (err :: d))
 
 -- ~ instance (Storable (v a), Vector v, GLtype (v a)) => AttrType (v a) (v (Expr m V a)) where
 	-- ~ setAttribute s a = vecParts <$> setupAttribute1 s a
@@ -380,6 +388,10 @@ instance (MonadIO m, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv
 -- ~ instance AttrType (V2 Float) (V2 (Expr m V Float)) where setAttribute = attribPartsVec
 -- ~ instance AttrType (V2 Int32) (V2 (Expr m V Int32)) where setAttribute = attribPartsVec
 -- ~ instance AttrType (V2 Bool)  (V2 (Expr m V Bool)) where setAttribute = attribPartsVec
+
+-- ~ instance (MonadIO m, Defer (BuildShaderT (ShaderEnv m)) (BuildShaderT (ShaderEnv m))) =>
+ -- ~ AttrType m (V3 Float) (V3 (Expr (BuildShaderT (ShaderEnv m)) V Float)) where
+	-- ~ setAttribute = attribPartsVec
 
 -- ~ instance AttrType (V3 Float) (V3 (Expr m V Float)) where setAttribute = attribPartsVec
 -- ~ instance AttrType (V3 Int32) (V3 (Expr m V Int32)) where setAttribute = attribPartsVec
