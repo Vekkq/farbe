@@ -76,17 +76,23 @@ initTexState = liftIO $ do
 	ar <- MA.newArray (1, itoi $ i `quot` 3) 0
 	return $ TexState 1 ar
 
-runHandTexT :: MonadIO m => HandTexT m a -> m a
-runHandTexT (HandTexT m) = do
+evalHandTexT :: MonadIO m => HandTexT m a -> m a
+evalHandTexT (HandTexT m) = do
 	t <- initTexState
 	evalStateT m t
 
-joinHandTex :: (MonadIO m, HandTex m) => HandTexT m a -> m a
-joinHandTex (HandTexT m) = do
-	t <- getTex
-	(a,s) <- runStateT m t
-	setTex s
-	return a
+runHandTexT :: MonadIO m => HandTexT m a -> m a
+runHandTexT (HandTexT m) = initTexState >>= evalStateT m
+
+runHandTexT' :: MonadIO m => TexState -> HandTexT m a -> m (a, TexState)
+runHandTexT' s (HandTexT m) = runStateT m s
+
+-- ~ joinHandTex :: (MonadIO m, HandTex m) => HandTexT m a -> m a
+-- ~ joinHandTex (HandTexT m) = do
+	-- ~ t <- getTex
+	-- ~ (a,s) <- runStateT m t
+	-- ~ setTex s
+	-- ~ return a
 
 
 class HandTex m where
