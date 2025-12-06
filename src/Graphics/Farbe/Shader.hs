@@ -77,8 +77,6 @@ runExprEnv (ExprEnv m r ps) = do
 	ps' <- mapM runExprEnv ps
 	return $ ExprS s r ps'
 
-newtype FarbeT m a = { CounterT (HandTexT m) a }
-
 newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: CounterT (DeferT (DeferT (HandTexT m))) a }
 	deriving
 		( Functor, Applicative, Monad, Alternative
@@ -416,21 +414,76 @@ withString n f = liftIO $ bracket (newCAString n) free f
 ------------------------------------------------------------------------------------------
 
 
--- ~ data Var a = Var { varAst :: ExprEnv, varMVar :: MVar a }
 
 
--- ~ makeVar :: (HandTex m, PostShader m, GLtype a) => a -> m (Expr e a)
--- ~ makeVar a = do
-	-- ~ m <- liftIO $ newMVar a
-	-- ~ vname <- ((glShortName a)++) <$> generateName a
-	-- ~ let r = do
-		-- ~ addHeader "uniform" a vname
-		-- ~ s <- getShader
-		-- ~ defer $ do
-			-- ~ l <- withString vname $ glGetUniformLocation s
-			-- ~ setupUpload l m
-		-- ~ return vname
-	-- ~ return $ Var (ExprEnv r) m
+data Var a = Var { varExpr :: ExprEnv, varMVar :: MVar a }
+
+makeVar :: forall a m . (Count m, HandTex m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
+makeVar a = do
+	m <- liftIO $ newMVar a
+	vname <- (name "u" a)
+	let r = do
+		addHeader "uniform" a vname
+		s <- getShader
+		defer $ do
+			l <- withString vname $ glGetUniformLocation s
+			wc <- makeRunWhenChanged $ upload l
+			defer $ (liftIO $ readMVar m) >>= runwc wc
+		return vname
+	return $ Var (ExprEnv r (toTypeS (err :: a)) []) m
+
+
+
+class (GLtype a, Eq a) => Upload a where
+	upload :: (HandTex m, MonadIO m) => GLint -> a -> m ()
+
+instance Upload Bool where
+	upload l = glUniform1i l . boolToInt
+
+instance Upload Int32 where
+	upload l = glUniform1i l . itoi
+
+instance Upload Float where
+	upload l = glUniform1f l
+
+instance Upload (V2 Float) where
+	upload l (V2 a b) = glUniform2f l a b
+
+instance Upload (V3 Float) where
+	upload l (V3 a b c) = glUniform3f l a b c
+
+instance Upload (V4 Float) where
+	upload l (V4 a b c d) = glUniform4f l a b c d
+
+
+instance Upload (V2 Int32) where
+	upload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
+
+instance Upload (V3 Int32) where
+	upload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
+
+instance Upload (V4 Int32) where
+	upload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
+
+instance Upload (V2 Bool) where
+	upload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
+
+instance Upload (V3 Bool) where
+	upload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
+
+instance Upload (V4 Bool) where
+	upload l (V4 a b c d) =
+		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+
+
+instance Upload (Mat V2 V2 Float) where
+	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
+
+instance Upload (Mat V3 V3 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+
+instance Upload (Mat V4 V4 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
 
 
 -- ~ swapVar :: MonadIO m => Var a -> a -> m a
@@ -439,136 +492,70 @@ withString n f = liftIO $ bracket (newCAString n) free f
 -- ~ readVar :: MonadIO m => Var a -> m a
 -- ~ readVar = liftIO . readMVar . varMVar
 
+-- ~ type MakeVarM m = (Count m, HandTex m, MonadIO m, GLtype a, Upload a) => m
+
+makeVarF :: (Count m, HandTex m, MonadIO m) => Float -> m (Var Float)
+makeVarI :: (Count m, HandTex m, MonadIO m) => Int32 -> m (Var Int32)
+makeVarB :: (Count m, HandTex m, MonadIO m) => Bool -> m (Var Bool)
+makeVarV2F :: (Count m, HandTex m, MonadIO m) => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: (Count m, HandTex m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: (Count m, HandTex m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: (Count m, HandTex m, MonadIO m) => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: (Count m, HandTex m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: (Count m, HandTex m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: (Count m, HandTex m, MonadIO m) => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: (Count m, HandTex m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: (Count m, HandTex m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: (Count m, HandTex m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: (Count m, HandTex m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: (Count m, HandTex m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+
+makeVarF   = makeVar
+makeVarI   = makeVar
+makeVarB   = makeVar
+makeVarV2F = makeVar
+makeVarV2I = makeVar
+makeVarV2B = makeVar
+makeVarV3F = makeVar
+makeVarV3I = makeVar
+makeVarV3B = makeVar
+makeVarV4F = makeVar
+makeVarV4I = makeVar
+makeVarV4B = makeVar
+makeVarM2  = makeVar
+makeVarM3  = makeVar
+makeVarM4  = makeVar
 
 
--- ~ makeVarF :: MonadGL m => Float -> m (Var Float)
--- ~ makeVarI :: MonadGL m => Int32 -> m (Var Int32)
--- ~ makeVarB :: MonadGL m => Bool -> m (Var Bool)
--- ~ makeVarV2F :: MonadGL m => V2 Float -> m (Var (V2 Float))
--- ~ makeVarV2I :: MonadGL m => V2 Int32 -> m (Var (V2 Int32))
--- ~ makeVarV2B :: MonadGL m => V2 Bool -> m (Var (V2 Bool))
--- ~ makeVarV3F :: MonadGL m => V3 Float -> m (Var (V3 Float))
--- ~ makeVarV3I :: MonadGL m => V3 Int32 -> m (Var (V3 Int32))
--- ~ makeVarV3B :: MonadGL m => V3 Bool -> m (Var (V3 Bool))
--- ~ makeVarV4F :: MonadGL m => V4 Float -> m (Var (V4 Float))
--- ~ makeVarV4I :: MonadGL m => V4 Int32 -> m (Var (V4 Int32))
--- ~ makeVarV4B :: MonadGL m => V4 Bool -> m (Var (V4 Bool))
--- ~ makeVarM2 :: MonadGL m => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
--- ~ makeVarM3 :: MonadGL m => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
--- ~ makeVarM4 :: MonadGL m => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+class Use a e r | a e -> r, r -> a e where
+	use :: a -> r
 
--- ~ makeVarF   = makeVar
--- ~ makeVarI   = makeVar
--- ~ makeVarB   = makeVar
--- ~ makeVarV2F = makeVar
--- ~ makeVarV2I = makeVar
--- ~ makeVarV2B = makeVar
--- ~ makeVarV3F = makeVar
--- ~ makeVarV3I = makeVar
--- ~ makeVarV3B = makeVar
--- ~ makeVarV4F = makeVar
--- ~ makeVarV4I = makeVar
--- ~ makeVarV4B = makeVar
--- ~ makeVarM2  = makeVar
--- ~ makeVarM3  = makeVar
--- ~ makeVarM4  = makeVar
+instance Use (Var Float) e (Expr e Float) where use = Expr . varExpr
+instance Use (Var Int32) e (Expr e Int32) where use = Expr . varExpr
+instance Use (Var Bool) e (Expr e Bool) where use = Expr . varExpr
 
+usePartsVec :: (Vector v, GLtype a) => Var (v a) -> v (Expr e a)
+usePartsVec = vecParts . Expr . varExpr
 
--- ~ class Use a e r | a e -> r, r -> a e where
-	-- ~ use :: a -> r
+instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where use = usePartsVec
+instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where use = usePartsVec
+instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where use = usePartsVec
 
--- ~ instance Use (Var Float) e (Expr e Float) where use = Expr . varAst
--- ~ instance Use (Var Int32) e (Expr e Int32) where use = Expr . varAst
--- ~ instance Use (Var Bool) e (Expr e Bool) where use = Expr . varAst
+usePartsMat :: (Vector v, GLtype a, GLtype (v a)) => Var (v (v a)) -> v (v (Expr e a))
+usePartsMat v = vecParts <$> vecParts (Expr $ varExpr v)
 
--- ~ usePartsVec :: Vector v => Var (v a) -> v (Expr e a)
--- ~ usePartsVec = vecParts . Expr . varAst
-
--- ~ instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where use = usePartsVec
--- ~ instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where use = usePartsVec
--- ~ instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where use = usePartsVec
--- ~ instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where use = usePartsVec
--- ~ instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where use = usePartsVec
--- ~ instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where use = usePartsVec
--- ~ instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where use = usePartsVec
--- ~ instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where use = usePartsVec
--- ~ instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where use = usePartsVec
-
--- ~ usePartsMat :: Vector v => Var (v (v a)) -> v (v (Expr e a))
--- ~ usePartsMat v = vecParts <$> vecParts (Expr $ varAst v)
-
--- ~ instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where use = usePartsMat
--- ~ instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where use = usePartsMat
--- ~ instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where use = usePartsMat
 
 -- ~ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
 	-- ~ use = Expr . varAst
-
-
-
-setupUpload' :: (Eq a, MonadIO n, HandTex n, PostShader m) => (a -> n ()) -> MVar a -> m ()
-setupUpload' f m = do
-	wc <- makeRunWhenChanged f
-	defer $ (liftIO $ readMVar m) >>= runwc wc
-
-class Eq a => Upload a where
-	setupUpload :: (PostShader m) => GLint -> MVar a -> m ()
-
-instance Upload Bool where
-	setupUpload l = setupUpload' (glUniform1i l . boolToInt)
-
-instance Upload Int32 where
-	setupUpload l = setupUpload' (glUniform1i l . itoi)
-
-instance Upload Float where
-	setupUpload l = setupUpload' (glUniform1f l)
-
-instance Upload (V2 Float) where
-	setupUpload l = setupUpload' (\(V2 a b) -> glUniform2f l a b)
-
-instance Upload (V3 Float) where
-	setupUpload l = setupUpload' (\(V3 a b c) -> glUniform3f l a b c)
-
-instance Upload (V4 Float) where
-	setupUpload l = setupUpload' (\(V4 a b c d) -> glUniform4f l a b c d)
-
-
-instance Upload (V2 Int32) where
-	setupUpload l = setupUpload' (\(V2 a b) -> glUniform2i l (itoi a) (itoi b))
-
-instance Upload (V3 Int32) where
-	setupUpload l = setupUpload' (\(V3 a b c) -> glUniform3i l (itoi a) (itoi b) (itoi c))
-
-instance Upload (V4 Int32) where
-
-	setupUpload l = setupUpload'
-		(\(V4 a b c d) -> glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d))
-
-instance Upload (V2 Bool) where
-
-	setupUpload l = setupUpload' (\(V2 a b) -> glUniform2i l (boolToInt a) (boolToInt b))
-
-instance Upload (V3 Bool) where
-
-	setupUpload l = setupUpload'
-		(\(V3 a b c) -> glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c))
-
-instance Upload (V4 Bool) where
-	setupUpload l = setupUpload' (\(V4 a b c d) ->
-		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d))
-
-
-instance Upload (Mat V2 V2 Float) where
-	setupUpload l = setupUpload' (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
-
-instance Upload (Mat V3 V3 Float) where
-	setupUpload l = setupUpload'
-		(\m -> withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p)
-
-instance Upload (Mat V4 V4 Float) where
-	setupUpload l = setupUpload'
-		(\m -> withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p)
-
 
 
 ------------------------------------------------------------------------------------------

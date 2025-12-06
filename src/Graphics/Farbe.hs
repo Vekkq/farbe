@@ -36,7 +36,6 @@ foo = runFarbe $ do
 
 	f [a]
 
-use = undefined
 
 
 -- ~ import Graphics.Farbe.Utils

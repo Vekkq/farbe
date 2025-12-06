@@ -107,21 +107,21 @@ instance GLtype (V2 Float) where
 	toTypeS _ = TVec2 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 2
-	glShortName _ = "v2f"
+	glShortName _ = "v2"
 
 instance GLtype (V3 Float) where
 	slName _ = "vec3"
 	toTypeS _ = TVec3 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 3
-	glShortName _ = "v3f"
+	glShortName _ = "v3"
 
 instance GLtype (V4 Float) where
 	slName _ = "vec4"
 	toTypeS _ = TVec4 TFloat
 	glType _ = GL_FLOAT
 	glComponents _ = 4
-	glShortName _ = "v4f"
+	glShortName _ = "v4"
 
 
 instance GLtype (V2 Int32) where

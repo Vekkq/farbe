@@ -22,7 +22,7 @@
   will have to be independent of the inner postshader monad
 
 
-
+* rewrite window to track pressed keys, by ensuring which keys are pressed by asking all after tabbing back in
 
 
 
