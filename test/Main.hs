@@ -17,14 +17,11 @@ import Control.Monad.IO.Class
 
 import Graphics.GL.Embedded20
 import Graphics.Farbe.Utils
+import Graphics.Farbe.JuicyPixels
 
-
-main = undefined
-
-{-
 
 main :: IO ()
-main = runWindowT "" (InWindow (1000,1024)) $ runGL glDefaultConfig $ do
+main = runWindowT "" (InWindow (1000,1024)) $ runFarbe $ do
   i <- fromRight undefined <$> loadImage RGB "test-resources/iwi.jpg"
   t <- makeVarT i
 
@@ -49,7 +46,6 @@ main = runWindowT "" (InWindow (1000,1024)) $ runGL glDefaultConfig $ do
     display
     loop
 
--}
 
 
 -- ~ main :: IO ()

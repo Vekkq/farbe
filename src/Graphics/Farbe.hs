@@ -7,34 +7,92 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
-module Graphics.Farbe where
+module Graphics.Farbe
+	( module Graphics.Farbe.Shader
+	, module Graphics.Farbe.Expr
+	, runFarbe
+	, makeVarF
+	, makeVarI
+	, makeVarB
+	, makeVarV2F
+	, makeVarV2I
+	, makeVarV2B
+	, makeVarV3F
+	, makeVarV3I
+	, makeVarV3B
+	, makeVarV4F
+	, makeVarV4I
+	, makeVarV4B
+	, makeVarM2
+	, makeVarM3
+	, makeVarM4
+	, makeVarT
+
+	) where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.Window
 import Graphics.Farbe.Shader
 import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 import Graphics.Farbe.STL
 import Graphics.Farbe.Utils
-
+import Graphics.Farbe.Expr
+import Graphics.Farbe.Uniform
 import Control.Monad.IO.Class
+
 
 
 runFarbe :: MonadIO m => HandTexT (HandVBOT m) a -> m a
 runFarbe = runHandVBOT (2^24) . runHandTexT
 
-foo :: (MonadIO m) => m ()
-foo = runFarbe $ do
-	let (u,arr',i) = undefined
-	a <- loadSTL "test/teapot.stl"
-	f <- compile $ \v -> do
-		let (V3 x y z) = v*0.02
-		let pos = V4 x y z 1
-		x' <- transfer x
-		return (pos, V4 (use u `arr'` use i) x' 1 1)
+makeVarF :: (Count m, HandTex m, MonadIO m) => Float -> m (Var Float)
+makeVarI :: (Count m, HandTex m, MonadIO m) => Int32 -> m (Var Int32)
+makeVarB :: (Count m, HandTex m, MonadIO m) => Bool -> m (Var Bool)
+makeVarV2F :: (Count m, HandTex m, MonadIO m) => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: (Count m, HandTex m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: (Count m, HandTex m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: (Count m, HandTex m, MonadIO m) => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: (Count m, HandTex m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: (Count m, HandTex m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: (Count m, HandTex m, MonadIO m) => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: (Count m, HandTex m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: (Count m, HandTex m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: (Count m, HandTex m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: (Count m, HandTex m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: (Count m, HandTex m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+makeVarT :: (Count m, HandTex m, MonadIO m) => Texture t -> m (Var (Texture t))
 
-	f [a]
+makeVarF   = makeVar
+makeVarI   = makeVar
+makeVarB   = makeVar
+makeVarV2F = makeVar
+makeVarV2I = makeVar
+makeVarV2B = makeVar
+makeVarV3F = makeVar
+makeVarV3I = makeVar
+makeVarV3B = makeVar
+makeVarV4F = makeVar
+makeVarV4I = makeVar
+makeVarV4B = makeVar
+makeVarM2  = makeVar
+makeVarM3  = makeVar
+makeVarM4  = makeVar
+makeVarT   = makeVar
+
+-- ~ foo :: (MonadIO m) => m ()
+-- ~ foo = runFarbe $ do
+	-- ~ let (u,arr',i) = undefined
+	-- ~ a <- loadSTL "test/teapot.stl"
+	-- ~ f <- compile $ \v -> do
+		-- ~ let (V3 x y z) = v*0.02
+		-- ~ let pos = V4 x y z 1
+		-- ~ x' <- transfer x
+		-- ~ return (pos, V4 (use u `arr'` use i) x' 1 1)
+
+	-- ~ f [a]
 
 
 

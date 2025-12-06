@@ -18,7 +18,6 @@ module Graphics.Farbe.GL where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
-import Graphics.Farbe.Texture
 
 import Control.Monad.IO.Class
 import Foreign hiding (void)
@@ -192,6 +191,8 @@ instance GLtype (Mat V4 V4 Float) where
 	glComponents _ = 16
 	glShortName _ = "m4"
 
+
+
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
 
@@ -216,8 +217,6 @@ instance GLtype a => GLtype (Normalized a) where
 	glComponents _ = glComponents (err :: a)
 	glShortName _ = "n" ++ glShortName (err :: a)
 	-- ~ setupUpload l (Normalized e) = setupUpload l e
-
-
 
 
 

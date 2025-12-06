@@ -5,7 +5,7 @@
 
 module Graphics.Farbe.Texture where
 
-
+import Graphics.Farbe.GL
 
 
 import qualified Data.Map as M
@@ -159,38 +159,9 @@ withPtr f = liftIO $ alloca $ \p -> do
 withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
 withPtr_ f = fst <$> withPtr f
 
--- ~ makeVarT :: MonadGL m => Texture t -> m (Var (Texture t))
--- ~ makeVarT = makeVar
-
--- ~ instance GLtype (Texture f) where
-	-- ~ glCName _ = "sampler2D"
-	-- ~ glType _ = GL_INT
-	-- ~ glPrecision _ = ""
-	-- ~ setupUpload l m = preRender $ do
-		-- ~ (Texture i u c w h) <- liftIO $ readMVar m -- borked TODO
-		-- ~ mts <- texUnits <$> glState
-		-- ~ (u', ts) <- liftIO $ readMVar mts
-		-- ~ i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-		-- ~ when (i /= i') $ do
-			-- ~ glActiveTexture $ GL_TEXTURE0 + u'
-			-- ~ glBindTexture GL_TEXTURE_2D i
-			-- ~ glUniform1i l $ itoi u'
-			-- ~ liftIO $ swapMVar m $ Texture i u' c w h
-			-- ~ u'' <- succU ts u'
-			-- ~ liftIO $ writeArray ts u'' i
-			-- ~ liftIO $ void $ swapMVar mts (u'',ts)
-	-- ~ glShortName _ = "t"
-
--- ~ succU ts x = do
-	-- ~ let x' = succ x
-	-- ~ (l,h) <- liftIO $ getBounds ts
-	-- ~ return $ if x' >= h then l else x'
-
-
--- ~ instance Use (Var (Texture f)) e (Expr e (Texture f)) where
-  -- ~ use = Expr . varAst
-
--- add expr texture shader access functions
-
--- ~ texture :: Expr e (Texture f) -> V2 (Expr e Float) -> V4 (Expr e Float)
--- ~ texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)
+instance GLtype (Texture f) where
+	slName _ = "sampler2D"
+	toTypeS _ = TTex
+	glType _ = GL_INT
+	glPrecision _ = ""
+	glShortName _ = "t"

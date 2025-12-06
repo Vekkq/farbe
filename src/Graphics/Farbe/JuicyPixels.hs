@@ -20,7 +20,7 @@ import Control.Monad.IO.Class
 
 
 
-loadImage :: (MonadIO m, TextureFormat t) => t -> String -> m (Either String (Texture t))
+loadImage :: (MonadIO m) => TextureFormat -> String -> m (Either String (Texture t))
 loadImage t s = do
   ei <- liftIO $ readImage s
   right ei $ \i -> do

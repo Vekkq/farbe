@@ -23,9 +23,13 @@ library
                    , Graphics.Farbe.STL
                    , Graphics.Farbe.Texture
                    , Graphics.Farbe.VertexArray
+                   , Graphics.Farbe.Array
                    , Graphics.Farbe.Shader
                    , Graphics.Farbe.GL
                    , Graphics.Farbe.Counter
+                   , Graphics.Farbe.Expr
+                   , Graphics.Farbe.Uniform
+                   , Graphics.Farbe.JuicyPixels
 
     build-depends: base ^>=4.21
                  , containers^>=0.7

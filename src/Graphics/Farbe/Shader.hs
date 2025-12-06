@@ -16,6 +16,7 @@ import Graphics.Farbe.GL
 -- ~ import Graphics.Farbe.Window
 import Graphics.Farbe.Utils
 import Graphics.Farbe.VertexArray
+-- ~ import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 -- ~ import Graphics.Farbe.Counter
 
@@ -283,7 +284,7 @@ setupAttribute1 a = do
 	initExpr <- makeRunOnce $ do
 		addHeader "attribute" a n
 		return n
-	return $ (liftExpr'' $ runOnce initExpr)
+	return $ (liftExprShdr' $ runOnce initExpr)
 
 class Storable a => AttrType a b | a -> b, b -> a where
 	setAttribute :: (Attrib m, BuildShader m, Count m, PostShader m) => a -> m b
@@ -358,25 +359,39 @@ instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where
 
 ------------------------------------------------------------------------------------------
 
+expr :: (Show b, GLtype a) => b -> Expr e a
+expr x = liftExpr (show x) []
+
+
 liftExpr :: (GLtype a) => String -> [ExprEnv] -> Expr e a
-liftExpr s p = liftExpr' (return s) p
+liftExpr s p = liftExprShdr (return s) p
 
-liftExpr' :: forall e a . (GLtype a) => Shdr String -> [ExprEnv] -> Expr e a
-liftExpr' s p = Expr $ ExprEnv s (toTypeS (err :: a)) p
+liftExpr' :: (GLtype a) => String -> Expr e a
+liftExpr' s = liftExpr s []
 
-liftExpr'' :: (GLtype a) => Shdr String -> Expr e a
-liftExpr'' s = liftExpr' s []
+liftExprShdr :: forall e a . (GLtype a) => Shdr String -> [ExprEnv] -> Expr e a
+liftExprShdr s p = Expr $ ExprEnv s (toTypeS (err :: a)) p
+
+liftExprShdr' :: (GLtype a) => Shdr String -> Expr e a
+liftExprShdr' s = liftExprShdr s []
 
 -- overload it for multiple parameters
 
 liftE0 ::(GLtype a) => String -> Expr e a
-liftE0 s = liftExpr s  []
+liftE0 s = liftExpr s []
 
 liftE1 :: (GLtype a2) => String -> Expr e a1 -> Expr e a2
 liftE1 s (Expr a) = liftExpr s [a]
 
 liftE2 :: (GLtype a3) => String -> Expr e a1 -> Expr e a2 -> Expr e a3
 liftE2 s (Expr a) (Expr b) = liftExpr s [a,b]
+
+-- ~ class LiftExpr a r where
+	-- ~ liftE :: a -> r
+
+-- ~ instance LiftExpr (a -> b) r where
+	-- ~ liftE f = (\a -> (a:))
+
 
 -- ~ liftE3 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
 -- ~ liftE3 s (Expr a) (Expr b) (Expr c) = Expr $ Fn s [a,b,c]
@@ -395,10 +410,6 @@ exprMat :: forall a e v .(GLtype a, Vector v, GLtype (v a), GLtype (v (v a)))
 	=> v (v (Expr e a)) -> Expr e (v (v a))
 exprMat v = liftExpr (slName (err :: v a)) $ map unExpr $ concatMap toList $ toList v
 
-expr :: (Show b, GLtype a) => b -> Expr e a
-expr x = liftExpr (show x) []
-
-
 arrV :: (GLtype a, Vector v) => Expr e (v a) -> Expr e Int32 -> Expr e a
 arrV = liftE2 "[]"
 
@@ -412,151 +423,6 @@ withString n f = liftIO $ bracket (newCAString n) free f
 
 
 ------------------------------------------------------------------------------------------
-
-
-
-
-data Var a = Var { varExpr :: ExprEnv, varMVar :: MVar a }
-
-makeVar :: forall a m . (Count m, HandTex m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
-makeVar a = do
-	m <- liftIO $ newMVar a
-	vname <- (name "u" a)
-	let r = do
-		addHeader "uniform" a vname
-		s <- getShader
-		defer $ do
-			l <- withString vname $ glGetUniformLocation s
-			wc <- makeRunWhenChanged $ upload l
-			defer $ (liftIO $ readMVar m) >>= runwc wc
-		return vname
-	return $ Var (ExprEnv r (toTypeS (err :: a)) []) m
-
-
-
-class (GLtype a, Eq a) => Upload a where
-	upload :: (HandTex m, MonadIO m) => GLint -> a -> m ()
-
-instance Upload Bool where
-	upload l = glUniform1i l . boolToInt
-
-instance Upload Int32 where
-	upload l = glUniform1i l . itoi
-
-instance Upload Float where
-	upload l = glUniform1f l
-
-instance Upload (V2 Float) where
-	upload l (V2 a b) = glUniform2f l a b
-
-instance Upload (V3 Float) where
-	upload l (V3 a b c) = glUniform3f l a b c
-
-instance Upload (V4 Float) where
-	upload l (V4 a b c d) = glUniform4f l a b c d
-
-
-instance Upload (V2 Int32) where
-	upload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
-
-instance Upload (V3 Int32) where
-	upload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
-
-instance Upload (V4 Int32) where
-	upload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
-
-instance Upload (V2 Bool) where
-	upload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
-
-instance Upload (V3 Bool) where
-	upload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
-
-instance Upload (V4 Bool) where
-	upload l (V4 a b c d) =
-		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
-
-
-instance Upload (Mat V2 V2 Float) where
-	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
-
-instance Upload (Mat V3 V3 Float) where
-	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
-
-instance Upload (Mat V4 V4 Float) where
-	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
-
-
--- ~ swapVar :: MonadIO m => Var a -> a -> m a
--- ~ swapVar v = liftIO . swapMVar (varMVar v)
-
--- ~ readVar :: MonadIO m => Var a -> m a
--- ~ readVar = liftIO . readMVar . varMVar
-
--- ~ type MakeVarM m = (Count m, HandTex m, MonadIO m, GLtype a, Upload a) => m
-
-makeVarF :: (Count m, HandTex m, MonadIO m) => Float -> m (Var Float)
-makeVarI :: (Count m, HandTex m, MonadIO m) => Int32 -> m (Var Int32)
-makeVarB :: (Count m, HandTex m, MonadIO m) => Bool -> m (Var Bool)
-makeVarV2F :: (Count m, HandTex m, MonadIO m) => V2 Float -> m (Var (V2 Float))
-makeVarV2I :: (Count m, HandTex m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
-makeVarV2B :: (Count m, HandTex m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
-makeVarV3F :: (Count m, HandTex m, MonadIO m) => V3 Float -> m (Var (V3 Float))
-makeVarV3I :: (Count m, HandTex m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
-makeVarV3B :: (Count m, HandTex m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
-makeVarV4F :: (Count m, HandTex m, MonadIO m) => V4 Float -> m (Var (V4 Float))
-makeVarV4I :: (Count m, HandTex m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
-makeVarV4B :: (Count m, HandTex m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
-makeVarM2 :: (Count m, HandTex m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
-makeVarM3 :: (Count m, HandTex m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
-makeVarM4 :: (Count m, HandTex m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
-
-makeVarF   = makeVar
-makeVarI   = makeVar
-makeVarB   = makeVar
-makeVarV2F = makeVar
-makeVarV2I = makeVar
-makeVarV2B = makeVar
-makeVarV3F = makeVar
-makeVarV3I = makeVar
-makeVarV3B = makeVar
-makeVarV4F = makeVar
-makeVarV4I = makeVar
-makeVarV4B = makeVar
-makeVarM2  = makeVar
-makeVarM3  = makeVar
-makeVarM4  = makeVar
-
-
-class Use a e r | a e -> r, r -> a e where
-	use :: a -> r
-
-instance Use (Var Float) e (Expr e Float) where use = Expr . varExpr
-instance Use (Var Int32) e (Expr e Int32) where use = Expr . varExpr
-instance Use (Var Bool) e (Expr e Bool) where use = Expr . varExpr
-
-usePartsVec :: (Vector v, GLtype a) => Var (v a) -> v (Expr e a)
-usePartsVec = vecParts . Expr . varExpr
-
-instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where use = usePartsVec
-instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where use = usePartsVec
-instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where use = usePartsVec
-instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where use = usePartsVec
-instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where use = usePartsVec
-instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where use = usePartsVec
-instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where use = usePartsVec
-instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where use = usePartsVec
-instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where use = usePartsVec
-
-usePartsMat :: (Vector v, GLtype a, GLtype (v a)) => Var (v (v a)) -> v (v (Expr e a))
-usePartsMat v = vecParts <$> vecParts (Expr $ varExpr v)
-
-instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where use = usePartsMat
-instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where use = usePartsMat
-instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where use = usePartsMat
-
--- ~ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
-	-- ~ use = Expr . varAst
-
 
 ------------------------------------------------------------------------------------------
 
@@ -601,7 +467,7 @@ transfer1 e = do
 		addHeader "varying" a $ n
 		defer $ do
 			addHeader "in" a n
-		return $ liftExpr'' $ return n
+		return $ liftExprShdr' $ return n
 
 
 
