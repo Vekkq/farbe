@@ -220,6 +220,49 @@ instance GLtype a => GLtype (Normalized a) where
 
 
 
+class (GLtype a, Eq a) => Upload a where
+	upload :: MonadIO m => GLint -> a -> m ()
+
+instance Upload Bool where upload l = glUniform1i l . boolToInt
+instance Upload Int32 where upload l = glUniform1i l . itoi
+instance Upload Float where	upload l = glUniform1f l
+instance Upload (V2 Float) where upload l (V2 a b) = glUniform2f l a b
+instance Upload (V3 Float) where upload l (V3 a b c) = glUniform3f l a b c
+instance Upload (V4 Float) where upload l (V4 a b c d) = glUniform4f l a b c d
+
+instance Upload (V2 Int32) where
+	upload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
+
+instance Upload (V3 Int32) where
+	upload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
+
+instance Upload (V4 Int32) where
+	upload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
+
+instance Upload (V2 Bool) where
+	upload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
+
+instance Upload (V3 Bool) where
+	upload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
+
+instance Upload (V4 Bool) where
+	upload l (V4 a b c d) =
+		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+
+
+instance Upload (Mat V2 V2 Float) where
+	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
+
+instance Upload (Mat V3 V3 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+
+instance Upload (Mat V4 V4 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
+
+
+
+
+
 
 
 

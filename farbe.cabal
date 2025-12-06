@@ -28,7 +28,6 @@ library
                    , Graphics.Farbe.GL
                    , Graphics.Farbe.Counter
                    , Graphics.Farbe.Expr
-                   , Graphics.Farbe.Uniform
                    , Graphics.Farbe.JuicyPixels
 
     build-depends: base ^>=4.21

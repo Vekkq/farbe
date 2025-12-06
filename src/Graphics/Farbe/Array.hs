@@ -10,7 +10,7 @@
 
 module Graphics.Farbe.Array where
 
-import Graphics.Farbe.Shader
+-- ~ import Graphics.Farbe.Shader
 import Graphics.Farbe.GL
 import Graphics.Farbe.Vec (itoi)
 import Graphics.Farbe.Tuple (err)
@@ -97,13 +97,4 @@ instance (Storable e, KnownNat s) => Storable (Arr s e) where
 		modifyArr ar (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr ar))
 	poke p a@(Arr _ sa) = withStorableArray sa $ \p2 -> copyArray p2 (castPtr p) (sizeArr a)
 	-- i cant help but feel that this is borked
-
-
-arr :: (GLtype a) => Expr e (Arr s a) -> Int32 -> Expr e a
-arr e n = liftE2 "[]" e $ (expr n :: Expr e Int32)
-
--- | @arr'@ is ignoring constant expression requirement.
---   May not work with some implementations.
-arr' :: (GLtype a) => Expr e (Arr s a) -> Expr e Int32 -> Expr e a
-arr' = liftE2 "[]"
 

@@ -40,30 +40,31 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.STL
 import Graphics.Farbe.Utils
 import Graphics.Farbe.Expr
-import Graphics.Farbe.Uniform
+-- ~ import Graphics.Farbe.Uniform
 import Control.Monad.IO.Class
+import Data.Int
 
 
 
 runFarbe :: MonadIO m => HandTexT (HandVBOT m) a -> m a
 runFarbe = runHandVBOT (2^24) . runHandTexT
 
-makeVarF :: (Count m, HandTex m, MonadIO m) => Float -> m (Var Float)
-makeVarI :: (Count m, HandTex m, MonadIO m) => Int32 -> m (Var Int32)
-makeVarB :: (Count m, HandTex m, MonadIO m) => Bool -> m (Var Bool)
-makeVarV2F :: (Count m, HandTex m, MonadIO m) => V2 Float -> m (Var (V2 Float))
-makeVarV2I :: (Count m, HandTex m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
-makeVarV2B :: (Count m, HandTex m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
-makeVarV3F :: (Count m, HandTex m, MonadIO m) => V3 Float -> m (Var (V3 Float))
-makeVarV3I :: (Count m, HandTex m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
-makeVarV3B :: (Count m, HandTex m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
-makeVarV4F :: (Count m, HandTex m, MonadIO m) => V4 Float -> m (Var (V4 Float))
-makeVarV4I :: (Count m, HandTex m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
-makeVarV4B :: (Count m, HandTex m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
-makeVarM2 :: (Count m, HandTex m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
-makeVarM3 :: (Count m, HandTex m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
-makeVarM4 :: (Count m, HandTex m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
-makeVarT :: (Count m, HandTex m, MonadIO m) => Texture t -> m (Var (Texture t))
+makeVarF :: (Count m, MonadIO m) => Float -> m (Var Float)
+makeVarI :: (Count m, MonadIO m) => Int32 -> m (Var Int32)
+makeVarB :: (Count m, MonadIO m) => Bool -> m (Var Bool)
+makeVarV2F :: (Count m, MonadIO m) => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: (Count m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: (Count m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: (Count m, MonadIO m) => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: (Count m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: (Count m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: (Count m, MonadIO m) => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: (Count m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: (Count m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: (Count m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: (Count m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: (Count m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+makeVarT :: (Count m, MonadIO m) => Texture t -> m (Var (Texture t))
 
 makeVarF   = makeVar
 makeVarI   = makeVar

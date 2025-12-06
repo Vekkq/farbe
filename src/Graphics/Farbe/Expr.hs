@@ -15,6 +15,7 @@ import Graphics.Farbe.GL
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
+import Graphics.Farbe.Array
 
 
 import qualified Data.Map as M
@@ -116,3 +117,12 @@ fragCoord = vecParts $ liftE0 "gl_FragCoord"
 
 texture :: Expr e (Texture f) -> V2 (Expr e Float) -> V4 (Expr e Float)
 texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)
+
+arr :: (GLtype a) => Expr e (Arr s a) -> Int32 -> Expr e a
+arr e n = liftE2 "[]" e $ (expr n :: Expr e Int32)
+
+-- | @arr'@ is ignoring constant expression requirement.
+--   May not work with some implementations.
+arr' :: (GLtype a) => Expr e (Arr s a) -> Expr e Int32 -> Expr e a
+arr' = liftE2 "[]"
+
