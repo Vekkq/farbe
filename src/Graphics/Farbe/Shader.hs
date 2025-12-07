@@ -202,7 +202,7 @@ addShader sp t shdr = do
 		=  "#version 100\n"
 		++ unlines (toList $ header st)
 		++ "\n\nvoid main(){\n"
-		++ toCExpr (bexpr st)
+		++ toCExpr' (bexpr st)
 		++ "}"
 	-- ~ debug $ liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
@@ -225,11 +225,24 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 				putStrLn e
 
 
-toCExpr :: [(String, ExprS)] -> String
-toCExpr = undefined
-	-- s ++ " = " ++ e
-	-- ~ ++ unlines (map (("  "++) . (++";")) $ reverse $ toCExpr st)
+toCExpr' :: [(String, ExprS)] -> String
+toCExpr' xs = unlines $ reverse $ for xs $ \(s,x) -> s ++ " = " ++ toCExpr x ++";"
 
+
+toCExpr :: ExprS -> String
+toCExpr e = case e of
+	ExprS s _ [] -> s
+	ExprS "[]" _ (p1:p2:[]) -> toCExpr p1 ++ "[" ++ toCExpr p2 ++ "]"
+	ExprS s _ (p1:p2:[]) | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p1
+	ExprS "if" _ (p1:p2:p3:[]) -> par $ toCExpr p1 ++ "?" ++ toCExpr p2 ++ ":" ++ toCExpr p3
+	ExprS s _ as -> (s++) $ par $ intercalate ", " $ map toCExpr as
+	where
+		isOp :: String -> Bool
+		isOp (x:_) = not $ isAlpha x
+		isOp [] = False
+
+		par :: String -> String
+		par s = "(" ++ s ++ ")"
 
 -- Attributes (VAO) ----------------------------------------------------------------------
 
@@ -456,7 +469,6 @@ instance (GLtype a, GLtype (V4 a), GLtype (V4 (V4 a))) =>
 	transfer = fmap (fmap vecParts . vecParts) . transfer1 . exprMat
 
 
-
 deriving instance (Monad m, BuildShader m) => BuildShader (DeferT m)
 
 transfer1 :: forall a . GLtype a => Expr V a -> DeferT Shdr (Expr F a)
@@ -481,8 +493,8 @@ readVar :: MonadIO m => Var a -> m a
 readVar = liftIO . readMVar . varMVar
 
 
-makeVar' :: forall a m . (Count m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
-makeVar' a = do
+makeVar :: forall a m . (Count m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
+makeVar a = do
 	m <- liftIO $ newMVar a
 	vname <- (name "u" a)
 	let r = do
@@ -495,37 +507,69 @@ makeVar' a = do
 		return vname
 	return $ Var (ExprEnv r (toTypeS (err :: a)) []) m
 
-class MakeVar m a where
-	makeVar :: (Count m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
-	makeVar = makeVar'
 
-instance {-# OVERLAPPABLE #-} (Count m, MonadIO m, GLtype a, Upload a) => MakeVar m a
+class (GLtype a, Eq a) => Upload a where
+	upload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
 
-instance {-# OVERLAPPING #-} (Count m, MonadIO m) => MakeVar m (Texture f) where
-	makeVar = undefined
+instance Upload Bool where upload l = glUniform1i l . boolToInt
+instance Upload Int32 where upload l = glUniform1i l . itoi
+instance Upload Float where	upload l = glUniform1f l
+instance Upload (V2 Float) where upload l (V2 a b) = glUniform2f l a b
+instance Upload (V3 Float) where upload l (V3 a b c) = glUniform3f l a b c
+instance Upload (V4 Float) where upload l (V4 a b c d) = glUniform4f l a b c d
+
+instance Upload (V2 Int32) where
+	upload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
+
+instance Upload (V3 Int32) where
+	upload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
+
+instance Upload (V4 Int32) where
+	upload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
+
+instance Upload (V2 Bool) where
+	upload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
+
+instance Upload (V3 Bool) where
+	upload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
+
+instance Upload (V4 Bool) where
+	upload l (V4 a b c d) =
+		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+
+
+instance Upload (Mat V2 V2 Float) where
+	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
+
+instance Upload (Mat V3 V3 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+
+instance Upload (Mat V4 V4 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
+
+
+instance Upload (Texture f) where
+	upload l (Texture i mu c w h) = do
+		TexState u' ts <- getTex
+		u <- liftIO $ readMVar mu
+		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		when (i /= i') $ do
+			glActiveTexture $ GL_TEXTURE0 + u'
+			glBindTexture GL_TEXTURE_2D i
+			glUniform1i l $ itoi u'
+			liftIO $ swapMVar mu u'
+			u'' <- succU ts u'
+			liftIO $ writeArray ts u'' i
+			setTex $ TexState u'' ts
+		where
+		succU ts x = do
+			let x' = succ x
+			(l,h) <- liftIO $ getBounds ts
+			return $ if x' >= h then l else x'
+
+
 
 -- add expr texture shader access functions
-
-
-
--- ~ instance (MonadIO m, HandTex m) => Upload m (Texture f) where
-	-- ~ upload l (Texture i u c w h) = do
-		-- ~ TexState u' ts <- getTex
-		-- ~ i' <- if (u == 0) then return 0 else liftIO $ readArray ts u -- what does this do tho?
-		-- ~ when (i /= i') $ do
-			-- ~ glActiveTexture $ GL_TEXTURE0 + u'
-			-- ~ glBindTexture GL_TEXTURE_2D i
-			-- ~ glUniform1i l $ itoi u'
-			-- ~ swapVar m $ Texture i u' c w h
-			-- ~ u'' <- succU ts u'
-			-- ~ liftIO $ writeArray ts u'' i
-			-- ~ setTex $ TexState u'' ts
-		-- ~ where
-		-- ~ succU ts x = do
-			-- ~ let x' = succ x
-			-- ~ (l,h) <- liftIO $ getBounds ts
-			-- ~ return $ if x' >= h then l else x'
-
 
 class Use a e r | a e -> r, r -> a e where
 	use :: a -> r
@@ -561,6 +605,3 @@ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) wher
 
 instance Use (Var (Texture f)) e (Expr e (Texture f)) where
   use = Expr . varExpr
-
-instance Upload (Texture f)
-

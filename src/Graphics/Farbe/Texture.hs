@@ -26,6 +26,7 @@ import Numeric
 import Foreign hiding (void)
 import Foreign.C
 
+import Control.Concurrent.MVar
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader
@@ -122,11 +123,12 @@ SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
 
 data Texture f = Texture
 	{ texId :: GLuint
-	, texLastUnit :: GLenum
+	, texLastUnit :: MVar GLenum
 	, changeTokenT :: Int
 	, width :: GLsizei
 	, height :: GLsizei
 	} deriving Eq
+
 
 instance Show (Texture f) where
 	show = show . texId
@@ -149,7 +151,8 @@ loadTexture2Base t (w,h) p = do
 	glBindTexture GL_TEXTURE_2D tex
 	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
 	glGenerateMipmap GL_TEXTURE_2D
-	return $ Texture tex 0 0 w h
+	m <- liftIO $ newMVar 0
+	return $ Texture tex m 0 w h
 
 
 withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)

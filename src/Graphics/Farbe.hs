@@ -11,6 +11,7 @@ module Graphics.Farbe
 	( module Graphics.Farbe.Shader
 	, module Graphics.Farbe.Expr
 	, runFarbe
+	, frame
 	, makeVarF
 	, makeVarI
 	, makeVarB
@@ -45,9 +46,15 @@ import Control.Monad.IO.Class
 import Data.Int
 
 
+frame :: (HandVBO m, MonadIO m) => m (VArray (V3 Float))
+frame = newVArray $
+  [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
+  , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
+  ]
 
-runFarbe :: MonadIO m => HandTexT (HandVBOT m) a -> m a
-runFarbe = runHandVBOT (2^24) . runHandTexT
+
+runFarbe :: MonadIO m => CounterT (HandTexT (HandVBOT m)) a -> m a
+runFarbe = runHandVBOT (2^24) . runHandTexT . runCounterT'
 
 makeVarF :: (Count m, MonadIO m) => Float -> m (Var Float)
 makeVarI :: (Count m, MonadIO m) => Int32 -> m (Var Int32)

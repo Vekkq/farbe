@@ -30,6 +30,8 @@ import Control.Applicative (Alternative)
 import Control.Monad.RWS (RWST)
 
 import Graphics.Farbe.Texture
+import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Window
 
 
 
@@ -144,7 +146,7 @@ newtype CounterT m a = CounterT { counter :: StateT Int m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadFix, MonadPlus, Defer m, HandTex
+		, MonadFix, MonadPlus, Defer m, HandTex, HandVBO, MonadWindow
 		)
 
 instance MonadState s m => MonadState s (CounterT m) where

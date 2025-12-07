@@ -22,10 +22,10 @@ import Graphics.Farbe.JuicyPixels
 
 main :: IO ()
 main = runWindowT "" (InWindow (1000,1024)) $ runFarbe $ do
-  i <- fromRight undefined <$> loadImage RGB "test-resources/iwi.jpg"
+  i <- loadImage' RGB "test-resources/iwi.jpg"
   t <- makeVarT i
 
-  i2 <- fromRight undefined <$> loadImage RGB "test-resources/ayataka512.jpg"
+  i2 <- loadImage' RGB "test-resources/ayataka512.jpg"
   t2 <- makeVarT i2
 
 

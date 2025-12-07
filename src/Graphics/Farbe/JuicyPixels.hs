@@ -16,6 +16,7 @@ import Graphics.Farbe.Texture
 -- ~ import Graphics.Farbe.GL
 import Data.Vector.Storable (unsafeWith)
 import Control.Monad.IO.Class
+import Control.Monad
 
 
 
@@ -27,6 +28,8 @@ loadImage t s = do
     let (Image w h v) = toRGB i
     liftIO $ unsafeWith v $ \p -> loadTexture2Base t (itoi w, itoi h) p
 
+loadImage' :: (MonadIO m) => TextureFormat -> String -> m (Texture t)
+loadImage' t s = loadImage t s >>= either error return
 
 right :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
 right (Right b) f = Right <$> f b
@@ -147,21 +150,4 @@ instance IntPixel PixelRGBF PixelRGB8 where
 
 intImage :: IntPixel a b => Image a -> Image b
 intImage = pixelMap intPixel
-
--- ~ toRGBA :: DynamicImage -> Image PixelRGBA8
--- ~ toRGBA (ImageY8 i) = promoteImage i
--- ~ toRGBA (ImageY16 i) = promoteImage $ trimImage i
--- ~ toRGBA (ImageY32 i) = promoteImage $ trimImage i
--- ~ toRGBA (ImageYF i) = undefined
--- ~ toRGBA (ImageYA8 i) = promoteImage i
--- ~ toRGBA (ImageYA16 i) = promoteImage $ trimImage i
--- ~ toRGBA (ImageRGB8 i) = i
--- ~ toRGBA (ImageRGB16 i) = trimImage i
--- ~ toRGBA (ImageRGBF i) = undefined
--- ~ toRGBA (ImageRGBA8 i) = collapseImage i
--- ~ toRGBA (ImageRGBA16 i) = collapseImage $ trimImage i
--- ~ toRGBA (ImageYCbCr8 i) = convertImage i
--- ~ toRGBA (ImageCMYK8 i) = convertImage i
--- ~ toRGBA (ImageCMYK16 i) = convertImage $ trimImage i
-
 
