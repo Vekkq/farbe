@@ -1,62 +1,18 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DataKinds #-}
 
 module Graphics.Farbe.Expr where
 
 import Graphics.Farbe.Shader
 import Graphics.Farbe.GL
-import Graphics.Farbe.Tuple
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Array
 
 
-import qualified Data.Map as M
-import qualified Data.Set as S
-import Data.Char
-import Data.List
-import Data.Maybe
-import Data.Ord (comparing)
-import Data.Function
-import Data.Foldable
-import Data.Array.IO
-import Data.Array.Storable
-import Data.Array.Base
-import Data.Array.MArray as MA
 import Numeric
 import Foreign hiding (void)
-import Foreign.C
-
-
-
--- ~ import Graphics.GL
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
-
-import Control.Exception
-import Control.Concurrent.MVar
-
-import Control.Monad
-import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Writer
-import Control.Monad.Cont (ContT)
-import Control.Monad.Except (ExceptT, MonadError)
-import Control.Monad.Fix (MonadFix)
-import Control.Applicative (Alternative)
-import Control.Monad.RWS (RWST)
-
-import GHC.TypeNats
-import Data.Proxy
-
-import System.Mem.StableName
 
 
 instance (GLtype a, Num a) => Num (Expr e a) where
@@ -118,11 +74,13 @@ fragCoord = vecParts $ liftE0 "gl_FragCoord"
 texture :: Expr e (Texture f) -> V2 (Expr e Float) -> V4 (Expr e Float)
 texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)
 
-arr :: (GLtype a) => Expr e (Arr s a) -> Int32 -> Expr e a
-arr e n = liftE2 "[]" e $ (expr n :: Expr e Int32)
+arr :: GLtype a => Expr e (Arr s a) -> Int32 -> Expr e a
+arr e' n = liftE2 "[]" e' $ (expr n :: Expr e Int32)
 
 -- | @arr'@ is ignoring constant expression requirement.
 --   May not work with some implementations.
-arr' :: (GLtype a) => Expr e (Arr s a) -> Expr e Int32 -> Expr e a
+arr' :: GLtype a => Expr e (Arr s a) -> Expr e Int32 -> Expr e a
 arr' = liftE2 "[]"
 
+if' :: GLtype a => Expr e Bool -> Expr e a -> Expr e a -> Expr e a
+if' = liftE3 "if"

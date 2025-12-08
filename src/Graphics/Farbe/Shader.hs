@@ -1,45 +1,32 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE DataKinds #-}
 
 module Graphics.Farbe.Shader where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
--- ~ import Graphics.Farbe.Window
 import Graphics.Farbe.Utils
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
--- ~ import Graphics.Farbe.Counter
 
 
-import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Char
 import Data.List
-import Data.Maybe
-import Data.Ord (comparing)
-import Data.Function
 import Data.Foldable
 import Data.Array.IO
-import Data.Array.Storable
-import Data.Array.Base
-import Data.Array.MArray as MA
-import Numeric
 import Foreign hiding (void)
 import Foreign.C
 
 
-
--- ~ import Graphics.GL
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
@@ -52,14 +39,11 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Control.Monad.Cont (ContT)
 import Control.Monad.Except (ExceptT, MonadError)
-import Control.Monad.Fix (MonadFix)
 import Control.Applicative (Alternative)
 import Control.Monad.RWS (RWST)
 
 import GHC.TypeNats
-import Data.Proxy
 
-import System.Mem.StableName
 
 
 
@@ -97,11 +81,13 @@ runShaderEnvT (ShaderEnvT m) = do
 	return (r, f rm)
 	where
 		f :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
-		f m = do
+		f n = do
 			t <- getTex
-			(r,t') <- liftIO $ runHandTexT' t m
+			(r,t') <- liftIO $ runHandTexT' t n
 			setTex t'
 			return r
+
+
 
 -- Shader building monad -----------------------------------------------------------------
 
@@ -233,7 +219,7 @@ toCExpr :: ExprS -> String
 toCExpr e = case e of
 	ExprS s _ [] -> s
 	ExprS "[]" _ (p1:p2:[]) -> toCExpr p1 ++ "[" ++ toCExpr p2 ++ "]"
-	ExprS s _ (p1:p2:[]) | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p1
+	ExprS s _ (p1:p2:[]) | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p2
 	ExprS "if" _ (p1:p2:p3:[]) -> par $ toCExpr p1 ++ "?" ++ toCExpr p2 ++ ":" ++ toCExpr p3
 	ExprS s _ as -> (s++) $ par $ intercalate ", " $ map toCExpr as
 	where
@@ -309,8 +295,9 @@ instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
 
 instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
 	setAttribute a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 a
-
-fmap2 f = fmap (fmap f)
+		where
+		fmap2 :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
+		fmap2 f = fmap (fmap f)
 
 
 instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
@@ -399,6 +386,9 @@ liftE1 s (Expr a) = liftExpr s [a]
 liftE2 :: (GLtype a3) => String -> Expr e a1 -> Expr e a2 -> Expr e a3
 liftE2 s (Expr a) (Expr b) = liftExpr s [a,b]
 
+liftE3 :: (GLtype a4) => String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
+liftE3 s (Expr a) (Expr b) (Expr c) = liftExpr s [a,b,c]
+
 -- ~ class LiftExpr a r where
 	-- ~ liftE :: a -> r
 
@@ -406,8 +396,6 @@ liftE2 s (Expr a) (Expr b) = liftExpr s [a,b]
 	-- ~ liftE f = (\a -> (a:))
 
 
--- ~ liftE3 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
--- ~ liftE3 s (Expr a) (Expr b) (Expr c) = Expr $ Fn s [a,b,c]
 
 -- ~ liftE4 :: String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4 -> Expr e a5
 -- ~ liftE4 s (Expr a) (Expr b) (Expr c) (Expr d) = Expr $ Fn s [a,b,c,d]
@@ -549,7 +537,7 @@ instance Upload (Mat V4 V4 Float) where
 
 
 instance Upload (Texture f) where
-	upload l (Texture i mu c w h) = do
+	upload l (Texture i mu _ _ _) = do
 		TexState u' ts <- getTex
 		u <- liftIO $ readMVar mu
 		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
@@ -564,9 +552,24 @@ instance Upload (Texture f) where
 		where
 		succU ts x = do
 			let x' = succ x
-			(l,h) <- liftIO $ getBounds ts
-			return $ if x' >= h then l else x'
+			(a,b) <- liftIO $ getBounds ts
+			return $ if x' >= b then a else x'
 
+{-
+	setupUpload l m = preRender $ do
+		(Texture i u c w h) <- liftIO $ readMVar m -- borked TODO
+		mts <- texUnits <$> glState
+		(u', ts) <- liftIO $ readMVar mts
+		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		when (i /= i') $ do
+			glActiveTexture $ GL_TEXTURE0 + u'
+			glBindTexture GL_TEXTURE_2D i
+			glUniform1i l $ itoi u'
+			liftIO $ swapMVar m $ Texture i u' c w h
+			u'' <- succU ts u'
+			liftIO $ writeArray ts u'' i
+			liftIO $ void $ swapMVar mts (u'',ts)
+-}
 
 
 -- add expr texture shader access functions

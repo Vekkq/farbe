@@ -8,10 +8,10 @@
 {-# LANGUAGE DataKinds #-}
 
 module Graphics.Farbe
-	( module Graphics.Farbe.Shader
-	, module Graphics.Farbe.Expr
-	, runFarbe
+	( runFarbeT
 	, frame
+	, module Graphics.Farbe.Vec
+	, module Graphics.Farbe.Expr
 	, makeVarF
 	, makeVarI
 	, makeVarB
@@ -32,29 +32,60 @@ module Graphics.Farbe
 	) where
 
 import Graphics.Farbe.Vec
-import Graphics.Farbe.Tuple
-import Graphics.Farbe.Window
 import Graphics.Farbe.Shader
-import Graphics.Farbe.VertexArray
-import Graphics.Farbe.Array
+import Graphics.Farbe.VertexArray (HandVBO, HandVBOT, VArray, runHandVBOT)
+import qualified Graphics.Farbe.VertexArray as VA
 import Graphics.Farbe.Texture
-import Graphics.Farbe.STL
 import Graphics.Farbe.Utils
 import Graphics.Farbe.Expr
--- ~ import Graphics.Farbe.Uniform
+import Graphics.Farbe.GL
 import Control.Monad.IO.Class
 import Data.Int
+import Foreign.Storable
+
+import Control.Monad.Reader
+import Control.Monad.State
+import Control.Monad.Writer
+import Control.Monad.Except
+import Control.Monad.RWS
 
 
-frame :: (HandVBO m, MonadIO m) => m (VArray (V3 Float))
+newtype FarbeT m a = FarbeT { unFarbe :: CounterT (HandTexT (HandVBOT m)) a }
+	deriving
+		( Functor, Applicative, Monad, MonadIO
+		, Count, HandTex, HandVBO
+		, MonadReader r, MonadState s, MonadWriter w
+		, MonadError e
+		)
+
+class (Count m, HandTex m, HandVBO m, MonadIO m) => Farbe m
+instance (Count m, HandTex m, HandVBO m, MonadIO m) => Farbe (FarbeT m)
+
+instance (Farbe m, Monad m) => Farbe (ReaderT r m)
+instance (Farbe m, Monad m, Monoid w) => Farbe (WriterT w m)
+instance (Farbe m, Monad m) => Farbe (StateT r m)
+instance (Farbe m, Monad m) => Farbe (ExceptT r m)
+instance (Farbe m, Monad m, Monoid w) => Farbe (RWST r w s m)
+
+newVArray :: (Farbe m, Storable a, GLtype a, Foldable f) => f a -> m (VArray a)
+newVArray = VA.newVArray
+
+
+
+instance MonadTrans FarbeT where
+	lift = FarbeT . lift . lift . lift
+
+
+runFarbeT :: MonadIO m => FarbeT m a -> m a
+runFarbeT = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe
+
+
+
+frame :: Farbe m => m (VArray (V3 Float))
 frame = newVArray $
   [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
   , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
   ]
-
-
-runFarbe :: MonadIO m => CounterT (HandTexT (HandVBOT m)) a -> m a
-runFarbe = runHandVBOT (2^24) . runHandTexT . runCounterT'
 
 makeVarF :: (Count m, MonadIO m) => Float -> m (Var Float)
 makeVarI :: (Count m, MonadIO m) => Int32 -> m (Var Int32)

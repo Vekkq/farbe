@@ -3,24 +3,13 @@
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE IncoherentInstances #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Graphics.Farbe.Utils where
 
-import qualified Data.Map as M
-import Data.Maybe
-import Foreign hiding (void)
 import Control.Concurrent.MVar
-
 import Control.Monad
 import Control.Monad.Reader
-
--- ~ import Data.Typeable
 import Control.Monad.State
 import Control.Monad.Writer
 import Control.Monad.Cont (ContT)
@@ -84,19 +73,6 @@ fuzzySwapMVar ml a = liftIO $ do
 	r <- tryTakeMVar ml
 	tryPutMVar ml a
 	return r
-
-
--- ~ withPtr :: Storable a => (Ptr a -> IO b) -> IO (a, b)
--- ~ withPtr f = do
-	-- ~ alloca $ \p -> do
-		-- ~ x <- f p
-		-- ~ y <- peek p
-		-- ~ return (y, x)
-
--- ~ withPtr_ :: Storable a => (Ptr a -> IO ()) -> IO a
--- ~ withPtr_ f = fst <$> withPtr f
-
-
 
 
 -- DeferT --------------------------------------------------------------------------------

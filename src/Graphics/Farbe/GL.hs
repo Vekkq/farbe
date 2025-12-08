@@ -1,36 +1,19 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
 
--- Start of a module for swapping the entire GL backend, where necessary
--- very unfinished
--- a separate backend module might still be better
 
--- ~ module Graphics.Farbe.I.GL where
 module Graphics.Farbe.GL where
 
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
--- ~ import Graphics.Farbe.Texture
 
 import Control.Monad.IO.Class
 import Foreign hiding (void)
-import Foreign.C
-import GHC.TypeNats
-import Data.Proxy
-import Data.Kind
 
--- ~ import Graphics.GL.Embedded20 (GLsizei, GLuint, GLint)
 import Graphics.GL.Embedded20
 import Graphics.GL.Ext.OES.VertexArrayObject
-import Graphics.GL.Ext.OES.Mapbuffer
+-- ~ import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
 
 -- tl;dr use gl types directly
@@ -72,7 +55,7 @@ instance MonadIO m => GL m where
 data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex
 
 
-class Eq a => GLtype a where
+class (Eq a) => GLtype a where
 	slName :: a -> String
 	toTypeS :: a -> TypeS
 	glType :: a -> GLenum
@@ -197,6 +180,7 @@ instance GLtype (Mat V4 V4 Float) where
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
 
+(.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 
 data Normalized a = Normalized { unNormalized :: a } deriving (Eq)
@@ -217,7 +201,6 @@ instance GLtype a => GLtype (Normalized a) where
 	glType _ = glType (err :: a)
 	glComponents _ = glComponents (err :: a)
 	glShortName _ = "n" ++ glShortName (err :: a)
-	-- ~ setupUpload l (Normalized e) = setupUpload l e
 
 
 

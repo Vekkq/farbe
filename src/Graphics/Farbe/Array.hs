@@ -1,55 +1,20 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
 module Graphics.Farbe.Array where
 
 -- ~ import Graphics.Farbe.Shader
-import Graphics.Farbe.GL
 import Graphics.Farbe.Vec (itoi)
 import Graphics.Farbe.Tuple (err)
 
 
-import qualified Data.Map as M
-import qualified Data.Set as S
-import Data.Char
-import Data.List
-import Data.Maybe
-import Data.Ord (comparing)
-import Data.Function
-import Data.Foldable
 import Data.Array.IO
 import Data.Array.Storable
-import Data.Array.Base
-import Data.Array.MArray as MA
-import Numeric
 import Foreign hiding (void)
-import Foreign.C
 
 
-
--- ~ import Graphics.GL
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
-
-import Control.Exception
-import Control.Concurrent.MVar
-
-import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Writer
-import Control.Monad.Cont (ContT)
-import Control.Monad.Except (ExceptT, MonadError)
-import Control.Monad.Fix (MonadFix)
-import Control.Applicative (Alternative)
-import Control.Monad.RWS (RWST)
 
 import GHC.TypeNats
 import Data.Proxy
@@ -78,7 +43,7 @@ emptyArr :: forall m s a . (KnownNat s, Storable a, MonadIO m) => m (Arr s a)
 emptyArr = liftIO $ Arr 0 <$> newArray_ (0, pred $ itoi (natVal (Proxy :: Proxy s)))
 
 modifyArr :: MonadIO m => Arr s a -> (StorableArray Int a -> m b) -> m (Arr s a)
-modifyArr a@(Arr _ sa) f = do
+modifyArr (Arr _ sa) f = do
 	i <- hashStableName <$> liftIO (makeStableName $ f sa)
 	return $ Arr i sa
 
@@ -97,4 +62,3 @@ instance (Storable e, KnownNat s) => Storable (Arr s e) where
 		modifyArr ar (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr ar))
 	poke p a@(Arr _ sa) = withStorableArray sa $ \p2 -> copyArray p2 (castPtr p) (sizeArr a)
 	-- i cant help but feel that this is borked
-

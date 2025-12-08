@@ -1,4 +1,5 @@
 
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 module Graphics.Farbe.JuicyPixels where
@@ -7,28 +8,24 @@ module Graphics.Farbe.JuicyPixels where
 import Codec.Picture
 import Codec.Picture.Types
 
-import Data.List
 import Graphics.Farbe.Vec
-import Graphics.GL
-import Graphics.GL.Embedded20
 import Graphics.Farbe.Texture
 -- ~ import Graphics.Farbe.Utils
 -- ~ import Graphics.Farbe.GL
 import Data.Vector.Storable (unsafeWith)
 import Control.Monad.IO.Class
-import Control.Monad
 
 
 
 
-loadImage :: (MonadIO m) => TextureFormat -> String -> m (Either String (Texture t))
+loadImage :: MonadIO m => TextureFormat -> String -> m (Either String (Texture t))
 loadImage t s = do
   ei <- liftIO $ readImage s
   right ei $ \i -> do
     let (Image w h v) = toRGB i
     liftIO $ unsafeWith v $ \p -> loadTexture2Base t (itoi w, itoi h) p
 
-loadImage' :: (MonadIO m) => TextureFormat -> String -> m (Texture t)
+loadImage' :: MonadIO m => TextureFormat -> String -> m (Texture t)
 loadImage' t s = loadImage t s >>= either error return
 
 right :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
@@ -117,7 +114,7 @@ instance TrimPixel PixelCMYK16 PixelCMYK8 where
 trimImage :: TrimPixel a b => Image a -> Image b
 trimImage = pixelMap trimPixel
 
-
+averageInt :: (Integral a, Num b) => [a] -> b
 averageInt xs = itoi $ sum (map itoi xs) `quot` length xs
 
 class (Pixel a, Pixel r) => CollapsePixel a r where
