@@ -24,7 +24,7 @@ module Graphics.Farbe.Window
 	-- * Window creation
 	( runWindowT
 	, Display (..)
-	, WindowT
+	, WindowT (..)
 	, MonadWindow
 	, display
 	-- * Event processing

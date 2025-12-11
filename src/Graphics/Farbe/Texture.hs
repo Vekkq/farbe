@@ -38,7 +38,7 @@ newtype HandTexT m a = HandTexT { unTex :: StateT TexState m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadReader r, MonadWriter w, MonadError e, MonadIO, HandVBO
-		, MonadFix, MonadPlus, MonadWindow --, PostShaderProgram, PreRender
+		, MonadFix, MonadPlus, MonadWindow
 		)
 
 instance Monad m => Semigroup (HandTexT m a) where

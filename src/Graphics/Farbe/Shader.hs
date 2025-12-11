@@ -44,6 +44,7 @@ import Control.Monad.RWS (RWST)
 
 import GHC.TypeNats
 
+import Debug.Trace
 
 
 
@@ -175,6 +176,7 @@ compile f = do
 				fm
 				return i
 	return $ \varrs -> do
+		liftIO $ putStrLn "draw"
 		glBindVertexArray vao
 		glUseProgram sp
 		exec
@@ -423,9 +425,7 @@ withString n f = liftIO $ bracket (newCAString n) free f
 
 
 
-------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------------------
+-- Shader value transfer -----------------------------------------------------------------
 
 -- | Transfer values from vertex shader to fragment shader. Floating point numbers will be interpolated among its triangle space. Integers are taken from the first point of the triangle.
 
@@ -471,6 +471,7 @@ transfer1 e = do
 
 
 
+-- Uniform variables ---------------------------------------------------------------------
 
 data Var a = Var { varExpr :: ExprEnv, varMVar :: MVar a }
 
@@ -535,7 +536,6 @@ instance Upload (Mat V3 V3 Float) where
 instance Upload (Mat V4 V4 Float) where
 	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
 
-
 instance Upload (Texture f) where
 	upload l (Texture i mu _ _ _) = do
 		TexState u' ts <- getTex
@@ -555,24 +555,45 @@ instance Upload (Texture f) where
 			(a,b) <- liftIO $ getBounds ts
 			return $ if x' >= b then a else x'
 
-{-
-	setupUpload l m = preRender $ do
-		(Texture i u c w h) <- liftIO $ readMVar m -- borked TODO
-		mts <- texUnits <$> glState
-		(u', ts) <- liftIO $ readMVar mts
-		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-		when (i /= i') $ do
-			glActiveTexture $ GL_TEXTURE0 + u'
-			glBindTexture GL_TEXTURE_2D i
-			glUniform1i l $ itoi u'
-			liftIO $ swapMVar m $ Texture i u' c w h
-			u'' <- succU ts u'
-			liftIO $ writeArray ts u'' i
-			liftIO $ void $ swapMVar mts (u'',ts)
--}
+-- makeVars ------------------------------------------------------------------------------
 
+makeVarF :: (Count m, MonadIO m) => Float -> m (Var Float)
+makeVarI :: (Count m, MonadIO m) => Int32 -> m (Var Int32)
+makeVarB :: (Count m, MonadIO m) => Bool -> m (Var Bool)
+makeVarV2F :: (Count m, MonadIO m) => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: (Count m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: (Count m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: (Count m, MonadIO m) => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: (Count m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: (Count m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: (Count m, MonadIO m) => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: (Count m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: (Count m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: (Count m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: (Count m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: (Count m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+makeVarT :: (Count m, MonadIO m) => Texture t -> m (Var (Texture t))
+
+makeVarF   = makeVar
+makeVarI   = makeVar
+makeVarB   = makeVar
+makeVarV2F = makeVar
+makeVarV2I = makeVar
+makeVarV2B = makeVar
+makeVarV3F = makeVar
+makeVarV3I = makeVar
+makeVarV3B = makeVar
+makeVarV4F = makeVar
+makeVarV4I = makeVar
+makeVarV4B = makeVar
+makeVarM2  = makeVar
+makeVarM3  = makeVar
+makeVarM4  = makeVar
+makeVarT   = makeVar
 
 -- add expr texture shader access functions
+
+-- Access uniform variables --------------------------------------------------------------
 
 class Use a e r | a e -> r, r -> a e where
 	use :: a -> r

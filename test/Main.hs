@@ -18,6 +18,8 @@ import Graphics.GL.Embedded20
 import Graphics.Farbe.Utils
 import Graphics.Farbe.JuicyPixels
 
+import Debug.Trace
+
 
 main :: IO ()
 main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
@@ -37,5 +39,6 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
   fix $ \loop -> processEvents $ \es -> do
     liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
     f [v]
+    liftIO $ putStrLn "shown"
     display
     loop

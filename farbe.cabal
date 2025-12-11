@@ -30,6 +30,8 @@ library
                    , Graphics.Farbe.Expr
                    , Graphics.Farbe.JuicyPixels
 
+    other-modules: Graphics.Farbe.MState
+
     build-depends: base ^>=4.21
                  , containers^>=0.7
                  , mtl^>=2.3
