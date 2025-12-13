@@ -18,8 +18,8 @@ import Control.Concurrent.MVar
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Writer
+import Control.Monad.State.Strict
+import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.Fix
 import Control.Monad.Cont

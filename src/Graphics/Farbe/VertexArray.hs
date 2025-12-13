@@ -31,8 +31,8 @@ import Graphics.GL.Types
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Writer
+import Control.Monad.State.Strict
+import Control.Monad.Writer.Strict
 import Control.Monad.Cont (ContT)
 import Control.Monad.Except (ExceptT, MonadError)
 import Control.Monad.Fix (MonadFix)
@@ -40,6 +40,7 @@ import Control.Applicative (Alternative)
 import Control.Monad.RWS (RWST)
 
 import Debug.Trace
+import System.Mem
 
 
 newtype HandVBOT m a = HandVBOT { unHandVBO :: MStateT HandVBOState m a }
@@ -271,22 +272,23 @@ removeVArrayF (VArrayF _ i) = updatePager $ return . (,()) . calcRemove i
 
 -- VArray --------------------------------------------------------------------------------
 
-newtype VArray a = VArray (Weak (MVar (VArrayF a)))
+newtype VArray a = VArray { unVArray :: (MVar (VArrayF a)) }
 
 newVArray :: (HandVBO m, Storable a, Foldable f) => f a -> m (VArray a)
 newVArray xs = do
-	mvbo <- getVBOMVar
 	f <- newVArrayF xs
-	mva <- liftIO $ newMVar f >>= \a -> mkWeakMVar a (putStrLn "fin" >> free mvbo f)
+	mvbo <- getVBOMVar
+	mva <- liftIO $ newMVar f
+	liftIO $ mkWeakMVar mva (putStrLn "fin" >> free mvbo f)
+	liftIO $ performGC
 	return $ VArray mva
 	where
 		free mvbo f = modifyMVarMasked_ mvbo $ \vbo -> runHandVBOT' vbo $ removeVArrayF f
 
 drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays xs = do
-	-- ys <- liftIO $ sequence $ catMaybes $
-	ys <- liftIO $ fmap catMaybes $ sequence $ for xs $ \(VArray x) -> deRefWeak x
-	mapM (liftIO . readMVar) ys >>= drawArraysF
+	ys <- liftIO $ mapM (readMVar . unVArray) xs
+	drawArraysF ys
 
 
 
@@ -307,8 +309,14 @@ glBindVertexArray :: MonadIO m => GLuint -> m ()
 glBindVertexArray = glBindVertexArrayOES
 
 
-frame :: HandVBO m => m (VArray (V3 Float))
-frame = newVArray $
+frame :: [V3 Float]
+frame =
   [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
   , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
   ]
+
+-- ~ frame :: HandVBO m => m (VArray (V3 Float))
+-- ~ frame = newVArray $
+  -- ~ [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
+  -- ~ , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
+  -- ~ ]

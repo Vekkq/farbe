@@ -35,8 +35,8 @@ import Control.Concurrent.MVar
 
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Writer
+import Control.Monad.State.Strict
+import Control.Monad.Writer.Strict
 import Control.Monad.Cont (ContT)
 import Control.Monad.Except (ExceptT, MonadError)
 import Control.Applicative (Alternative)

@@ -19,10 +19,15 @@ import Graphics.Farbe.Utils
 import Graphics.Farbe.JuicyPixels
 
 import Debug.Trace
+import System.Mem
 
 
-main :: IO ()
-main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
+main = do
+  main1
+  performGC
+
+main1 :: IO ()
+main1 = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
   i <- loadImage' RGB "test-resources/iwi.jpg"
   t <- makeVarT i
 
@@ -34,11 +39,34 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
     let pos = V4 x y z 1
     V2 x' y' <- transfer (V2 x y)
     return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
-  v <- frame
+  v <- newVArray $ frame
+
+  foo f
 
   fix $ \loop -> processEvents $ \es -> do
-    liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+    glerrcheck
     f [v]
-    liftIO $ putStrLn "shown"
     display
+    i <- getTime
+    liftIO $ print i
+    liftIO $ performGC
     loop
+
+
+
+foo f = do
+  v <- newVArray $ map (+V3 0.1 0 0) frame
+
+  fix $ \loop -> processEvents $ \es -> do
+    f [v]
+    display
+    i <- getTime
+    liftIO $ print i
+    when (i < 1) loop
+
+
+
+glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+
+
+
