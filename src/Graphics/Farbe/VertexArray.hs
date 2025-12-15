@@ -279,7 +279,7 @@ newVArray xs = do
 	f <- newVArrayF xs
 	mvbo <- getVBOMVar
 	mva <- liftIO $ newMVar f
-	liftIO $ mkWeakMVar mva (putStrLn "fin" >> free mvbo f)
+	liftIO $ mkWeakMVar mva (free mvbo f)
 	liftIO $ performGC
 	return $ VArray mva
 	where
@@ -289,15 +289,6 @@ drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays xs = do
 	ys <- liftIO $ mapM (readMVar . unVArray) xs
 	drawArraysF ys
-
-
-
--- ~ fmap2 = fmap . fmap
-
--- ~ whenMaybe :: Maybe a -> (a -> m ()) -> m ()
--- ~ whenMaybe m f = case m of
-	-- ~ Just a -> f a
-	-- ~ Nothing -> return ()
 
 
 -- GL extension for VAO ------------------------------------------------------------------

@@ -58,12 +58,9 @@ makeRunWhenChanged m = liftIO $ RunWhenChanged m <$> newEmptyMVar
 runwc :: (MonadIO m, Eq a) => RunWhenChanged m a -> a -> m ()
 runwc (RunWhenChanged f ml) a = do
 	l <- liftIO $ tryReadMVar ml
-	if maybe False (a==) l
-		then return ()
-		else do
-			fuzzySwapMVar ml a
-			f a
-
+	when (Just a /= l) $ do
+		fuzzySwapMVar ml a
+		f a
 
 updateMVar :: MonadIO m => MVar a -> a -> m ()
 updateMVar m a = liftIO $ void $ fuzzySwapMVar m a
@@ -71,7 +68,7 @@ updateMVar m a = liftIO $ void $ fuzzySwapMVar m a
 fuzzySwapMVar :: MonadIO m => MVar a -> a -> m (Maybe a)
 fuzzySwapMVar ml a = liftIO $ do
 	r <- tryTakeMVar ml
-	tryPutMVar ml a
+	putMVar ml a
 	return r
 
 

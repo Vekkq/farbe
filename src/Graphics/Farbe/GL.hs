@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 
 module Graphics.Farbe.GL where
@@ -12,7 +13,10 @@ import Control.Monad.IO.Class
 import Foreign hiding (void)
 
 import Graphics.GL.Embedded20
-import Graphics.GL.Ext.OES.VertexArrayObject
+	( pattern GL_FALSE, pattern GL_TRUE, pattern GL_INT
+	, pattern GL_FLOAT, pattern GL_BOOL)
+import qualified Graphics.GL.Embedded20 as GL
+import Graphics.GL.Ext.OES.VertexArrayObject as GLEXT
 -- ~ import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
 
@@ -20,39 +24,35 @@ import Graphics.GL.Types
 
 
 class GL m where
-  genBuffers :: GLsizei -> Ptr GLuint -> m ()
-  bindBuffer :: GLenum -> GLuint -> m ()
-  bufferData :: GLenum -> GLsizeiptr -> Ptr () -> GLenum -> m ()
-  bufferSubData :: GLenum -> GLintptr -> GLsizeiptr -> Ptr () -> m ()
-  genVertexArraysOES :: GLsizei -> Ptr GLuint -> m ()
-  bindVertexArrayOES :: GLuint -> m ()
+  glGenBuffers :: GLsizei -> Ptr GLuint -> m ()
+  glBindBuffer :: GLenum -> GLuint -> m ()
+  glBufferData :: GLenum -> GLsizeiptr -> Ptr () -> GLenum -> m ()
+  glBufferSubData :: GLenum -> GLintptr -> GLsizeiptr -> Ptr () -> m ()
+  glGenVertexArraysOES :: GLsizei -> Ptr GLuint -> m ()
+  glBindVertexArrayOES :: GLuint -> m ()
+	-- ~ glCreateProgram :: MonadIO m => m GLuint
+	-- ~ glBindAttribLocation :: MonadIO m => GLuint -> GLuint -> Ptr
+	-- ~ glLinkProgram :: MonadIO m => GLuint -> m ()
+	-- ~ glUniform1f
+	-- ~ glUniform2f
+	-- ~ glUniform3f
+	-- ~ glUniform4f
 
 
-instance MonadIO m => GL m where
-  genBuffers = glGenBuffers
-  bindBuffer = glBindBuffer
-  bufferData = glBufferData
-  bufferSubData = glBufferSubData
-  genVertexArraysOES = glGenVertexArraysOES
-  bindVertexArrayOES = glBindVertexArrayOES
 
+-- ~ instance MonadIO m => GL (Dispatch m) where
+  -- ~ glGenBuffers = GL.glGenBuffers
+  -- ~ glBindBuffer = GL.glBindBuffer
+  -- ~ glBufferData = GL.glBufferData
+  -- ~ glBufferSubData = GL.glBufferSubData
+  -- ~ glGenVertexArraysOES = GLEXT.glGenVertexArraysOES
+  -- ~ glBindVertexArrayOES = GLEXT.glBindVertexArrayOES
 
--- ~ class GLRaw m => GL m where
-  -- ~ genBuffer :: m GLuint
-  -- ~ genBuffer = do
-    -- ~ i <- withPtr_ $ glGenBuffers 1
-    -- ~ glBindBuffer GL_ARRAY_BUFFER v
-    -- ~ glBufferData GL_ARRAY_BUFFER newSize p GL_STATIC_DRAW
-
--- ~ instance GL IO where
-  -- ~ genBuffer = withPtr_ $ glGenBuffers 1
-  -- ~ bindBuffer = glBindBuffer GL_ARRAY_BUFFER
-  -- ~ bufferData = glBufferData GL_ARRAY_BUFFER s nullPtr GL_STATIC_DRAW
 
 
 -- GL type information -------------------------------------------------------------------
 
-data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex
+data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex deriving (Eq, Show)
 
 
 class (Eq a) => GLtype a where

@@ -132,6 +132,7 @@ loadTexture2Base :: MonadIO m
 	=> TextureFormat -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
 loadTexture2Base t (w,h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
+	-- ~ liftIO $ putStrLn $ "new tex: " ++ show tex
 	glActiveTexture $ GL_TEXTURE0
 	glBindTexture GL_TEXTURE_2D tex
 	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)

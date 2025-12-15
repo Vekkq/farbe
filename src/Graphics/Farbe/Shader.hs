@@ -52,7 +52,7 @@ data Expr e a = Expr { unExpr :: ExprEnv } deriving Functor
 
 data ExprEnv = ExprEnv { fnName :: Shdr String, rtype :: TypeS, fnAst :: [ExprEnv] }
 
-data ExprS = ExprS String TypeS [ExprS]
+data ExprS = ExprS String TypeS [ExprS] deriving Show
 
 type Shdr = BuildShaderT (ShaderEnvT IO)
 
@@ -135,10 +135,13 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 
 SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)
 
-addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m ()
-addHeader i a n = buildShaderState $ \s -> ((),) $
-		s { header = S.insert (unwords [i, slNameWithPrec a, n, ";"]) $ header s }
-
+addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m Bool
+addHeader i a n = do
+	let str = unwords [i, slNameWithPrec a, n, ";"]
+	s <- buildShaderStateGet
+	let b = S.member str (header s)
+	when (not b) $ buildShaderStatePut $ s { header = S.insert str $ header s }
+	return b
 
 addExpr :: String -> Expr e a -> Shdr ()
 addExpr n (Expr a) = do
@@ -166,6 +169,10 @@ compile :: (MonadIO m, HandTex m, AttrType a b)
 	-> m ([VArray a] -> m ())
 compile f = do
 	sp <- glCreateProgram
+
+	m <- liftIO $ newMVar () -- signaler for object termination
+	liftIO $ mkWeakMVar m (glDeleteProgram sp)
+
 	(vao,exec) <- runShaderEnvT $
 		join $ addShader sp GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes (err :: a)
@@ -176,11 +183,12 @@ compile f = do
 				fm
 				return i
 	return $ \varrs -> do
-		liftIO $ putStrLn "draw"
-		glBindVertexArray vao
 		glUseProgram sp
+		glBindVertexArray vao
 		exec
 		drawArrays varrs
+
+		liftIO $ readMVar m
 
 
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
@@ -253,10 +261,8 @@ SIMPLEFUNCTION_CLASSINSTANCES(advanceBy,Attrib,.)
 
 type Vao = GLuint
 
--- a -> BuildShaderT (ShaderEnvT m) (GLuint, b)
 -- | Make VAO
 setAttributes :: (AttrType a b, BuildShader m, Count m, PostShader m) => a -> m (Vao, b)
--- ~ setAttributes = undefined
 setAttributes a = do
 	i <- glGenVertexArray
 	glBindVertexArray i
@@ -269,7 +275,6 @@ setupAttribute1
 	=> a
 	-> m (Expr V a)
 setupAttribute1 a = do
-	-- todo obtain shader value from buildshader monad instead
 	s <- getShader
 	n <- name "a" a
 	o <- advanceBy a
@@ -467,6 +472,7 @@ transfer1 e = do
 		addHeader "varying" a $ n
 		defer $ do
 			addHeader "in" a n
+			return ()
 		return $ liftExprShdr' $ return n
 
 
@@ -487,9 +493,9 @@ makeVar a = do
 	m <- liftIO $ newMVar a
 	vname <- (name "u" a)
 	let r = do
-		addHeader "uniform" a vname
+		b <- addHeader "uniform" a vname
 		s <- getShader
-		defer $ do
+		when (not b) $ defer $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged $ upload l
 			defer $ (liftIO $ readMVar m) >>= runwc wc
@@ -541,14 +547,15 @@ instance Upload (Texture f) where
 		TexState u' ts <- getTex
 		u <- liftIO $ readMVar mu
 		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-		when (i /= i') $ do
+		if (i /= i') then do
 			glActiveTexture $ GL_TEXTURE0 + u'
 			glBindTexture GL_TEXTURE_2D i
 			glUniform1i l $ itoi u'
 			liftIO $ swapMVar mu u'
+			liftIO $ writeArray ts u' i
 			u'' <- succU ts u'
-			liftIO $ writeArray ts u'' i
 			setTex $ TexState u'' ts
+		else glUniform1i l $ itoi u
 		where
 		succU ts x = do
 			let x' = succ x

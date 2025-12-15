@@ -29,6 +29,7 @@ library
                    , Graphics.Farbe.Counter
                    , Graphics.Farbe.Expr
                    , Graphics.Farbe.JuicyPixels
+                   , Graphics.Farbe.ToMain
 
     other-modules: Graphics.Farbe.MState
 
