@@ -6,7 +6,7 @@
 module Graphics.Farbe.Texture where
 
 import Graphics.Farbe.GL
--- ~ import Graphics.Farbe.Utils
+import Graphics.Farbe.Utils
 -- ~ import Graphics.Farbe.Uniform
 
 
@@ -138,17 +138,12 @@ loadTexture2Base t (w,h) p = do
 	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
 	glGenerateMipmap GL_TEXTURE_2D
 	m <- liftIO $ newMVar 0
+	liftIO $ mkWeakMVar m (with tex $ glDeleteTextures 1)
+	-- todo wait for bufferswap before deleting
+
 	return $ Texture tex m 0 w h
 
 
-withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)
-withPtr f = liftIO $ alloca $ \p -> do
-		x <- f p
-		y <- peek p
-		return (y, x)
-
-withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
-withPtr_ f = fst <$> withPtr f
 
 instance GLtype (Texture f) where
 	slName _ = "sampler2D"

@@ -51,8 +51,6 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
     glerrcheck
     f [v]
     display
-    i <- getTime
-    liftIO $ print i
     liftIO $ performGC
     loop
 
@@ -65,7 +63,6 @@ foo f = do
     f [v]
     display
     i <- getTime
-    liftIO $ print i
     when (i < 1) loop
 
 

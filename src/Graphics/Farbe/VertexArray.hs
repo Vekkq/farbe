@@ -8,6 +8,7 @@ module Graphics.Farbe.VertexArray where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Window
 import Graphics.Farbe.MState
+import Graphics.Farbe.Utils
 
 
 import qualified Data.Map as M
@@ -166,15 +167,6 @@ vArrayRange (VArrayF s p) = (p,s)
 drawRanges :: [VArrayF a] -> [(CPtrdiff, CPtrdiff)]
 drawRanges = condense . map vArrayRange . sortBy (comparing vArrayPos)
 
-withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)
-withPtr f = liftIO $ alloca $ \p -> do
-		x <- f p
-		y <- peek p
-		return (y, x)
-
-withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
-withPtr_ f = fst <$> withPtr f
-
 
 -- Pager - calculations for Buffer allocation --------------------------------------------
 
@@ -284,6 +276,7 @@ newVArray xs = do
 	return $ VArray mva
 	where
 		free mvbo f = modifyMVarMasked_ mvbo $ \vbo -> runHandVBOT' vbo $ removeVArrayF f
+	-- todo wait for bufferswap before deleting
 
 drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays xs = do

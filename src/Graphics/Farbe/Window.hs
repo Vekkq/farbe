@@ -30,12 +30,12 @@ module Graphics.Farbe.Window
 	-- * Event processing
 	, processEvents
 	, processEvents'
-	, Event (..)
-	-- ** Event context
-	, getKey
-	, getKeys
-	, getMouseKey
-	, getMouseKeys
+	-- ~ , Event (..)
+	-- ~ -- ** Event context
+	-- ~ , getKey
+	-- ~ , getKeys
+	-- ~ , getMouseKey
+	-- ~ , getMouseKeys
 	-- ** Cursor mode
 	, setCursorMode
 	, getCursorMode
@@ -63,6 +63,7 @@ import Data.Maybe (fromJust, fromMaybe, listToMaybe)
 import Data.List (find)
 import GHC.Clock
 import System.Mem (performGC)
+import qualified Data.Set as S
 
 import Graphics.GL
 
@@ -128,10 +129,11 @@ createWindow s d = do
 	liftIO $ W.makeContextCurrent (Just w)
 
 	mes <- liftIO $ newMVar []
+	mc <- liftIO $ newMVar S.empty
 	t0 <- liftIO $ getMonotonicTime
 	mm <- liftIO $ newMVar (0,0)
 
-	let hsw = WindowState w mes t0 mm
+	let hsw = WindowState w mes mc t0 mm
 
 	liftIO $ do
 		let throwEvent e = mlAdd mes e
@@ -196,23 +198,58 @@ toErr err@(e,s) = case e of
 
 -- EVENTS ----------------------------------------------------------------------
 
+type EventContext = S.Set (Either W.MouseButton W.Key)
+
+eventContextFromGLFW :: MonadWindow m => m EventContext
+eventContextFromGLFW = do
+	kk <- getKeys
+	mk <- getMouseKeys
+	return $ S.fromList $ map Right kk ++ map Left mk
+
+toEventContext1 :: MonadWindow m => EventContext -> Event -> m EventContext
+toEventContext1 c (EventFocus True) = eventContextFromGLFW
+toEventContext1 c e = return $ case e of
+	(EventKey k Down _) -> S.insert (Right k) c
+	(EventKey k Up _) -> S.delete (Right k) c
+	(EventMouseKey _ k Down) -> S.insert (Left k) c
+	(EventMouseKey _ k Up) -> S.delete (Left k) c
+
+
+scanM :: Monad m => (b -> a -> m b) -> b -> [a] -> m [b]
+scanM f y (x:xs) = do
+	y' <- f y x
+	ys <- scanM f y' xs
+	return $ y' : ys
+scanM _ _ [] = return []
+
+toEventContext :: MonadWindow m => [Event] -> m [(Event, EventContext)]
+toEventContext [] = return []
+toEventContext es = do
+	mc <- wsEventContext <$> windowState
+	c <- liftIO $ readMVar mc
+	cs <- scanM toEventContext1 c es
+	liftIO $ swapMVar mc $ last $ cs
+	return $ zip es cs
 
 -- | Process and fetch events.
-processEvents' :: MonadWindow m => m [Event]
+processEvents' :: MonadWindow m => m [(Event, EventContext)]
 processEvents' = do
 	eq <- eventQueue
 	liftIO $ W.pollEvents
-	reverse <$> mlRemoveAll eq >>= eventsOnLocked
+	es <- reverse <$> mlRemoveAll eq >>= eventsOnLocked
+	ecs <- toEventContext es
+	return ecs
 
 -- | Process and fetch events.
 --   Delivers Events to a function.
 --   The function is run until window is signaled to be closed.
-processEvents :: MonadWindow m => ([Event] -> m ()) -> m ()
+processEvents :: MonadWindow m => ([(Event, EventContext)] -> m ()) -> m ()
 processEvents f = do
 	es <- processEvents'
 	w <- glfwWindow
 	b <- liftIO $ W.windowShouldClose w
-	when (not $ b || elem EventClose es) $ f es
+	when (not $ b || elem EventClose (map fst es)) $ f es
+
 
 
 data Event
@@ -348,6 +385,7 @@ getTime = do
 data WindowState = WindowState
   { wsGlfwWindow :: W.Window
   , wsEventQueue :: MVar [Event]
+  , wsEventContext :: MVar EventContext
   , wsStartTime :: Double
   , wsLastCoord :: MVar (Double, Double)
   }
