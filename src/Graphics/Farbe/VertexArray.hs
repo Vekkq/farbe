@@ -233,7 +233,7 @@ pagerSize = fst . fromJust . M.lookupMax . imap
 
 -- VArrayF interface - required to be freed manually -------------------------------------
 
-data VArrayF a = VArrayF { vArraySize :: GLintptr, vArrayPos :: GLintptr } deriving (Eq,Ord)
+data VArrayF a = VArrayF { vArraySize :: GLintptr, vArrayPos :: GLintptr } deriving (Eq,Ord,Show)
 
 newVArrayF :: (HandVBO m, Storable a, Foldable f) => f a -> m (VArrayF a)
 newVArrayF xs = newVArrayF' =<<
@@ -246,7 +246,7 @@ newVArrayF' a = do
 	let s = itoi $ subSizeOf a * i
 	g <- VArrayF s <$> vboAlloc (subSizeOf a) s
 	vboUpdate g a
-	return g
+	return $ g
 
 
 drawArraysF :: (MonadIO m, Storable a) => [VArrayF a] -> m ()
@@ -276,7 +276,6 @@ newVArray xs = do
 	return $ VArray mva
 	where
 		free mvbo f = modifyMVarMasked_ mvbo $ \vbo -> runHandVBOT' vbo $ removeVArrayF f
-	-- todo wait for bufferswap before deleting
 
 drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays xs = do

@@ -31,39 +31,30 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
   i2 <- loadImage' RGB "test-resources/ayataka512.jpg"
   t2 <- makeVarT i2
 
-  f <- compile $ \(V3 x y z) -> do
+  vstl <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
+
+
+  -- ~ f <- compile $ \((V3 a b c,V3 x y z)) -> do
+    -- ~ let pos = V4 x y z 1
+    -- ~ V2 x' y' <- transfer (V2 x (y + a * b * c * 0.00002))
+    -- ~ return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
+
+  f <- compile $ \((_,V3 x y z)) -> do
     let pos = V4 x y z 1
     V2 x' y' <- transfer (V2 x y)
     return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
 
 
-  g <- compile $ \(V3 x y z) -> do
-    let pos = V4 x y z 1
-    V2 x' y' <- transfer (V2 x y)
-    return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
-
-
-  v <- newVArray $ frame
-
-  foo g
+  -- ~ v <- newVArray $ frame
 
   fix $ \loop -> processEvents $ \es -> do
     glerrcheck
-    f [v]
+    f [vstl]
     display
     liftIO $ performGC
     loop
 
 
-
-foo f = do
-  v <- newVArray $ map (+V3 0.1 0 0) frame
-
-  fix $ \loop -> processEvents $ \es -> do
-    f [v]
-    display
-    i <- getTime
-    when (i < 1) loop
 
 
 

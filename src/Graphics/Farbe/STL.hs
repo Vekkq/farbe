@@ -50,9 +50,9 @@ instance Binary Triangle where
 		return $ Triangle n v1 v2 v3
 	put = undefined
 
-readFileBinSTL :: FilePath -> IO [(V3 Float, V3 Float)]
+readFileBinSTL :: MonadIO m => FilePath -> m [(V3 Float, V3 Float)]
 readFileBinSTL p = do
-	STL tri <- decodeFile p
+	STL tri <- liftIO $ decodeFile p
 	return $ concatMap (\(Triangle n a b c) -> [(n,a),(n,b),(n,c)]) tri
 
 

@@ -14,10 +14,11 @@
 
 * rewrite window to track pressed keys, by ensuring which keys are pressed by asking all after tabbing back in - done, but untested
 
-* rewrite VArray to delete itself after losing reference - done
+* rewrite VArray to delete itself after losing reference - done, rewritten to work with threadsafe ogl
 * rewrite shaders to delete themself - done
 * delete attached shaders with glDeleteShader - done
 * rewrite textures to delete themself - done
+
 
 * add or do timing analyses
 * write a variant of deepseq, which will apply deepseq on every parameter of a function

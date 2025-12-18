@@ -45,6 +45,7 @@ import Control.Monad.RWS (RWST)
 
 import GHC.TypeNats
 
+import Debug.Trace
 
 
 
@@ -304,7 +305,6 @@ compile f = do
 		shdrs <- peekArray (itoi c) parr
 		glDeleteProgram sp
 		mapM_ glDeleteShader shdrs
-		-- todo wait for bufferswap before deleting
 
 	(vao,exec) <- runShaderEnvT $
 		join $ addShader sp GL_VERTEX_SHADER $ do
@@ -348,7 +348,9 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 	bracket malloc free $ \errLength -> do
 		glGetShaderInfoLog shdr (2^10) errLength er
 		peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
-			"" -> return ()
+			"" -> do
+				putStrLn str
+				return ()
 			e -> do
 				putStrLn str
 				putStrLn e
@@ -379,6 +381,7 @@ newtype AttribM m a = AttribM { unAttrib :: StateT Int m a }
 	deriving
 		( Functor, Applicative, Monad, MonadTrans, MonadIO
 		, Count, BuildShader, Defer n
+		, MonadReader r
 		)
 
 class Monad m => Attrib m where
@@ -392,6 +395,22 @@ instance Monad m => Attrib (AttribM m) where
 
 SIMPLEFUNCTION_CLASSINSTANCES(advanceBy,Attrib,.)
 
+newtype AttribSizeM m a = AttribSizeM { unAttribSize :: ReaderT Int m a }
+	deriving
+		( Functor, Applicative, Monad, MonadTrans, MonadIO
+		, Count, BuildShader, Defer n, Attrib
+		)
+
+class Monad m => AttribSize m where
+	sizeState :: Int -> m Int
+
+instance Monad m => AttribSize (AttribSizeM m) where
+	sizeState i = AttribSizeM $ ask
+
+
+
+
+
 type Vao = GLuint
 
 -- | Make VAO
@@ -399,34 +418,38 @@ setAttributes :: (AttrType a b, BuildShader m, Count m, PostShader m) => a -> m 
 setAttributes a = do
 	i <- glGenVertexArray
 	glBindVertexArray i
-	e <- evalStateT (unAttrib $ setAttribute a) 0
+	e <- runReaderT (evalStateT (unAttrib $ setAttribute a) 0) (sizeOf a)
 	return (i, e)
 
 
 setupAttribute1
-	:: (GLtype a, Storable a, Attrib m, BuildShader m, Count m, PostShader m)
+	:: (GLtype a, Storable a, MonadReader Int m, Attrib m, BuildShader m, Count m, PostShader m)
 	=> a
 	-> m (Expr V a)
 setupAttribute1 a = do
 	s <- getShader
-	n <- name "a" a
+	n <- nameAttrib "a" a
+	-- ~ addHeader "attribute" a n
+	allSize <- ask
 	o <- advanceBy a
 	defer $ withString n $ \c -> do
 		p <- fromIntegral <$> glGetAttribLocation s c
-		glVertexAttribPointer p
-			(glComponents a)
-			(glType a)
-			(glNormalized a)
-			0
-			(intPtrToPtr $ IntPtr o)
-		glEnableVertexAttribArray p
-	initExpr <- makeRunOnce $ do
+		when (p < 2^16) $ do
+			glVertexAttribPointer p
+				(glComponents a)
+				(glType a)
+				(glNormalized a)
+				(itoi $ allSize - sizeOf a)
+				(intPtrToPtr $ IntPtr $ traceShowId o)
+			glEnableVertexAttribArray p
+	return $ liftExprShdr' $ do
 		addHeader "attribute" a n
 		return n
-	return $ (liftExprShdr' $ runOnce initExpr)
 
 class Storable a => AttrType a b | a -> b, b -> a where
-	setAttribute :: (Attrib m, BuildShader m, Count m, PostShader m) => a -> m b
+	setAttribute
+		:: (MonadReader Int m, Attrib m, BuildShader m, Count m, PostShader m)
+		=> a -> m b
 
 
 instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
@@ -458,7 +481,8 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		(setAttribute (err :: d))
 
 attribPartsVec
-	:: (GLtype a, GLtype (v a), Storable a, Storable (v a), Vector v, Attrib m, BuildShader m, Count m, PostShader m)
+	:: ( GLtype a, GLtype (v a), Storable a, Storable (v a), Vector v
+		 , MonadReader Int m, Attrib m, BuildShader m, Count m, PostShader m)
 	=> v a -> m (v (Expr V a))
 attribPartsVec a = vecParts <$> setupAttribute1 a
 
@@ -477,7 +501,8 @@ instance AttrType (V4 Bool)  (V4 (Expr V Bool)) where setAttribute = attribParts
 
 
 attribPartsMat
-	:: (Attrib m, GLtype (v (v a)), GLtype (v a), GLtype a, Storable (v (v a)), Vector v, BuildShader m, Count m, PostShader m)
+	:: ( GLtype (v (v a)), GLtype (v a), GLtype a, Storable (v (v a)), Vector v
+		 , MonadReader Int m, Attrib m, BuildShader m, Count m, PostShader m)
 	=> v (v a) -> m (v (v (Expr V a)))
 attribPartsMat a = (fmap vecParts . vecParts) <$> setupAttribute1 a
 
@@ -557,6 +582,9 @@ arrV = liftE2 "[]"
 
 name :: (Count m, GLtype a) => String -> a -> m String
 name s a = generateName $ s ++ glShortName a
+
+nameAttrib :: (Count m, GLtype a) => String -> a -> m String
+nameAttrib s a = (++ glShortName a) <$> generateName s
 
 withString :: MonadIO m => String -> (CString -> IO a) -> m a
 withString n f = liftIO $ bracket (newCAString n) free f
