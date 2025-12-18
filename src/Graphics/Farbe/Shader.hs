@@ -395,21 +395,6 @@ instance Monad m => Attrib (AttribM m) where
 
 SIMPLEFUNCTION_CLASSINSTANCES(advanceBy,Attrib,.)
 
-newtype AttribSizeM m a = AttribSizeM { unAttribSize :: ReaderT Int m a }
-	deriving
-		( Functor, Applicative, Monad, MonadTrans, MonadIO
-		, Count, BuildShader, Defer n, Attrib
-		)
-
-class Monad m => AttribSize m where
-	sizeState :: Int -> m Int
-
-instance Monad m => AttribSize (AttribSizeM m) where
-	sizeState i = AttribSizeM $ ask
-
-
-
-
 
 type Vao = GLuint
 
@@ -429,8 +414,7 @@ setupAttribute1
 setupAttribute1 a = do
 	s <- getShader
 	n <- nameAttrib "a" a
-	-- ~ addHeader "attribute" a n
-	allSize <- ask
+	entireSize <- ask
 	o <- advanceBy a
 	defer $ withString n $ \c -> do
 		p <- fromIntegral <$> glGetAttribLocation s c
@@ -439,8 +423,8 @@ setupAttribute1 a = do
 				(glComponents a)
 				(glType a)
 				(glNormalized a)
-				(itoi $ allSize - sizeOf a)
-				(intPtrToPtr $ IntPtr $ traceShowId o)
+				(itoi $ entireSize - sizeOf a)
+				(intPtrToPtr $ IntPtr o)
 			glEnableVertexAttribArray p
 	return $ liftExprShdr' $ do
 		addHeader "attribute" a n

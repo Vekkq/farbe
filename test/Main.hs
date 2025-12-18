@@ -39,9 +39,11 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
     -- ~ V2 x' y' <- transfer (V2 x (y + a * b * c * 0.00002))
     -- ~ return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
 
-  f <- compile $ \((_,V3 x y z)) -> do
+  f <- compile $ \((a, V3 x y z)) -> do
     let pos = V4 x y z 1
     V2 x' y' <- transfer (V2 x y)
+    -- ~ a' <- transfer a
+    -- ~ return (pos, up 1 a')
     return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
 
 
