@@ -82,6 +82,7 @@ import Control.Monad.Fix (MonadFix)
 import Control.Applicative (Alternative)
 import Control.Monad.IO.Class
 
+import Debug.Trace
 
 
 -- | Creates a fullscreen window, runs your action and terminates window after.
@@ -320,7 +321,7 @@ getMouseKey k = do
 getKeys :: MonadWindow m => m [W.Key]
 getKeys = do
 	w <- glfwWindow
-	filterM (fmap ksToBool . getKey) [minBound..maxBound]
+	filterM (fmap ksToBool . getKey) [succ minBound..maxBound]
 
 getMouseKeys :: MonadWindow m => m [W.MouseButton]
 getMouseKeys = do
