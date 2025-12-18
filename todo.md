@@ -24,6 +24,8 @@
 * write a variant of deepseq, which will apply deepseq on every parameter of a function
 * lift instances from base class and remove unused derived instances from all other classes
 * maybe add id's to vertexarrays, to distinguish pager entries from deleted old ones.
-
+* make window not resizable
+* consider to apply always `up` to the vertex shader position value
+  and add same same instances V3 -> V3
 
 

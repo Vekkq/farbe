@@ -30,7 +30,7 @@ module Graphics.Farbe.Window
 	-- * Event processing
 	, processEvents
 	, processEvents'
-	-- ~ , Event (..)
+	, Event (..)
 	-- ~ -- ** Event context
 	-- ~ , getKey
 	-- ~ , getKeys
@@ -62,6 +62,7 @@ import Control.Concurrent
 import Data.Maybe (fromJust, fromMaybe, listToMaybe)
 import Data.List (find)
 import GHC.Clock
+import GHC.Float
 import System.Mem (performGC)
 import qualified Data.Set as S
 
@@ -148,10 +149,10 @@ createWindow s d = do
 				W.KeyState'Repeating -> return ()
 		W.setCharCallback w $ Just $ \_ c -> throwEvent $ EventTyping c
 		W.setMouseButtonCallback w $ Just $ \_ m mst mkeys -> do
-			xy <- W.getCursorPos w
-			throwEvent $ EventMouseKey xy m (convertMouseKeyState mst)
-		W.setCursorPosCallback w $ Just $ \_ x y -> throwEvent $ EventMouseMove (x,y)
-		W.setScrollCallback w $ Just $ \_ x y -> throwEvent $ EventScroll x y
+			(x,y) <- W.getCursorPos w
+			throwEvent $ EventMouseKey (d2f x, d2f y) m (convertMouseKeyState mst)
+		W.setCursorPosCallback w $ Just $ \_ x y -> throwEvent $ EventMouseMove (d2f x, d2f y)
+		W.setScrollCallback w $ Just $ \_ x y -> throwEvent $ EventScroll (d2f x) (d2f y)
 		W.setDropCallback w $ Just $ \_ ss -> throwEvent $ EventDrop ss
 		W.setWindowFocusCallback w $ Just $ \_ b -> throwEvent $ EventFocus b
 		W.setCursorEnterCallback w $ Just $ \_ c ->
@@ -174,6 +175,8 @@ createWindow s d = do
 		swapInterval n = liftIO $ W.swapInterval n
 		setErrorCallback f = liftIO $ W.setErrorCallback f
 
+d2f :: Double -> Float
+d2f = double2Float
 
 mte :: MonadIO m => WindowErr -> Maybe a -> m a
 mte e = maybe (throwIO' e) return
@@ -259,12 +262,12 @@ data Event
 	 -- | Localized character. Use these for text fields.
 	| EventTyping Char
 	-- | Coordinate origin (0,0) is left top corner.
-	| EventMouseKey (Double, Double) W.MouseButton KeyState
-	| EventMouseMove (Double, Double)
+	| EventMouseKey (Float, Float) W.MouseButton KeyState
+	| EventMouseMove (Float, Float)
 	-- | See locked state.
 	| EventMouseKeyLocked W.MouseButton KeyState
-	| EventMouseMoveLocked (Double, Double)
-	| EventScroll Double Double
+	| EventMouseMoveLocked (Float, Float)
+	| EventScroll Float Float
 	| EventFocus Bool
 	| EventMouseInOutWindow Bool
 	| EventDrop [String]
@@ -289,16 +292,16 @@ eventsOnLocked es = do
 		case (m, e) of
 			(CursorLocked, EventMouseMove xy@(x1,y1)) -> do
 				(x0,y0) <- liftIO . readMVar =<< wsLastCoord <$> windowState
-				return $ EventMouseMoveLocked (x1-x0, y1-y0)
+				return $ EventMouseMoveLocked (x1 - x0, y1 - y0)
 			(CursorLocked, EventMouseKey _ k ks) -> return $ EventMouseKeyLocked k ks
 			_ -> return e
 
 	updateLastCoord :: MonadWindow m => m ()
 	updateLastCoord = do
 		w <- glfwWindow
-		xy <- liftIO $ W.getCursorPos w
+		(x,y) <- liftIO $ W.getCursorPos w
 		mxy <- wsLastCoord <$> windowState
-		liftIO $ modifyMVar_ mxy (return . const xy)
+		liftIO $ modifyMVar_ mxy (return . const (d2f x, d2f y))
 -- getting the last coord from glfw instead of the last event could probably cause inaccuracies.
 -- it seems flawed. needs fix. TODO
 -- probably just move the coord update into the case statement
@@ -388,7 +391,7 @@ data WindowState = WindowState
   , wsEventQueue :: MVar [Event]
   , wsEventContext :: MVar EventContext
   , wsStartTime :: Double
-  , wsLastCoord :: MVar (Double, Double)
+  , wsLastCoord :: MVar (Float, Float)
   }
 
 newtype WindowT m a = WindowT { runw :: ReaderT WindowState m a }
