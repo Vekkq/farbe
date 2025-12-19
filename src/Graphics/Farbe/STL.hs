@@ -14,6 +14,7 @@ import GHC.Generics
 import Control.Monad.IO.Class
 import Data.Maybe
 
+import Debug.Trace
 
 
 data STL = STL { triangles :: [Triangle] } deriving Show

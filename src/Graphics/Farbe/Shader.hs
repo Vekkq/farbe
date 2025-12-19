@@ -413,19 +413,20 @@ setupAttribute1
 	-> m (Expr V a)
 setupAttribute1 a = do
 	s <- getShader
-	n <- nameAttrib "a" a
+	n <- name "a" a
 	entireSize <- ask
 	o <- advanceBy a
 	defer $ withString n $ \c -> do
 		p <- fromIntegral <$> glGetAttribLocation s c
-		when (p < 2^16) $ do
+		when (p < 2^8) $ do
 			glVertexAttribPointer p
 				(glComponents a)
 				(glType a)
 				(glNormalized a)
-				(itoi $ entireSize - sizeOf a)
+				(itoi $ entireSize)
 				(intPtrToPtr $ IntPtr o)
 			glEnableVertexAttribArray p
+		-- ~ liftIO $ putStrLn $ "sl pos: " ++ show p ++ "\t arr pos: " ++ show o ++ "\t stride: " ++ (show $ itoi $ entireSize - sizeOf a) ++ "\t components: " ++ (show $ glComponents a)
 	return $ liftExprShdr' $ do
 		addHeader "attribute" a n
 		return n
