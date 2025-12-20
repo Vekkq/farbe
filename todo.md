@@ -26,6 +26,9 @@
 * maybe add id's to vertexarrays, to distinguish pager entries from deleted old ones.
 * make window not resizable
 * consider to apply always `up` to the vertex shader position value
-  and add same same instances V3 -> V3
+  and add same same instances, like V3 -> V3
 
+
+* the gl part should track binds and ignore bind calls when they are not necessary
+* the gl part should separate todos in immediate and delayed tasks
 

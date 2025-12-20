@@ -349,7 +349,7 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 		glGetShaderInfoLog shdr (2^10) errLength er
 		peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
 			"" -> do
-				putStrLn str
+				-- ~ putStrLn str
 				return ()
 			e -> do
 				putStrLn str
