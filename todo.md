@@ -17,7 +17,7 @@
 * rewrite VArray to delete itself after losing reference - done, rewritten to work with threadsafe ogl
 * rewrite shaders to delete themself - done
 * delete attached shaders with glDeleteShader - done
-* rewrite textures to delete themself - done
+* rewrite textures to delete themself - almost done
 
 
 * add or do timing analyses
@@ -28,7 +28,12 @@
 * consider to apply always `up` to the vertex shader position value
   and add same same instances, like V3 -> V3
 
+* add ShaderM again and replace Defer Shdr
 
 * the gl part should track binds and ignore bind calls when they are not necessary
 * the gl part should separate todos in immediate and delayed tasks
+
+* see what the stencil render looks like on a printed out texture via juicypixels
+
+
 

@@ -2,6 +2,6 @@
 
 # Farbe
 
-A fairly-typesafe interface to OpenGL ES 2, providing an expression type for writing shaders.
+A convenient interface for rendering over OpenGL ES 2 and GLFW. It comes with a typesafe eDSL for writing shaders and simple combinators for rendering.
 
 

@@ -1,8 +1,8 @@
 cabal-version:      3.0
 name:               farbe
 version:            0.1.0.0
-synopsis: A graphics library for rendering in windows.
-description: A simplified interface over OpenGL ES 2, providing an expression type for writing shaders.
+synopsis: typesafe rendering library over GLFW and OpenGL ES 2
+description: typesafe rendering library
 license:            BSD-2-Clause
 license-file:       LICENSE
 author:             Vekkq

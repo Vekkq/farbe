@@ -32,6 +32,7 @@ module Graphics.Farbe
 	, makeVarM3
 	, makeVarM4
 	, makeVarT
+	, stencil
 
 	) where
 
@@ -47,11 +48,16 @@ import Control.Monad.IO.Class
 import Data.Int
 import Foreign.Storable
 
+import Control.Monad
+import Control.Monad.Fail
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
+
+import Graphics.GL.Embedded20
+import Graphics.GL.Types
 
 
 newtype FarbeT m a = FarbeT { unFarbe :: CounterT (HandTexT (HandVBOT m)) a }
@@ -78,11 +84,83 @@ instance (Farbe m, Monad m, Monoid w) => Farbe (RWST r w s m)
 
 
 runFarbeT :: MonadIO m => FarbeT m a -> m a
-runFarbeT = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe
+runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe $ do
+	glClearColor 0.1 0.1 0.1 1
+	glEnable GL_DEPTH_TEST
+	-- ~ glDisable GL_DEPTH_TEST
+	-- ~ glDepthFunc GL_GREATER
+	-- ~ glEnable GL_CULL_FACE
+	m
 
-runFarbeT' :: MonadIO m => WindowT (FarbeT m) a -> m a
-runFarbeT' = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe . runWindowT "" (InWindow (1000,1024))
 
+-- ~ runFarbeT' :: MonadIO m => WindowT (FarbeT m) a -> m a
+-- ~ runFarbeT' = runFarbeT . runWindowT "" (InWindow (1000,1024))
+
+
+instance MonadIO m => MonadFail (FarbeT m) where
+	fail s = liftIO $ do
+		return $ error s
+
+render = id
+
+stencil :: (MonadFail m, MonadIO m) => GLenum -> GLint -> GLuint -> GLenum -> GLenum -> GLenum
+	-> [m ()] -> m c -> m ()
+stencil func val mask sfail dpfail dppass f g = do
+
+	-- ~ b <- withPtr_ $ glGetBooleanv GL_STENCIL_TEST
+	-- ~ when (b == GL_TRUE) $ error "stencil is stacked"
+
+	glEnable GL_STENCIL_TEST
+
+	[func',val',mask',sfail',dpfail',dppass'] <- mapM
+		(\a -> itoi <$> withPtr_ (glGetIntegerv a))
+		[ GL_STENCIL_FUNC, GL_STENCIL_REF, GL_STENCIL_VALUE_MASK
+		, GL_STENCIL_FAIL, GL_STENCIL_PASS_DEPTH_FAIL, GL_STENCIL_PASS_DEPTH_PASS
+		]
+
+	glClear GL_STENCIL_BUFFER_BIT
+	glStencilFunc GL_ALWAYS 0 1
+	glStencilOp GL_KEEP GL_KEEP GL_REPLACE
+	withNoColor $ withNoDepth $ mapM_ render f
+
+	glStencilFunc func val mask
+	glStencilOp sfail dpfail dppass
+
+	render g
+
+	glStencilFunc func' (itoi val') mask'
+	glStencilOp sfail' dpfail' dppass'
+
+	glDisable GL_STENCIL_TEST
+
+
+withNoColor f = do
+	glColorMask GL_FALSE GL_FALSE GL_FALSE GL_FALSE
+	f
+	glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
+
+withNoDepth f = do
+	glDepthMask GL_FALSE
+	f
+	glDepthMask GL_TRUE
+
+withDepthFunc a f = do
+	d <- withPtr_ $ glGetIntegerv GL_DEPTH_FUNC
+	glDepthFunc a
+	f
+	glDepthFunc $ itoi d
+
+withStencilMask a f = do
+	m <- withPtr_ $ glGetIntegerv GL_STENCIL_WRITEMASK
+	glStencilMask a
+	f
+	glStencilMask $ itoi m
+
+-- todo: regularly merge drawings respecting depth
+drawInto = undefined
+
+-- ignore depth with special depth settings to draw over - glStencilOp second parameter
+drawOver = undefined
 
 -- ~ frame :: Farbe m => m (VArray (V3 Float))
 -- ~ frame = newVArray $
