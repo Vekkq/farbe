@@ -537,6 +537,7 @@ display = do
 	liftIO $ W.swapBuffers w
 	glClear GL_COLOR_BUFFER_BIT
 	glClear GL_DEPTH_BUFFER_BIT
+	glClear GL_STENCIL_BUFFER_BIT
 
 
 
