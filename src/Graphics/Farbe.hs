@@ -160,7 +160,7 @@ withStencilMask a f = do
 drawInto = undefined
 
 -- ignore depth with special depth settings to draw over
--- glStencilOp second parameter still likely ignored depth for itself
+-- glStencilOp second parameter still likely ignores depth for itself on color
 drawOver = undefined
 
 -- ~ frame :: Farbe m => m (VArray (V3 Float))

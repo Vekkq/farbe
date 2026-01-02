@@ -48,6 +48,7 @@ module Graphics.Farbe.Window
 	, WindowErr (..)
 	-- * Utility
 	, getTime
+	, windowSize
 	, glfwWindow
 	-- ~ -- module re-export
 	-- ~ , module Control.Monad
@@ -82,6 +83,8 @@ import Control.Monad.Zip (MonadZip)
 import Control.Monad.Fix (MonadFix)
 import Control.Applicative (Alternative)
 import Control.Monad.IO.Class
+
+import Data.Bits
 
 import Debug.Trace
 
@@ -421,6 +424,10 @@ eventQueue :: MonadWindow m => m (MVar [Event])
 eventQueue = wsEventQueue <$> windowState
 
 
+windowSize :: (MonadIO m, MonadWindow m) => m (Int,Int)
+windowSize = glfwWindow >>= liftIO . W.getWindowSize
+
+
 instance MonadIO m => MonadWindow (WindowT m) where
 	windowState = WindowT ask
 
@@ -535,9 +542,6 @@ display :: MonadWindow m => m ()
 display = do
 	w <- glfwWindow
 	liftIO $ W.swapBuffers w
-	glClear GL_COLOR_BUFFER_BIT
-	glClear GL_DEPTH_BUFFER_BIT
-	glClear GL_STENCIL_BUFFER_BIT
-
+	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
 
 

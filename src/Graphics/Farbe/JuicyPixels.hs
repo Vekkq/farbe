@@ -18,20 +18,41 @@ import Control.Monad.IO.Class
 
 
 
-loadImage :: MonadIO m => TextureFormat -> String -> m (Either String (Texture t))
-loadImage t s = do
+loadImage :: forall m t j . (MonadIO m, TextureFormat t) => String -> m (Either String (Texture t))
+loadImage s = do
   ei <- liftIO $ readImage s
   right ei $ \i -> do
     let (Image w h v) = toRGB i
-    liftIO $ unsafeWith v $ \p -> loadTexture2Base t (itoi w, itoi h) p
-
-loadImage' :: MonadIO m => TextureFormat -> String -> m (Texture t)
-loadImage' t s = loadImage t s >>= either error return
+    liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
 
 right :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
 right (Right b) f = Right <$> f b
 right (Left a) _ = pure (Left a)
 
+
+loadImage' :: (MonadIO m, TextureFormat t) => String -> m (Texture t)
+loadImage' s = loadImage s >>= either error return
+
+
+class ToTexture r where
+  toTexture :: DynamicImage -> Image r
+
+instance ToTexture Pixel8 where
+  toTexture = toY
+
+instance ToTexture PixelRGB8 where
+  toTexture = toRGB
+
+instance ToTexture PixelRGBA8 where
+  toTexture = toRGBA
+
+
+class TextureFormat t => JuiceTextureFormat t j | t -> j, j -> t
+  -- ~ juiceGlTex :: Image j -> t
+
+instance JuiceTextureFormat L Pixel8
+instance JuiceTextureFormat RGB PixelRGB8
+instance JuiceTextureFormat RGBA PixelRGBA8
 
 toRGB :: DynamicImage -> Image PixelRGB8
 toRGB (ImageY8 i) = promoteImage i

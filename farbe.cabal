@@ -64,5 +64,6 @@ test-suite farbe-test
                  , gl^>=0.9
                  , bytestring^>=0.12
                  , binary^>=0.8.9
+                 , JuicyPixels^>=3.3
 
 

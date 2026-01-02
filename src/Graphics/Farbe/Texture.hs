@@ -118,25 +118,30 @@ instance Show (Texture f) where
 	show = show . texId
 
 
-data TextureFormat = L | LA | RGB | RGBA
+data L
+data LA
+data RGB
+data RGBA
 
-glTex :: (Eq a, Num a) => TextureFormat -> a
-glTex L = GL_LUMINANCE
-glTex LA = GL_LUMINANCE_ALPHA
-glTex RGB = GL_RGB
-glTex RGBA = GL_RGBA
+class TextureFormat a where
+	glTex :: (Eq n, Num n) => a -> n
 
+instance TextureFormat L where glTex _ = GL_LUMINANCE
+instance TextureFormat LA where glTex _ = GL_LUMINANCE_ALPHA
+instance TextureFormat RGB where glTex _ = GL_RGB
+instance TextureFormat RGBA where glTex _ = GL_RGBA
 
 -- @loadTexture2Base@ requires an image with width and height at base of 2 .
-loadTexture2Base :: MonadIO m
-	=> TextureFormat -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
-loadTexture2Base t (w,h) p = do
+loadTexture2Base :: forall m t a . (MonadIO m, TextureFormat t)
+	=> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
+loadTexture2Base (w,h) p = do
+	let t = glTex (error "" :: t)
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	-- ~ liftIO $ putStrLn $ "new tex: " ++ show tex
 	glActiveTexture $ GL_TEXTURE0
 	glBindTexture GL_TEXTURE_2D tex
-	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
+	glTexImage2D GL_TEXTURE_2D 0 (itoi t) w h 0 t GL_UNSIGNED_BYTE (castPtr p)
 	glGenerateMipmap GL_TEXTURE_2D
+	-- ~ when (p /= nullptr) $ glGenerateMipmap GL_TEXTURE_2D
 
 	m <- liftIO $ newMVar 0
 	liftIO $ mkWeakMVar m (with tex $ glDeleteTextures 1)
@@ -152,3 +157,5 @@ instance GLtype (Texture f) where
 	glType _ = GL_INT
 	glPrecision _ = ""
 	glShortName _ = "t"
+
+

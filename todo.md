@@ -35,5 +35,7 @@
 
 * see what the stencil render looks like on a printed out texture via juicypixels
 
+* fix juicypixels module - get some order in there
+
 
 
