@@ -31,6 +31,7 @@ module Graphics.Farbe.Window
 	, processEvents
 	, processEvents'
 	, Event (..)
+	, EventContext
 	-- ~ -- ** Event context
 	-- ~ , getKey
 	-- ~ , getKeys

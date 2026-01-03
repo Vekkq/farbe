@@ -17,8 +17,10 @@ import Control.Monad
 import Control.Monad.IO.Class
 
 import Graphics.GL.Embedded20
+import Graphics.Farbe
 import Graphics.Farbe.Utils
 import Graphics.Farbe.JuicyPixels
+import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Window
 
@@ -26,6 +28,7 @@ import Foreign hiding (void)
 import Codec.Picture
 
 
+import Control.Monad.State.Strict
 
 import Graphics.GL.Types
 
@@ -37,8 +40,8 @@ import System.Mem
 
 newtype Framebuffer = Framebuffer GLuint
 
-genFramebuffer :: MonadIO m => m GLuint
-genFramebuffer = liftIO $ withPtr_ $ glGenFramebuffers 1
+genFramebuffer :: MonadIO m => m Framebuffer
+genFramebuffer = liftIO $ fmap Framebuffer $ withPtr_ $ glGenFramebuffers 1
 
 bindfb :: MonadIO m => Framebuffer -> m ()
 bindfb (Framebuffer n) = glBindFramebuffer GL_FRAMEBUFFER n
@@ -98,8 +101,42 @@ writeRender s = do
 
 
 
+processEventsDebug :: (Farbe m) => ([(Event, EventContext)] -> m ()) -> m ()
+processEventsDebug f = (`evalStateT` 1) $ do
 
+  fb <- genFramebuffer
 
+  bindfb fb
+  (w',h') <- windowSize
+  let (w,h) = (itoi w', itoi h')
+  texRGB :: Texture RGB <- loadTexture2Base (w,h) nullPtr
+  glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
+  texD :: Texture L <- loadTexture2Base (w,h) nullPtr
+  glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D  (texId texD) 0
+  texS :: Texture L <- loadTexture2Base (w,h) nullPtr
+  glFramebufferTexture2D GL_FRAMEBUFFER GL_STENCIL_ATTACHMENT GL_TEXTURE_2D  (texId texS) 0
+
+  t <- makeVarT texRGB
+  render <- compile $ \v -> do
+    let V4 x y _ _ = fragCoord
+    return (up 1 v, texture (use t) $ V2 x y)
+
+  frame' <- newVArray frame
+
+  fix $ \loop -> processEvents $ \es@((e,_):_) -> do
+    bindfb fb
+    lift $ f es
+    case e of
+      EventKey Key'F12 Down _ -> modify ((`mod` 3) . succ)
+      _ -> return ()
+    i <- get
+
+    bindfb (Framebuffer 0)
+
+    -- ~ glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
+    render [frame']
+    display
+    loop
 
 
 
@@ -115,9 +152,6 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
   teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
   cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
   eiffel <- readFileBinSTL "test-resources/eiffel.stl" >>= newVArray
-  -- ~ cstl <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
-  -- ~ cstl2 <- readFileSTL "test-resources/cube.stl" >>= newVArray
-  -- ~ vstl <- readFileSTL "test-resources/cube.stl" >>= newVArray . map (0.9*|)
 
   r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 

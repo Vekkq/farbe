@@ -37,5 +37,9 @@
 
 * fix juicypixels module - get some order in there
 
+* enable split sections for ghc in cabal
+
+* ease `compile` to not depend on the weird Defer and have the returned monads be separate
+
 
 

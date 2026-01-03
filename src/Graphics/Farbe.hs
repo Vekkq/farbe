@@ -9,6 +9,7 @@
 
 module Graphics.Farbe
 	( runFarbeT
+	, Farbe
 	, newVArray
 	, frame
 	, compile
