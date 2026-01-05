@@ -644,6 +644,7 @@ makeVar a = do
 		when b $ defer $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged $ upload l
+			-- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
 			defer $ (liftIO $ readMVar m) >>= runwc wc
 		return vname
 	return $ Var (ExprEnv r (toTypeS (err :: a)) []) m
@@ -651,6 +652,8 @@ makeVar a = do
 
 class (GLtype a, Eq a) => Upload a where
 	upload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
+	-- TODO: makeUploadFn :: GLint -> a -> m (a -> m ())
+	-- move RunWhenChanged into instances
 
 instance Upload Bool where upload l = glUniform1i l . boolToInt
 instance Upload Int32 where upload l = glUniform1i l . itoi
@@ -707,6 +710,7 @@ instance Upload (Texture f) where
 			let x' = succ x
 			(a,b) <- liftIO $ getBounds ts
 			return $ if x' >= b then a else x'
+
 
 -- makeVars ------------------------------------------------------------------------------
 

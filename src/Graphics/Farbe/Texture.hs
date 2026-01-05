@@ -132,22 +132,48 @@ instance TextureFormat RGB where glTex _ = GL_RGB
 instance TextureFormat RGBA where glTex _ = GL_RGBA
 
 -- @loadTexture2Base@ requires an image with width and height at base of 2 .
-loadTexture2Base :: forall m t a . (MonadIO m, TextureFormat t)
+loadTexture2Base :: forall m t a . (MonadIO m, HandTex m, TextureFormat t)
 	=> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
 loadTexture2Base (w,h) p = do
 	let t = glTex (error "" :: t)
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	glActiveTexture $ GL_TEXTURE0
-	glBindTexture GL_TEXTURE_2D tex
+	m <- liftIO $ newMVar 0
+	assignTexUnit' t m
+	-- ~ glActiveTexture $ GL_TEXTURE0
+	-- ~ glBindTexture GL_TEXTURE_2D tex
 	glTexImage2D GL_TEXTURE_2D 0 (itoi t) w h 0 t GL_UNSIGNED_BYTE (castPtr p)
 	glGenerateMipmap GL_TEXTURE_2D
 	-- ~ when (p /= nullptr) $ glGenerateMipmap GL_TEXTURE_2D
 
-	m <- liftIO $ newMVar 0
 	liftIO $ mkWeakMVar m (with tex $ glDeleteTextures 1)
 	-- todo wait for bufferswap before deleting
 
 	return $ Texture tex m 0 w h
+
+
+assignTexUnit' i mu = assignTexUnit (Texture i mu (error "") (error "") (error ""))
+
+assignTexUnit :: (MonadIO m, HandTex m, Num n) => Texture f -> m n
+assignTexUnit (Texture i mu _ _ _) = do
+	TexState l ts <- getTex
+	u <- liftIO $ readMVar mu
+	i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+	if (i /= i') then do
+		glActiveTexture $ GL_TEXTURE0 + l
+		glBindTexture GL_TEXTURE_2D i
+		liftIO $ swapMVar mu l
+		liftIO $ writeArray ts l i
+		l' <- succU ts l
+		setTex $ TexState l' ts
+		return $ itoi l'
+	else return $ itoi u
+	where
+	succU ts x = do
+		let x' = succ x
+		(a,b) <- liftIO $ getBounds ts
+		return $ if x' >= b then a else x'
+
+
 
 
 

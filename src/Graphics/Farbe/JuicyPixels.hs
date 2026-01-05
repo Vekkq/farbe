@@ -10,27 +10,33 @@ import Codec.Picture.Types
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
+import Graphics.Farbe.Tuple
 -- ~ import Graphics.Farbe.Utils
 -- ~ import Graphics.Farbe.GL
-import Data.Vector.Storable (unsafeWith)
+import Data.Vector.Storable (unsafeToForeignPtr)
 import Control.Monad.IO.Class
 
+import Foreign.ForeignPtr.Unsafe
 
 
 
-loadImage :: forall m t j . (MonadIO m, TextureFormat t) => String -> m (Either String (Texture t))
+loadImage :: forall m t j . (MonadIO m, HandTex m, TextureFormat t)
+  => String -> m (Either String (Texture t))
 loadImage s = do
   ei <- liftIO $ readImage s
   right ei $ \i -> do
     let (Image w h v) = toRGB i
-    liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
+    let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
+    loadTexture2Base (itoi w, itoi h) p
+    -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
+
 
 right :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
 right (Right b) f = Right <$> f b
 right (Left a) _ = pure (Left a)
 
 
-loadImage' :: (MonadIO m, TextureFormat t) => String -> m (Texture t)
+loadImage' :: (MonadIO m, HandTex m, TextureFormat t) => String -> m (Texture t)
 loadImage' s = loadImage s >>= either error return
 
 

@@ -55,37 +55,6 @@ framebufferStatus = do
     GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT -> error "missing attachments"
     GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
 
--- ~ debugRender f = do
-  -- ~ fb <- genFramebuffer
-  -- ~ (w',h') <- windowSize
-  -- ~ let (w,h) = (itoi w', itoi h')
-
-  -- ~ texRGB <- loadTexture2Base w h nullPtr :: (Texture RGB)
-  -- ~ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D texRGB 0
-  -- ~ texD <- loadTexture2Base w h nullPtr :: (Texture L)
-  -- ~ glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D texD 0
-  -- ~ texS <- loadTexture2Base w h nullPtr :: (Texture L)
-  -- ~ glFramebufferTexture2D GL_FRAMEBUFFER GL_STENCIL_ATTACHMENT GL_TEXTURE_2D texD 0
-
-  -- ~ bindfb fb
-  -- ~ t <- makeVarT texRGB
-  -- ~ render <- compile $ \v -> do
-    -- ~ (x,y,_,_) <- fragCoord
-    -- ~ return (up 1 v, texture (use t) $ V2 x y)
-
-  -- ~ render frame
-
-  -- ~ upload texD
-  -- ~ render frame
-
-
-  -- ~ r <- f
-
-
-
-
-
-  -- ~ return r
 
 
 writeRender :: MonadWindow m => String -> m ()
@@ -104,18 +73,23 @@ writeRender s = do
 processEventsDebug :: (Farbe m) => ([(Event, EventContext)] -> m ()) -> m ()
 processEventsDebug f = (`evalStateT` 1) $ do
 
-  fb <- genFramebuffer
-
-  bindfb fb
   (w',h') <- windowSize
   let (w,h) = (itoi w', itoi h')
-  texRGB :: Texture RGB <- loadTexture2Base (w,h) nullPtr
-  glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
-  texD :: Texture L <- loadTexture2Base (w,h) nullPtr
-  glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D  (texId texD) 0
-  texS :: Texture L <- loadTexture2Base (w,h) nullPtr
-  glFramebufferTexture2D GL_FRAMEBUFFER GL_STENCIL_ATTACHMENT GL_TEXTURE_2D  (texId texS) 0
 
+  fb <- genFramebuffer
+  bindfb fb
+  texRGB :: Texture RGB <- loadTexture2Base (w,h) nullPtr
+  assignTexUnit texRGB
+  -- ~ glTexParameteri (texId texRGB) GL_TEXTURE_MIN_FILTER GL_LINEAR
+  -- ~ glTexParameteri (texId texRGB) GL_TEXTURE_MAG_FILTER GL_LINEAR
+  glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
+  -- ~ texD :: Texture RGB <- loadTexture2Base (w,h) nullPtr
+  -- ~ assignTexUnit texD
+  -- ~ glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D  (texId texD) 0
+  -- ~ texS :: Texture RGB <- loadTexture2Base (w,h) nullPtr
+  -- ~ assignTexUnit texS
+  -- ~ glFramebufferTexture2D GL_FRAMEBUFFER GL_STENCIL_ATTACHMENT GL_TEXTURE_2D  (texId texS) 0
+  -- ~ framebufferStatus
   t <- makeVarT texRGB
   render <- compile $ \v -> do
     let V4 x y _ _ = fragCoord
@@ -123,14 +97,15 @@ processEventsDebug f = (`evalStateT` 1) $ do
 
   frame' <- newVArray frame
 
-  fix $ \loop -> processEvents $ \es@((e,_):_) -> do
+  fix $ \loop -> processEvents $ \es -> do
     bindfb fb
     lift $ f es
-    case e of
-      EventKey Key'F12 Down _ -> modify ((`mod` 3) . succ)
+    case es of
+      ((EventKey Key'F12 Down _,_):_) -> modify ((`mod` 3) . succ)
       _ -> return ()
     i <- get
-
+    -- ~ swapVar t $ [texRGB, texD, texS] !! i
+    swapVar t texRGB
     bindfb (Framebuffer 0)
 
     -- ~ glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
@@ -160,15 +135,7 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
     n' <- transfer n
     return (up 1 v', up 1 n' * 0.5 + 0.2)
 
-  -- ~ g <- compile $ \(v) -> do
-    -- ~ let (V3 x y z) = use r **| v * 0.2
-    -- ~ vt <- transfer (V2 x (-y))
-    -- ~ return (V4 x y z 1, pure 0.9)
-
-
-  -- ~ v <- newVArray $ frame
-
-  fix $ \loop -> processEvents $ \es -> do
+  processEventsDebug $ \es -> do
     -- ~ glClear GL_DEPTH_BUFFER_BIT
     glerrcheck
     r' <- readVar r
@@ -176,19 +143,14 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
       [(EventMouseMove (x,y),_)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
       _ -> return ()
 
-    -- ~ stencil GL_EQUAL 1 1 GL_REPLACE GL_KEEP GL_KEEP [f [teapot]] $ f [eiffel]
-    -- ~ f [cube]
-    -- ~ f [teapot]
-    -- ~ f [eiffel]
     f [eiffel, teapot, cube]
     t <- getTime
-    when (t > 1 && t < 2) $ do
-      writeRender "boom.png"
-      -- ~ liftIO $ putStrLn "writing"
+    -- ~ when (t > 1 && t < 2) $ do
+      -- ~ writeRender "boom.png"
 
-    display
+    -- ~ display
     liftIO $ performGC
-    loop
+    -- ~ loop
 
 
 

@@ -75,7 +75,7 @@ instance MonadTrans FarbeT where
 -- ~ deriving instance (Monad m) => Count (WindowT m)
 
 class (Count m, HandTex m, HandVBO m, MonadWindow m, MonadIO m) => Farbe m
-instance (Count m, HandTex m, HandVBO m, MonadWindow m, MonadIO m) => Farbe (FarbeT m)
+instance (MonadWindow m, MonadIO m) => Farbe (FarbeT m)
 
 instance (Farbe m, Monad m) => Farbe (ReaderT r m)
 instance (Farbe m, Monad m, Monoid w) => Farbe (WriterT w m)
