@@ -30,6 +30,8 @@ import Graphics.GL
 -- ~ import Graphics.Farbe.GL
 import Graphics.Farbe.Window
 
+import Graphics.GL.Ext.OES.DepthTexture
+
 
 import Graphics.Farbe.VertexArray (HandVBO)
 
@@ -122,50 +124,69 @@ data L
 data LA
 data RGB
 data RGBA
+data D
 
 class TextureFormat a where
 	glTex :: (Eq n, Num n) => a -> n
+	glInTex :: (Eq n, Num n) => a -> n
+	glTexType :: (Eq n, Num n) => a -> n
+	glTexType _ = GL_UNSIGNED_BYTE
+	glMipMap :: a -> Bool
+	glMipMap _ = True
 
-instance TextureFormat L where glTex _ = GL_LUMINANCE
-instance TextureFormat LA where glTex _ = GL_LUMINANCE_ALPHA
-instance TextureFormat RGB where glTex _ = GL_RGB
-instance TextureFormat RGBA where glTex _ = GL_RGBA
+-- ~ instance TextureFormat D where glTex _ = GL_DEPTH_COMPONENT24
+-- ~ instance TextureFormat S where glTex _ = GL_LUMINANCE
+instance TextureFormat L where
+	glTex _ = GL_RED
+	glInTex _ = GL_R8
+
+instance TextureFormat LA where
+	glTex _ = GL_RG
+	glInTex _ = GL_RG8
+
+instance TextureFormat RGB where
+	glTex _ = GL_RGB
+	glInTex _ = GL_RGB8
+
+instance TextureFormat RGBA where
+	glTex _ = GL_RGBA
+	glInTex _ = GL_RGBA8
+
+instance TextureFormat D where
+	glTex _ = GL_DEPTH_COMPONENT
+	glInTex _ = GL_DEPTH_COMPONENT24
+	glTexType _ = GL_UNSIGNED_INT
+	glMipMap _ = False
 
 -- @loadTexture2Base@ requires an image with width and height at base of 2 .
 loadTexture2Base :: forall m t a . (MonadIO m, HandTex m, TextureFormat t)
 	=> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
 loadTexture2Base (w,h) p = do
-	let t = glTex (error "" :: t)
+	let t = (error "" :: t)
+	-- ~ let int = glInTex (error "" :: t)
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	m <- liftIO $ newMVar 0
-	assignTexUnit' t m
-	-- ~ glActiveTexture $ GL_TEXTURE0
-	-- ~ glBindTexture GL_TEXTURE_2D tex
-	glTexImage2D GL_TEXTURE_2D 0 (itoi t) w h 0 t GL_UNSIGNED_BYTE (castPtr p)
-	glGenerateMipmap GL_TEXTURE_2D
+	m <- assignTexUnit' tex 0 >>= (liftIO . newMVar)
+	glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (glTexType t) (castPtr p)
+	when (glMipMap t) $ glGenerateMipmap GL_TEXTURE_2D
 	-- ~ when (p /= nullptr) $ glGenerateMipmap GL_TEXTURE_2D
 
 	liftIO $ mkWeakMVar m (with tex $ glDeleteTextures 1)
-	-- todo wait for bufferswap before deleting
+	-- TODO wait for bufferswap before deleting
 
 	return $ Texture tex m 0 w h
 
 
-assignTexUnit' i mu = assignTexUnit (Texture i mu (error "") (error "") (error ""))
-
-assignTexUnit :: (MonadIO m, HandTex m, Num n) => Texture f -> m n
-assignTexUnit (Texture i mu _ _ _) = do
+assignTexUnit' :: (MonadIO m, HandTex m, Num n) => GLuint -> GLenum -> m n
+assignTexUnit' i u = do
 	TexState l ts <- getTex
-	u <- liftIO $ readMVar mu
 	i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
 	if (i /= i') then do
 		glActiveTexture $ GL_TEXTURE0 + l
 		glBindTexture GL_TEXTURE_2D i
-		liftIO $ swapMVar mu l
 		liftIO $ writeArray ts l i
 		l' <- succU ts l
 		setTex $ TexState l' ts
-		return $ itoi l'
+		return $ itoi l
 	else return $ itoi u
 	where
 	succU ts x = do
@@ -173,6 +194,11 @@ assignTexUnit (Texture i mu _ _ _) = do
 		(a,b) <- liftIO $ getBounds ts
 		return $ if x' >= b then a else x'
 
+assignTexUnit :: (MonadIO m, HandTex m) => Texture f -> m ()
+assignTexUnit (Texture i mu _ _ _) = do
+	u <- liftIO $ takeMVar mu
+	u' <- assignTexUnit' i u
+	liftIO $ putMVar mu u'
 
 
 

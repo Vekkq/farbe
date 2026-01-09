@@ -20,12 +20,13 @@ import Foreign.ForeignPtr.Unsafe
 
 
 
-loadImage :: forall m t j . (MonadIO m, HandTex m, TextureFormat t)
+loadImage :: forall m t j f
+  . (MonadIO m, HandTex m, TextureFormat t, ToTexture f, JuiceTextureFormat t f)
   => String -> m (Either String (Texture t))
 loadImage s = do
   ei <- liftIO $ readImage s
   right ei $ \i -> do
-    let (Image w h v) = toRGB i
+    let (Image w h v) = (toTexture i :: Image f)
     let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
     loadTexture2Base (itoi w, itoi h) p
     -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
@@ -36,7 +37,9 @@ right (Right b) f = Right <$> f b
 right (Left a) _ = pure (Left a)
 
 
-loadImage' :: (MonadIO m, HandTex m, TextureFormat t) => String -> m (Texture t)
+loadImage'
+  :: (MonadIO m, HandTex m, TextureFormat t, ToTexture f, JuiceTextureFormat t f)
+  => String -> m (Texture t)
 loadImage' s = loadImage s >>= either error return
 
 
@@ -46,6 +49,9 @@ class ToTexture r where
 instance ToTexture Pixel8 where
   toTexture = toY
 
+instance ToTexture Pixel32 where
+  toTexture = pixelMap (\y -> (itoi y)*2^24) . toY
+
 instance ToTexture PixelRGB8 where
   toTexture = toRGB
 
@@ -54,9 +60,8 @@ instance ToTexture PixelRGBA8 where
 
 
 class TextureFormat t => JuiceTextureFormat t j | t -> j, j -> t
-  -- ~ juiceGlTex :: Image j -> t
-
 instance JuiceTextureFormat L Pixel8
+instance JuiceTextureFormat D Pixel32
 instance JuiceTextureFormat RGB PixelRGB8
 instance JuiceTextureFormat RGBA PixelRGBA8
 
@@ -117,6 +122,7 @@ toY (ImageCMYK16 i) =
   collapseImage $ (convertImage :: Image PixelCMYK8 -> Image PixelRGB8) $ trimImage i
 
 
+
 class (Pixel a, Pixel r) => TrimPixel a r | a -> r where
   trimPixel :: a -> r
 
@@ -140,6 +146,8 @@ instance TrimPixel PixelCMYK16 PixelCMYK8 where
 
 trimImage :: TrimPixel a b => Image a -> Image b
 trimImage = pixelMap trimPixel
+
+
 
 averageInt :: (Integral a, Num b) => [a] -> b
 averageInt xs = itoi $ sum (map itoi xs) `quot` length xs

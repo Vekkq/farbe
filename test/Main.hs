@@ -54,7 +54,7 @@ framebufferStatus = do
     GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS -> error "borked framebuffer dimensions"
     GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT -> error "missing attachments"
     GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
-
+    _ -> return ()
 
 
 writeRender :: MonadWindow m => String -> m ()
@@ -71,7 +71,7 @@ writeRender s = do
 
 
 processEventsDebug :: (Farbe m) => ([(Event, EventContext)] -> m ()) -> m ()
-processEventsDebug f = (`evalStateT` 1) $ do
+processEventsDebug f = (`evalStateT` 0) $ do
 
   (w',h') <- windowSize
   let (w,h) = (itoi w', itoi h')
@@ -79,37 +79,41 @@ processEventsDebug f = (`evalStateT` 1) $ do
   fb <- genFramebuffer
   bindfb fb
   texRGB :: Texture RGB <- loadTexture2Base (w,h) nullPtr
-  assignTexUnit texRGB
-  -- ~ glTexParameteri (texId texRGB) GL_TEXTURE_MIN_FILTER GL_LINEAR
-  -- ~ glTexParameteri (texId texRGB) GL_TEXTURE_MAG_FILTER GL_LINEAR
   glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
-  -- ~ texD :: Texture RGB <- loadTexture2Base (w,h) nullPtr
-  -- ~ assignTexUnit texD
-  -- ~ glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D  (texId texD) 0
-  -- ~ texS :: Texture RGB <- loadTexture2Base (w,h) nullPtr
-  -- ~ assignTexUnit texS
-  -- ~ glFramebufferTexture2D GL_FRAMEBUFFER GL_STENCIL_ATTACHMENT GL_TEXTURE_2D  (texId texS) 0
-  -- ~ framebufferStatus
-  t <- makeVarT texRGB
-  render <- compile $ \v -> do
+  texD :: Texture D <- loadTexture2Base (w,h) nullPtr
+  glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D (texId texD) 0
+  framebufferStatus
+
+  -- ~ t <- makeVarT texD
+  -- ~ renderD <- compile $ \v -> do
+    -- ~ let V4 x y _ _ = fragCoord
+    -- ~ return (up 1 v, texture (use t) $ V2 x y)
+
+  t2 <- makeVarT texRGB
+  renderRGB <- compile $ \v -> do
     let V4 x y _ _ = fragCoord
-    return (up 1 v, texture (use t) $ V2 x y)
+    return (up 1 v, texture (use t2) $ V2 x y)
 
   frame' <- newVArray frame
 
+
   fix $ \loop -> processEvents $ \es -> do
     bindfb fb
+
     lift $ f es
+
     case es of
-      ((EventKey Key'F12 Down _,_):_) -> modify ((`mod` 3) . succ)
+      ((EventKey Key'F12 Down _,_):_) -> modify ((`mod` 2) . succ)
       _ -> return ()
     i <- get
-    -- ~ swapVar t $ [texRGB, texD, texS] !! i
-    swapVar t texRGB
-    bindfb (Framebuffer 0)
 
-    -- ~ glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
-    render [frame']
+    bindfb $ Framebuffer 0
+    if i == 0 then do
+      lift $ f es
+    else do
+      glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
+      renderRGB [frame']
+
     display
     loop
 
@@ -138,7 +142,6 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
   processEventsDebug $ \es -> do
     -- ~ glClear GL_DEPTH_BUFFER_BIT
     glerrcheck
-    r' <- readVar r
     case es of
       [(EventMouseMove (x,y),_)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
       _ -> return ()
