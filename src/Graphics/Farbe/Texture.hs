@@ -32,6 +32,7 @@ import Graphics.Farbe.Window
 
 import Graphics.GL.Ext.OES.DepthTexture
 
+import Debug.Trace
 
 import Graphics.Farbe.VertexArray (HandVBO)
 

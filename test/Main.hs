@@ -12,6 +12,7 @@ import Graphics.Farbe.STL
 import Graphics.Farbe.Texture
 import Data.Function
 import Data.Either
+import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
@@ -70,8 +71,8 @@ writeRender s = do
 
 
 
-processEventsDebug :: (Farbe m) => ([(Event, EventContext)] -> m ()) -> m ()
-processEventsDebug f = (`evalStateT` 0) $ do
+debugLoop :: (Farbe m) => ([(Event, EventContext)] -> m ()) -> m ()
+debugLoop f = (`evalStateT` 0) $ do
 
   (w',h') <- windowSize
   let (w,h) = (itoi w', itoi h')
@@ -117,6 +118,11 @@ processEventsDebug f = (`evalStateT` 0) $ do
     display
     loop
 
+renderTexture :: (MonadIO m, HandTex m)
+  => Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
+renderTexture t = compile $ \v -> do
+  let V4 x y _ _ = fragCoord
+  return (up 1 v, texture (use t) $ V2 x y)
 
 
 
@@ -134,22 +140,35 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
 
   r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
-  f <- compile $ \(n,v) -> do
-    let v' = use r **| v
-    n' <- transfer n
-    return (up 1 v', up 1 n' * 0.5 + 0.2)
+  frame' <- newVArray frame
 
-  processEventsDebug $ \es -> do
+  f <- renderTexture t
+  -- ~ f <- compile $ \(n,v) -> do
+    -- ~ let v' = use r **| v
+    -- ~ n' <- transfer n
+    -- ~ return (up 1 v', up 1 n' * 0.5 + 0.2)
+
+  fix $ \loop -> processEvents $ \es -> do
+    f [frame']
+    display
+    loop
+
+  -- ~ liftIO $ putStrLn "waiting"
+
+  -- ~ liftIO $ threadDelay 1000000
+
+  debugLoop $ \es -> do
     -- ~ glClear GL_DEPTH_BUFFER_BIT
     glerrcheck
     case es of
       [(EventMouseMove (x,y),_)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
       _ -> return ()
 
-    f [eiffel, teapot, cube]
+    -- ~ f [eiffel, teapot, cube]
     t <- getTime
     -- ~ when (t > 1 && t < 2) $ do
       -- ~ writeRender "boom.png"
+    f [frame']
 
     -- ~ display
     liftIO $ performGC
