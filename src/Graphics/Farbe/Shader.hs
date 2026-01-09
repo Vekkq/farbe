@@ -711,6 +711,27 @@ instance Upload (Texture f) where
 			(a,b) <- liftIO $ getBounds ts
 			return $ if x' >= b then a else x'
 
+{-
+instance Upload (Texture f) where
+	upload l (Texture i mu _ _ _) = do
+		TexState u' ts <- getTex
+		u <- liftIO $ readMVar mu
+		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		if (i /= i') then do
+			glActiveTexture $ GL_TEXTURE0 + u'
+			glBindTexture GL_TEXTURE_2D i
+			glUniform1i l $ itoi u'
+			liftIO $ swapMVar mu u'
+			liftIO $ writeArray ts u' i
+			u'' <- succU ts u'
+			setTex $ TexState u'' ts
+		else glUniform1i l $ itoi u
+		where
+		succU ts x = do
+			let x' = succ x
+			(a,b) <- liftIO $ getBounds ts
+			return $ if x' >= b then a else x'
+-}
 
 -- makeVars ------------------------------------------------------------------------------
 
