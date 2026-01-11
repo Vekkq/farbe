@@ -88,6 +88,7 @@ runFarbeT :: MonadIO m => FarbeT m a -> m a
 runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe $ do
 	glClearColor 0.1 0.1 0.1 1
 	glEnable GL_DEPTH_TEST
+	glPixelStorei GL_UNPACK_ALIGNMENT 1
 	-- ~ glDisable GL_DEPTH_TEST
 	-- ~ glDepthFunc GL_GREATER
 	-- ~ glEnable GL_CULL_FACE

@@ -17,6 +17,8 @@ import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
 
+import Data.Function
+
 import Graphics.GL.Embedded20
 import Graphics.Farbe
 import Graphics.Farbe.Utils
@@ -84,36 +86,37 @@ debugLoop f = (`evalStateT` 0) $ do
   texD :: Texture D <- loadTexture2Base (w,h) nullPtr
   glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D (texId texD) 0
   framebufferStatus
+  bindfb $ Framebuffer 0
 
   -- ~ t <- makeVarT texD
   -- ~ renderD <- compile $ \v -> do
     -- ~ let V4 x y _ _ = fragCoord
     -- ~ return (up 1 v, texture (use t) $ V2 x y)
 
-  t2 <- makeVarT texRGB
-  renderRGB <- compile $ \v -> do
-    let V4 x y _ _ = fragCoord
-    return (up 1 v, texture (use t2) $ V2 x y)
+  -- ~ t2 <- makeVarT texRGB
+  -- ~ renderRGB <- compile $ \v -> do
+    -- ~ let V4 x y _ _ = fragCoord
+    -- ~ return (up 1 v, texture (use t2) $ V2 x y)
 
   frame' <- newVArray frame
 
+  t <- makeVarT texD
+  render <- renderTexture t
 
   fix $ \loop -> processEvents $ \es -> do
-    bindfb fb
-
-    lift $ f es
-
     case es of
-      ((EventKey Key'F12 Down _,_):_) -> modify ((`mod` 2) . succ)
+      ((EventKey Key'F9 Down _,_):_) -> modify ((`mod` 2) . succ)
       _ -> return ()
     i <- get
 
-    bindfb $ Framebuffer 0
     if i == 0 then do
       lift $ f es
     else do
-      glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
-      renderRGB [frame']
+      bindfb fb
+      lift $ f es
+      bindfb $ Framebuffer 0
+      -- ~ glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
+      render [frame']
 
     display
     loop
@@ -122,10 +125,13 @@ renderTexture :: (MonadIO m, HandTex m)
   => Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
 renderTexture t = compile $ \v -> do
   let V4 x y _ _ = fragCoord
-  return (up 1 v, texture (use t) $ V2 x y)
+  let V4 r g b a = (1 *) $ texture (use t) $ V2 x (-y) * 0.001
+  return (up 1 v, V4 r g b 1)
 
 
-  -- ~ f <- compile $ \((V3 a b c,V3 x y z)) -> do
+-- ~ renderTexture :: (MonadIO m, HandTex m)
+  -- ~ => Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
+-- ~ renderTexture t = compile $ \((V3 a b c,V3 x y z)) -> do
     -- ~ let pos = V4 x y z 1
     -- ~ V2 x' y' <- transfer (V2 x (y + a * b * c * 0.00002))
     -- ~ return (pos, texture (use t) ((V2 1 (-0.5))*(V2 x' y')-0.5))
@@ -133,16 +139,15 @@ renderTexture t = compile $ \v -> do
 
 main :: IO ()
 main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
-  i :: Texture RGB <- loadImage' "test-resources/iwi.jpg"
+  i :: Texture RGB <- loadImage' "test-resources/KorDrTtaa4.png"
   t <- makeVarT i
 
   i2 :: Texture RGB <- loadImage' "test-resources/ayataka512.jpg"
   t2 <- makeVarT i2
 
-  -- ~ teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
-  -- ~ cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
+  teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
+  cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
   -- ~ eiffel <- readFileBinSTL "test-resources/eiffel.stl" >>= newVArray
-
   r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
   frame' <- newVArray frame
@@ -169,11 +174,10 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
       [(EventMouseMove (x,y),_)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
       _ -> return ()
 
-    -- ~ f [eiffel, teapot, cube]
+    -- ~ f [teapot, cube]
     t <- getTime
-    -- ~ when (t > 1 && t < 2) $ do
+    -- ~ - ~ when (t > 1 && t < 2) $ do
       -- ~ writeRender "boom.png"
-    f [frame']
 
     -- ~ display
     liftIO $ performGC
