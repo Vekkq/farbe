@@ -47,3 +47,8 @@
 
 
 
+info:
+new framebuffers need a depth buffer in order to render in respect to depth.
+
+
+
