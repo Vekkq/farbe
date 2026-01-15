@@ -156,7 +156,7 @@ instance TextureFormat RGBA where
 instance TextureFormat D where
 	glTex _ = GL_DEPTH_COMPONENT
 	glInTex _ = GL_DEPTH_COMPONENT
-	glTexType _ = GL_UNSIGNED_INT
+	glTexType _ = GL_UNSIGNED_SHORT --GL_UNSIGNED_INT
 	glMipMap _ = False
 
 -- @loadTexture2Base@ requires an image with width and height at base of 2 .

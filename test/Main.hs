@@ -90,7 +90,6 @@ debugLoop f = (`evalStateT` 0) $ do
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
 	-- ~ glEnable GL_DEPTH_TEST
 	-- ~ glDepthFunc GL_LESS
-	texEmpty :: Texture D <- loadTexture2Base (w,h) nullPtr
 	texD :: Texture D <- loadTexture2Base (w,h) nullPtr
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST 
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST 
@@ -112,9 +111,8 @@ debugLoop f = (`evalStateT` 0) $ do
 
 	frame' <- newVArray frame
 
-	t <- makeVarT texEmpty
+	t <- makeVarT texD
 	render <- renderTexture t
-	swapVar t texEmpty
 
 	fix $ \loop -> processEvents $ \es -> do
 		case es of
@@ -130,9 +128,7 @@ debugLoop f = (`evalStateT` 0) $ do
 			lift $ f es
 			bindfb $ Framebuffer 0
 			glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
-			swapVar t texD
 			render [frame']
-			swapVar t texEmpty
 			return ()
 
 		display

@@ -50,10 +50,5 @@
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.
 
-ask:
-i'm doing opengl es 2, trying to use a depth texture in the fragment shader. it fails with a black screen. after adding the fitting glTexParameters, the texture is just white. scaling and multiplying values didn't reveal any patterns. 
-the shader renders a given texture. it works for the framebuffer's color texture, but fails for the depth texture. 
-i created the depth texture using OES_depth_texture enums. once the depth texture is attached to the fb, depth is used and rendered correctly for the color texture. 
-any ideas what i have to look at to sort this out?
-
+what now? 
 
