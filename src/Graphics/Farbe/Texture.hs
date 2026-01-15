@@ -138,24 +138,24 @@ class TextureFormat a where
 -- ~ instance TextureFormat D where glTex _ = GL_DEPTH_COMPONENT24
 -- ~ instance TextureFormat S where glTex _ = GL_LUMINANCE
 instance TextureFormat L where
-	glTex _ = GL_RED
-	glInTex _ = GL_R8
+	glTex _ = GL_LUMINANCE --GL_RED
+	glInTex _ = GL_ALPHA --GL_R8
 
 instance TextureFormat LA where
-	glTex _ = GL_RG
-	glInTex _ = GL_RG8
+	glTex _ = GL_LUMINANCE_ALPHA --GL_RG
+	glInTex _ = GL_LUMINANCE_ALPHA --GL_RG8
 
 instance TextureFormat RGB where
 	glTex _ = GL_RGB
-	glInTex _ = GL_RGB8
+	glInTex _ = GL_RGB --GL_RGB8
 
 instance TextureFormat RGBA where
 	glTex _ = GL_RGBA
-	glInTex _ = GL_RGBA8
+	glInTex _ = GL_RGBA --GL_RGBA8
 
 instance TextureFormat D where
 	glTex _ = GL_DEPTH_COMPONENT
-	glInTex _ = GL_DEPTH_COMPONENT24
+	glInTex _ = GL_DEPTH_COMPONENT
 	glTexType _ = GL_UNSIGNED_INT
 	glMipMap _ = False
 
@@ -164,6 +164,7 @@ loadTexture2Base :: forall m t a . (MonadIO m, HandTex m, TextureFormat t)
 	=> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
 loadTexture2Base (w,h) p = do
 	let t = (error "" :: t)
+	liftIO $ print (w,h)
 	-- ~ let int = glInTex (error "" :: t)
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
 	m <- assignTexUnit' tex 0 >>= (liftIO . newMVar)

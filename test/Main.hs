@@ -76,6 +76,7 @@ writeRender s = do
 
 
 pattern GL_TEXTURE_COMPARE_MODE = 0x884C
+-- ~ pattern GL_TEXTURE_COMPARE_FUNC = GL_TEXTURE_COMPARE_SGIX
 
 debugLoop :: (Farbe m) => ([(Event, EventContext)] -> m ()) -> m ()
 debugLoop f = (`evalStateT` 0) $ do
@@ -89,10 +90,13 @@ debugLoop f = (`evalStateT` 0) $ do
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
 	-- ~ glEnable GL_DEPTH_TEST
 	-- ~ glDepthFunc GL_LESS
+	texEmpty :: Texture D <- loadTexture2Base (w,h) nullPtr
 	texD :: Texture D <- loadTexture2Base (w,h) nullPtr
-	-- ~ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_COMPARE_MODE GL_NONE
-	-- ~ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST 
-	-- ~ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST 
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST 
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST 
+	-- ~ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_CLAMP_TO_EDGE 
+	-- ~ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_CLAMP_TO_EDGE 
+	glDepthFunc GL_LEQUAL
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D (texId texD) 0
 	framebufferStatus
 	bindfb $ Framebuffer 0
@@ -108,8 +112,9 @@ debugLoop f = (`evalStateT` 0) $ do
 
 	frame' <- newVArray frame
 
-	t <- makeVarT texRGB
+	t <- makeVarT texEmpty
 	render <- renderTexture t
+	swapVar t texEmpty
 
 	fix $ \loop -> processEvents $ \es -> do
 		case es of
@@ -125,17 +130,23 @@ debugLoop f = (`evalStateT` 0) $ do
 			lift $ f es
 			bindfb $ Framebuffer 0
 			glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT
+			swapVar t texD
 			render [frame']
+			swapVar t texEmpty
+			return ()
 
 		display
 		loop
+
+
 
 renderTexture :: (MonadIO m, HandTex m)
 	=> Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
 renderTexture t = compile $ \v -> do
 	let V4 x y _ _ = fragCoord
-	let V4 r g b a = texture (use t) $ V2 x (-y) * 0.001
+	let V4 r g b a = (*0.5) $ texture (use t) $ V2 x (-y) * 0.001
 	return (up 1 v, V4 r g b 1)
+
 
 
 -- ~ renderTexture :: (MonadIO m, HandTex m)
