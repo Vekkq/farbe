@@ -45,10 +45,10 @@
 
 * ease `compile` to not depend on Defer for making prerender and have the returned monads be separate
 
+* make eglMakeCurrent available through the outside - this function is for drawing without display
 
 
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.
-
-what now? 
-
+renderbuffers are for when you do need depth or stencil, but without directly accessing them. rendering color will access depth and depending on settings also stencil.
+stencil settings need to be reset, directly after use or it messes up the following frames. glStencilOp says how stencil is written. glStencilFunc says how stencil is used. if GL_REPLACE, glStencilFunc also writes.
