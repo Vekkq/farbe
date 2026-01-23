@@ -30,10 +30,6 @@ instance (GLtype a, Fractional a) => Fractional (Expr e a) where
 napier :: Fractional a => a
 napier = fromRational 2.718281828459045235360287471352
 
--- | Unicode alias for Napier's constant
-e :: Fractional a => a
-e = napier
-
 instance (GLtype a, Floating a) => Floating (Expr e a) where
 	pi = liftE0 $ show pi
 	exp = liftE1 "exp"
@@ -47,15 +43,15 @@ instance (GLtype a, Floating a) => Floating (Expr e a) where
 	acos = liftE1 "acos"
 	atan = liftE1 "atan"
 	-- following functions not available in glsl es 1
-	sinh x = (e ** x - e ** (negate x)) / 2
-	cosh x = (e ** x + e ** (negate x)) / 2
+	sinh x = (napier ** x - napier ** (negate x)) / 2
+	cosh x = (napier ** x + napier ** (negate x)) / 2
 	tanh x = sinh x / cosh x
 	asinh x = ln (x + sqrt (x**2 + 1))
 	acosh x = ln (x + sqrt (x**2 - 1))
 	atanh x = 1/2 * ln ((1+x) / (1-x))
 
 ln :: Floating a => a -> a
-ln = logBase e
+ln = logBase napier
 
 modf :: Expr e Float -> Expr e Float -> Expr e Float
 modf = liftE2 "mod"

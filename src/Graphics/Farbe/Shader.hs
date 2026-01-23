@@ -290,10 +290,10 @@ class (MonadIO m, Defer (DeferT (HandTexT IO)) m) => PostShader m
 instance (MonadIO m, Defer (DeferT (HandTexT IO)) m) => PostShader m
 
 
-
+type ShaderM = DeferT Shdr
 
 compile :: (MonadIO m, HandTex m, AttrType a b)
-	=> (b -> DeferT Shdr (V4 (Expr V Float), V4 (Expr F Float)))
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
 	-> m ([VArray a] -> m ())
 compile f = do
 	sp <- glCreateProgram
@@ -581,7 +581,7 @@ withString n f = liftIO $ bracket (newCAString n) free f
 -- | Transfer values from vertex shader to fragment shader. Floating point numbers will be interpolated among its triangle space. Integers are taken from the first point of the triangle.
 
 class Transfer a b | a -> b, b -> a where
-	transfer :: a -> DeferT Shdr b
+	transfer :: a -> ShaderM b
 
 instance (GLtype a) => Transfer (Expr V a) (Expr F a) where
 	transfer = transfer1

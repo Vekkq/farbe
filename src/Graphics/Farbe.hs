@@ -9,7 +9,7 @@
 
 module Graphics.Farbe
 	( runFarbeT
-	, Farbe
+	, Farbe (..)
 	, newVArray
 	, frame
 	, compile
@@ -149,3 +149,6 @@ drawTexture = undefined
 
 drawDepth :: Render -> m (Texture D)
 drawDepth = undefined
+
+compile' = undefined -- :: attribsandall => m Render
+

@@ -12,7 +12,6 @@ you should copy/fork this module and adjust it to your needs.
 
 
 {- TODO:
-* add function to get window size
 * add usage examples in general and per function
 * add swapBuffers to processEvents and add an alternative without buffer swap
 * bracketed window creation
@@ -32,11 +31,6 @@ module Graphics.Farbe.Window
 	, processEvents'
 	, Event (..)
 	, EventContext
-	-- ~ -- ** Event context
-	-- ~ , getKey
-	-- ~ , getKeys
-	-- ~ , getMouseKey
-	-- ~ , getMouseKeys
 	-- ** Cursor mode
 	, setCursorMode
 	, getCursorMode
@@ -250,7 +244,7 @@ processEvents' = do
 
 -- | Process and fetch events.
 --   Delivers Events to a function.
---   The function is run until window is signaled to be closed.
+--   The function is run, unless window is signaled to be closed.
 processEvents :: MonadWindow m => ([(Event, EventContext)] -> m ()) -> m ()
 processEvents f = do
 	es <- processEvents'
@@ -538,7 +532,7 @@ for = flip map
 
 
 
--- | Finish render and display it on screen. Usually known as swapping buffers.
+-- | Finish render and display it on screen. Usually known as swapping buffers, for switching the written back buffer with the showing front buffer.
 display :: MonadWindow m => m ()
 display = do
 	w <- glfwWindow

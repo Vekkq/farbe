@@ -162,14 +162,17 @@ vnormal v = v / (pure $ vlength v)
 vcross :: Num a => V3 a -> V3 a -> V3 a
 vcross (V3 x y z) (V3 x2 y2 z2) = V3 (y*z2 - y2*z) (z*x2 - z2*x) (x*y2 - x2*y)
 
+-- | Apply a computation relatively. The first parameter is first substracted and after added back again.
 
 rel :: Num v => v -> (v -> v) -> v -> v
 rel r f = (+r) . f . subtract r
 
+-- | Same as @rel@, but the first parameter is divided and afterwards multiplied.
+
 relm :: Fractional v => v -> (v -> v) -> v -> v
 relm r f = (*r) . f . (/r)
 
-
+-- | Creates a point on a line between its first two parameters, based on the third parameter, which generally has to be 0 and 1 .
 line :: (Vector v, Num (v a)) => v a -> v a -> a -> v a
 line v v2 t = rel v (* pure t) v2
 

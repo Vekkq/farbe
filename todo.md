@@ -1,14 +1,7 @@
 
-* add texture atlas 
-	* fixed by GL_UNPACK_ALIGNMENT for npot to work
-	* pot texture atlas may now be unnecessary 
-			* except for staying below texture limit
-			* or maybe alignment
 * remove binary and bytestring for template haskell dependency?
 * make juicypixels and module optional
-* add render to texture
 * add other glsl functions (e.g. matrix ops, boolean)
-* add function to cover renders over other renders through masks
 * add variadic var/expr parameters to compile
 
 * write optimizer to turn multiused asts into shared variables

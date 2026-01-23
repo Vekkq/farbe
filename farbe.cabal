@@ -4,7 +4,7 @@ version:            0.1.0.0
 synopsis: typesafe window rendering library
 description: 
   a typesafe window rendering library for the essential parts of OpenGL ES 2, 
-  using GLFW. The library comes with a simple eDSL for shaders.
+  using GLFW. The library comes with an eDSL for shaders.
 license:            BSD-2-Clause
 license-file:       LICENSE
 author:             Vekkq
@@ -32,6 +32,7 @@ library
                    , Graphics.Farbe.Expr
                    , Graphics.Farbe.JuicyPixels
                    , Graphics.Farbe.ToMain
+                   , Graphics.Farbe.Chan
 
     other-modules: Graphics.Farbe.MState
 
