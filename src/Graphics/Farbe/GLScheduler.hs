@@ -7,7 +7,7 @@ import Control.Concurrent.MVar
 
 data GLScheduler = GLScheduler Int ScheduleState
 
-data QChan = Chan (Either () (IO ())
+data QChan = Chan (Maybe (IO ())
 
 data ScheduleState = ScheduleState 
 	{ immediate :: QChan
