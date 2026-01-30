@@ -99,7 +99,7 @@ initHandVBOState :: MonadIO m => GLintptr -> m HandVBOState
 initHandVBOState s = liftIO $ do
 	vboMan <- withPtr_ $ glGenBuffers 1
 	glBindBuffer GL_ARRAY_BUFFER vboMan
-	glBufferData GL_ARRAY_BUFFER s nullPtr GL_STATIC_DRAW
+	glBufferData GL_ARRAY_BUFFER s nullPtr GL_DYNAMIC_DRAW
 	return $ HandVBOState (newPager s) vboMan
 
 vboUpdate :: (MonadIO m, Storable a) => VArrayF a -> StorableArray Int a -> m ()

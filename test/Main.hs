@@ -54,49 +54,23 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
-	f <- compile $ \(n,v) -> do
+	f <- compile' $ \(n,v) -> do
 		let v' = use r **| v
 		n' <- transfer n
 		return (up 1 v', up 1 n' * 0.5 + 0.2)
-	glEnable GL_STENCIL_TEST
-
+	
+	-- ~ let g a = DrawShader $ f a
+	
 	fix $ \loop -> processEvents $ \es -> do
 		glerrcheck
 		case es of
 			[(EventMouseMove (x,y),_)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
 			_ -> return ()
 
-		glEnable GL_STENCIL_TEST
-		glClear GL_STENCIL_BUFFER_BIT
-		glStencilOp GL_KEEP GL_DECR_WRAP GL_DECR_WRAP
-		glColorMask GL_FALSE GL_FALSE GL_FALSE GL_FALSE
-		-- ~ glDepthMask GL_FALSE
-		-- ~ glStencilMask 0xFF
-		-- ~ glStencilOp GL_KEEP GL_KEEP GL_REPLACE
-		f [cube]
-		-- ~ glDepthMask GL_TRUE
-		-- ~ glStencilMask GL_FALSE
-		glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
-		-- ~ glClear GL_DEPTH_BUFFER_BIT
-		
-		glStencilOp GL_KEEP GL_KEEP GL_KEEP
-		glStencilFunc GL_LESS 1 0xFF
-		-- ~ glStencilFunc GL_GREATER 331 1
-		glDisable GL_DEPTH_TEST
-		f [teapot]
-		
-		glStencilFunc GL_ALWAYS 0 0xFF
-		glDisable GL_STENCIL_TEST
-		
-		-- ~ glStencilMask 0xFF
-		-- ~ glStencilFunc GL_GREATER 1 1
-		-- ~ glStencilFunc GL_GREATER 333 1
-		-- ~ glClear GL_DEPTH_BUFFER_BIT
-		-- ~ f [cube]
-		
-		t <- getTime
 
-		display
+		display $ f [cube, teapot]
+
+
 		-- ~ liftIO $ performGC
 		loop
 

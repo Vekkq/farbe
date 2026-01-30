@@ -12,10 +12,12 @@ module Graphics.Farbe
 	, Farbe (..)
 	, newVArray
 	, frame
-	, compile
+	, compile'
+	, Render
 	, transfer
 	, use
 	, renderTexture
+	, display
 	, drawTexture
 	, drawDepth
 	, module Graphics.Farbe.Vec
@@ -107,16 +109,18 @@ runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe $ do
 -- ~ runFarbeT' = runFarbeT . runWindowT "" (InWindow (1000,1024))
 
 
+display :: Farbe m => Render m -> m ()
+display r = do
+	display' r 
+	swapBuffer
 
+data Render m
+	= DrawShader (m ())
+	| DrawOver (Render m) (Render m)
+	| DrawInto (Render m) (Render m)
+	| Draws [(Render m)]
 
-
-data Render
-	= DrawShader (forall m . Farbe m => m ())
-	| DrawOver Render Render
-	| DrawInto Render Render
-	| Draws [Render]
-
-display' :: Farbe m => Render -> m ()
+display' :: Farbe m => Render m -> m ()
 display' (DrawShader m) = m
 display' (Draws ms) = mapM_ display' ms
 display' (DrawOver a b) = do
@@ -145,7 +149,7 @@ display' (DrawInto a b) = do
 	glDisable GL_STENCIL_TEST
 		
 		
-drawTexture :: Farbe m => m (Render -> m (Texture RGB))
+drawTexture :: Farbe m => m (Render m -> m (Texture RGB))
 drawTexture = do
 	(w',h') <- windowSize
 	let (w,h) = (itoi w', itoi h')
@@ -171,7 +175,7 @@ drawTexture = do
 
 
 
-drawDepth :: Farbe m => m (Render -> m (Texture D))
+drawDepth :: Farbe m => m (Render m -> m (Texture D))
 drawDepth = do
 	(w',h') <- windowSize
 	let (w,h) = (itoi w', itoi h')
@@ -202,8 +206,12 @@ renderTexture t = compile $ \v -> do
 
 
 
+compile' :: (Farbe m, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	-> m ([VArray a] -> Render m)
+compile' a = fmap (DrawShader .) $ compile a
 
-compile' = undefined -- :: attribsandall => m Render
+-- :: attribsandall => m Render
 
 
 newtype Framebuffer = Framebuffer GLuint
