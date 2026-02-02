@@ -31,8 +31,8 @@ library
                    , Graphics.Farbe.Counter
                    , Graphics.Farbe.Expr
                    , Graphics.Farbe.JuicyPixels
-                   , Graphics.Farbe.ToMain
-                   , Graphics.Farbe.Chan
+                   , Graphics.Farbe.DChan
+                   , Graphics.Farbe.GLScheduler
 
     other-modules: Graphics.Farbe.MState
 

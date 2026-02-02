@@ -1,41 +1,53 @@
+{-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module Graphics.Farbe.GLScheduler where
 
-import Control.Concurrent.MVar
+import Graphics.Farbe.DChan
+import Control.Monad.Reader
+import Control.Concurrent
 
 
 
-data GLScheduler = GLScheduler Int ScheduleState
-
-data QChan = Chan (Maybe (IO ())
-
-data ScheduleState = ScheduleState 
-	{ immediate :: QChan
-	, delayed :: QChan
+data ScheduleState m = ScheduleState
+	{ fps :: Float
+	, immediateChan :: DChan (m ())
+	, delayedChan :: DChan (m ())
 	}
 
-newtype GLSchedulerT m a = GLSchedulerT
-	{ runGLSchedulerT :: ReaderT (m ()) ScheduleState a }
+newtype GLScheduler m a = GLScheduler
+	{ runGLScheduler :: ReaderT (ScheduleState m) IO a }
+	deriving
+		(Functor, Applicative, Monad, MonadIO)
 
 
 class Schedule t m | t -> m where
-	immediateIO :: m () -> t ()	delayedIO :: m () -> t ()
+	immediate :: m () -> t ()
+	delayed :: m () -> t ()
 
-instance Schedule (GLSchedulerT m) m where
-	immediateIO a = do 
-		(ScheduleState c _) <- ask
-		writeChan c $ right a
-	delayedIO a = do
-		(ScheduleState _ c) <- ask
-		writeChan c $ right a
+instance Schedule (GLScheduler m) m where
+	immediate a = do
+		c <- asks immediateChan
+		writeDChan c a
+	delayed a = do
+		c <- asks delayedChan
+		writeDChan c a
 
-runScheduler :: MonadIO m => GLSchedulerT m -> m ()
+runScheduler :: MonadIO m => GLScheduler m a -> m ()
 runScheduler m = do
-	f <- newEmptyMVar
-	d <- newEmptyMVar  
-	let ss = ScheduleState f d
-	forkIO $ runReaderT (runGLSchedulerT m) ss $ 
-	let loop t = do
+	f <- newDChan
+	d <- newDChan  
+	let ss = ScheduleState 80 f d
+	liftIO $ forkIO $ runReaderT (runGLScheduler m) ss 
+	loop
+	where
+		loop t = do
+			t' <- getTime
+			display
+			loop t'
+
+			
+whenTimeLeft t m = undefined
 		
 
 

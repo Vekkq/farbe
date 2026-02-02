@@ -66,6 +66,7 @@ import Control.Monad.RWS
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
+import Graphics.Farbe.GLScheduler
 
 newtype FarbeT m a = FarbeT { unFarbe :: CounterT (HandTexT (HandVBOT m)) a }
 	deriving
