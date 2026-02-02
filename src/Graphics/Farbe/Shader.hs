@@ -324,6 +324,9 @@ compile f = do
 		liftIO $ readMVar m
 
 
+-- ~ run :: (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+
+
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
 addShader sp t shdr = do
 	(a,st) <- runBuildShader sp shdr
