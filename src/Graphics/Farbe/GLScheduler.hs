@@ -33,18 +33,20 @@ newtype GLScheduler m a = GLScheduler
 
 
 class Schedule t m | t -> m where
-	immediate :: m () -> t ()
-	delayed :: m () -> t ()
 	getSchedule :: t (ScheduleState m)
 
 instance Schedule (GLScheduler m) m where
-	immediate a = do
-		c <- GLScheduler $ asks immediateChan
-		writeDChan c a
-	delayed a = do
-		c <- GLScheduler $ asks delayedChan
-		writeDChan c a
 	getSchedule = GLScheduler $ ask
+
+immediate :: (Schedule t m, MonadIO t) => m () -> t ()
+immediate a = do
+	c <- immediateChan <$> getSchedule
+	writeDChan c a
+
+delayed :: (Schedule t m, MonadIO t) => m () -> t ()
+delayed a = do
+	c <- delayedChan <$> getSchedule
+	writeDChan c a
 
 
 runScheduler :: (MonadWindow m, Schedule m m, MonadIO m)

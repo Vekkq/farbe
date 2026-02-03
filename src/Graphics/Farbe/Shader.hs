@@ -64,7 +64,8 @@ runExprEnv (ExprEnv m r ps) = do
 	ps' <- mapM runExprEnv ps
 	return $ ExprS s r ps'
 
-newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: CounterT (DeferT (DeferT (HandTexT m))) a }
+newtype ShaderEnvT m a = ShaderEnvT
+	{ unShaderEnvT :: CounterT (DeferT (DeferT (HandTexT m))) a }
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, Count
@@ -324,8 +325,14 @@ compile f = do
 		liftIO $ readMVar m
 
 
--- ~ run :: (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+class ShaderCache m where
+	shader :: (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m (MVar Shader)
 
+
+render :: (MonadIO m, HandTex m, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	-> ([Varray a] -> Render m)
+render = undefined
 
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
 addShader sp t shdr = do
