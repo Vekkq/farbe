@@ -65,7 +65,7 @@ runExprEnv (ExprEnv m r ps) = do
 	return $ ExprS s r ps'
 
 newtype ShaderEnvT m a = ShaderEnvT
-	{ unShaderEnvT :: CounterT (DeferT (DeferT (HandTexT m))) a }
+	{ unShaderEnvT :: CounterT (DeferT' (DeferT' (HandTexT m))) a }
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, Count
@@ -74,7 +74,7 @@ newtype ShaderEnvT m a = ShaderEnvT
 instance MonadTrans ShaderEnvT where
 	lift = ShaderEnvT . lift . lift . lift . lift
 
-instance Monad m => Defer (DeferT (HandTexT m)) (ShaderEnvT m) where
+instance Monad m => Defer (DeferT' (HandTexT m)) (ShaderEnvT m) where
 	-- ~ defer :: DeferT m () -> ShaderEnvT m ()
 	defer = ShaderEnvT . lift . defer
 
@@ -141,22 +141,24 @@ fuzzySwapMVar ml a = liftIO $ do
 
 -- DeferT --------------------------------------------------------------------------------
 
-newtype DeferT m a = DeferT { unDefer :: WriterT [m ()] m a }
+newtype DeferT n m a = DeferT { unDefer :: WriterT [n ()] m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadPlus, MonadIO, Count, HandTex
 		)
 
-instance MonadTrans DeferT where
+type DeferT' m = DeferT m m
+
+instance MonadTrans (DeferT n) where
 	lift = DeferT . lift
 
 
-runDeferT :: Monad m => DeferT m a -> m (a, m ())
+runDeferT :: (Monad n, Monad m) => DeferT n m a -> m (a, n ())
 runDeferT m = do
 	(a,w) <- runWriterT $ unDefer m
 	return $ (a, sequence_ w)
 
-runDeferT' :: Monad m => DeferT m a -> m a
+runDeferT' :: Monad m => DeferT m m a -> m a
 runDeferT' m = do
 	(a,e) <- runDeferT m
 	e
@@ -165,7 +167,7 @@ runDeferT' m = do
 class Monad m => Defer n m | m -> n where
 	defer :: n () -> m ()
 
-instance Monad m => Defer m (DeferT m) where
+instance Monad m => Defer m (DeferT' m) where
 	defer = DeferT . tell . (:[])
 
 
@@ -287,11 +289,11 @@ class ShaderType a
 instance ShaderType V
 instance ShaderType F
 
-class (MonadIO m, Defer (DeferT (HandTexT IO)) m) => PostShader m
-instance (MonadIO m, Defer (DeferT (HandTexT IO)) m) => PostShader m
+class (MonadIO m, Defer (DeferT' (HandTexT IO)) m) => PostShader m
+instance (MonadIO m, Defer (DeferT' (HandTexT IO)) m) => PostShader m
 
 
-type ShaderM = DeferT Shdr
+type ShaderM = DeferT' Shdr
 
 compile :: (MonadIO m, HandTex m, AttrType a b)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
@@ -324,15 +326,6 @@ compile f = do
 
 		liftIO $ readMVar m
 
-
-class ShaderCache m where
-	shader :: (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m (MVar Shader)
-
-
--- ~ render :: (MonadIO m, HandTex m, AttrType a b)
-	-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-- ~ -> ([VArray a] -> Render m)
--- ~ render = undefined
 
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
 addShader sp t shdr = do
@@ -618,9 +611,9 @@ instance (GLtype a, GLtype (V4 a), GLtype (V4 (V4 a))) =>
 	transfer = fmap (fmap vecParts . vecParts) . transfer1 . exprMat
 
 
-deriving instance (Monad m, BuildShader m) => BuildShader (DeferT m)
+deriving instance (Monad m, BuildShader m) => BuildShader (DeferT' m)
 
-transfer1 :: forall a . GLtype a => Expr V a -> DeferT Shdr (Expr F a)
+transfer1 :: forall a . GLtype a => Expr V a -> DeferT' Shdr (Expr F a)
 transfer1 e = do
 		let a = err :: a
 		n <- name "t" a
