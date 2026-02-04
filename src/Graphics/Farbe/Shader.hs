@@ -158,7 +158,7 @@ runDeferT m = do
 	(a,w) <- runWriterT $ unDefer m
 	return $ (a, sequence_ w)
 
-runDeferT' :: Monad m => DeferT m m a -> m a
+runDeferT' :: Monad m => DeferT' m a -> m a
 runDeferT' m = do
 	(a,e) <- runDeferT m
 	e
@@ -167,7 +167,7 @@ runDeferT' m = do
 class Monad m => Defer n m | m -> n where
 	defer :: n () -> m ()
 
-instance Monad m => Defer m (DeferT' m) where
+instance Monad m => Defer n (DeferT n m) where
 	defer = DeferT . tell . (:[])
 
 
@@ -195,12 +195,8 @@ instance MonadState s m => MonadState s (CounterT m) where
 	get = lift get
 	put = lift . put
 
-
-instance Monad m => Semigroup (CounterT m a) where
-	(<>) = (>>)
-
-instance Monad m => Monoid (CounterT m ()) where
-	mempty = return ()
+-- ~ instance Monad m => Semigroup (CounterT m a) where (<>) = (>>)
+-- ~ instance Monad m => Monoid (CounterT m ()) where mempty = return ()
 
 class Monad m => Count m where
 	count :: m Int
@@ -217,7 +213,7 @@ runCounterT' :: Monad m => CounterT m a -> m a
 runCounterT' = runCounterT 1
 
 generateName :: Count m => String -> m String
-generateName s = count >>= return . (s++) . ("_"++) . show
+generateName s = (s++) . ("_"++) . show <$> count
 
 
 
