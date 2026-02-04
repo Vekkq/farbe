@@ -78,7 +78,8 @@ instance Monad m => Defer (DeferT' (HandTexT m)) (ShaderEnvT m) where
 	-- ~ defer :: DeferT m () -> ShaderEnvT m ()
 	defer = ShaderEnvT . lift . defer
 
-runShaderEnvT :: (HandTex m, MonadIO m) => ShaderEnvT IO a -> m (a, m ())
+runShaderEnvT :: (HandTex m, HandTex n, MonadIO m, MonadIO n)
+	=> ShaderEnvT IO a -> m (a, n ())
 runShaderEnvT (ShaderEnvT m) = do
 	(r,rm) <- f $ runDeferT $ runDeferT' $ runCounterT 1 m
 	return (r, f rm)
@@ -291,9 +292,9 @@ instance (MonadIO m, Defer (DeferT' (HandTexT IO)) m) => PostShader m
 
 type ShaderM = DeferT' Shdr
 
-compile :: (MonadIO m, HandTex m, AttrType a b)
+compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-> m ([VArray a] -> m ())
+	-> m ([VArray a] -> n ())
 compile f = do
 	sp <- glCreateProgram
 
@@ -356,7 +357,7 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 
 
 toCExpr' :: [(String, ExprS)] -> String
-toCExpr' xs = unlines $ reverse $ for xs $ \(s,x) -> s ++ " = " ++ toCExpr x ++";"
+toCExpr' xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
 
 
 toCExpr :: ExprS -> String
@@ -524,6 +525,7 @@ liftExprShdr s p = Expr $ ExprEnv s (toTypeS (err :: a)) p
 liftExprShdr' :: (GLtype a) => Shdr String -> Expr e a
 liftExprShdr' s = liftExprShdr s []
 
+
 -- overload it for multiple parameters
 
 liftE0 ::(GLtype a) => String -> Expr e a
@@ -541,8 +543,8 @@ liftE3 s (Expr a) (Expr b) (Expr c) = liftExpr s [a,b,c]
 -- ~ class LiftExpr a r where
 	-- ~ liftE :: a -> r
 
--- ~ instance LiftExpr (a -> b) r where
-	-- ~ liftE f = (\a -> (a:))
+-- ~ instance LiftExpr (a -> r) r where
+	-- ~ liftE = (\a -> (a:))
 
 
 
