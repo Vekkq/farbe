@@ -55,6 +55,8 @@ import Data.Int
 import Foreign.Storable
 import Foreign.Ptr
 
+import Control.Concurrent.MVar.Lifted
+
 import Control.Monad
 import Control.Monad.Fail
 import Control.Monad.Reader
@@ -112,7 +114,7 @@ runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe $ do
 
 display :: Farbe m => Render m -> m ()
 display r = do
-	display' r 
+	display' r
 	swapBuffer
 
 data Render m
@@ -132,7 +134,7 @@ display' (DrawOver a b) = do
 	glStencilFunc GL_GREATER 1 1
 	display' b
 	glDisable GL_STENCIL_TEST
-	
+
 display' (DrawInto a b) = do
 	glEnable GL_STENCIL_TEST
 	glClear GL_STENCIL_BUFFER_BIT
@@ -140,16 +142,16 @@ display' (DrawInto a b) = do
 	glColorMask GL_FALSE GL_FALSE GL_FALSE GL_FALSE
 	display' a
 	glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
-	
+
 	glStencilOp GL_KEEP GL_KEEP GL_KEEP
 	glStencilFunc GL_LESS 1 0xFF
 	glDisable GL_DEPTH_TEST
 	display' b
-	
+
 	glStencilFunc GL_ALWAYS 0 0xFF
 	glDisable GL_STENCIL_TEST
-		
-		
+
+
 drawTexture :: Farbe m => m (Render m -> m (Texture RGB))
 drawTexture = do
 	(w',h') <- windowSize
@@ -160,11 +162,11 @@ drawTexture = do
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
 	-- replace texture with renderbuffer in this function
 	texD :: Texture D <- loadTexture2Base (w,h) nullPtr
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST 
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST 
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D (texId texD) 0
-	
+
 	bindfb $ Framebuffer 0
 	return $ \r -> do
 		bindfb fb
@@ -183,8 +185,8 @@ drawDepth = do
 	fb <- genFramebuffer
 	bindfb fb
 	texD :: Texture D <- loadTexture2Base (w,h) nullPtr
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST 
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST 
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D (texId texD) 0
 	bindfb $ Framebuffer 0

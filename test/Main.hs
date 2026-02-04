@@ -35,6 +35,7 @@ import Codec.Picture
 
 import Control.Monad.State.Strict
 
+
 import Graphics.GL.Types
 
 
@@ -58,9 +59,9 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
 		let v' = use r **| v
 		n' <- transfer n
 		return (up 1 v', up 1 n' * 0.5 + 0.2)
-	
+
 	-- ~ let g a = DrawShader $ f a
-	
+
 	fix $ \loop -> processEvents $ \es -> do
 		glerrcheck
 		case es of
@@ -73,7 +74,6 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
 
 		-- ~ liftIO $ performGC
 		loop
-
 
 
 

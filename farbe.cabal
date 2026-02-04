@@ -2,8 +2,8 @@ cabal-version:      3.0
 name:               farbe
 version:            0.1.0.0
 synopsis: typesafe window rendering library
-description: 
-  a typesafe window rendering library for the essential parts of OpenGL ES 2, 
+description:
+  a typesafe window rendering library for the essential parts of OpenGL ES 2,
   using GLFW. The library comes with an eDSL for shaders.
 license:            BSD-2-Clause
 license-file:       LICENSE
@@ -35,6 +35,7 @@ library
                    , Graphics.Farbe.GLScheduler
 
     other-modules: Graphics.Farbe.MState
+                 , Control.Concurrent.MVar.Lifted
 
     build-depends: base ^>=4.21
                  , containers^>=0.7
@@ -46,6 +47,7 @@ library
                  , bytestring^>=0.12
                  , binary^>=0.8.9
                  , vector^>=0.13
+                 , composition^>=1.0
 
     hs-source-dirs:   src
     default-language: GHC2021
