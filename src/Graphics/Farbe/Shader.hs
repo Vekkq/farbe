@@ -81,15 +81,16 @@ instance Monad m => Defer (DeferT' (HandTexT m)) (ShaderEnvT m) where
 runShaderEnvT :: (HandTex m, HandTex n, MonadIO m, MonadIO n)
 	=> ShaderEnvT IO a -> m (a, n ())
 runShaderEnvT (ShaderEnvT m) = do
-	(r,rm) <- f $ runDeferT $ runDeferT' $ runCounterT 1 m
-	return (r, f rm)
-	where
-		f :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
-		f n = do
-			t <- getTex
-			(r,t') <- liftIO $ runHandTexT' t n
-			setTex t'
-			return r
+	(r,rm) <- liftHandTexT $ runDeferT $ runDeferT' $ runCounterT 1 m
+	return (r, liftHandTexT rm)
+
+
+liftHandTexT :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
+liftHandTexT n = do
+	t <- getTex
+	(r,t') <- liftIO $ runHandTexT' t n
+	setTex t'
+	return r
 
 
 
@@ -322,6 +323,13 @@ compile f = do
 		drawArrays varrs
 
 		liftIO $ readMVar m
+
+
+class ShaderCache m where
+	shader
+		:: (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+		-> m (MVar (HandTexT IO ()))
+
 
 
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
