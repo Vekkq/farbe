@@ -48,13 +48,15 @@ import GHC.TypeNats
 import Debug.Trace
 
 
-
+-- | User-facing type expression.
 data Expr e a = Expr { unExpr :: ExprEnv } deriving Functor
 
+-- | Internal expression description.
 data ExprEnv = ExprEnv { fnName :: Shdr String, rtype :: TypeS, fnAst :: [ExprEnv] }
 
 data ExprS = ExprS String TypeS [ExprS] deriving Show
 
+-- | A building Shader environment.
 type Shdr = BuildShaderT (ShaderEnvT IO)
 
 
@@ -323,13 +325,6 @@ compile f = do
 		drawArrays varrs
 
 		liftIO $ readMVar m
-
-
-class ShaderCache m where
-	shader
-		:: (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-		-> m (MVar (HandTexT IO ()))
-
 
 
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a

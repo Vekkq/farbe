@@ -65,6 +65,9 @@ import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
 
+import Data.Map
+import Data.Dynamic
+
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
@@ -234,4 +237,23 @@ framebufferStatus = do
 		GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT -> error "missing attachments"
 		GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
 		_ -> return ()
+
+
+type Hash = Int
+
+type ShaderFn b = (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+
+newtype ShaderCacheT m a = ShaderCacheT { runShaderCacheT :: StateT (Map Hash Dynamic) m a }
+
+class ShaderCache m where
+	shader :: (MonadIO m, HandTex m, AttrType a b)
+		=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+		-> m (MVar (a -> m ()))
+
+instance ShaderCache (ShaderCacheT m) where
+	shader f = do
+		undefined
+
+
+
 

@@ -35,6 +35,8 @@ import Codec.Picture
 
 import Control.Monad.State.Strict
 
+import Graphics.Farbe.GLFunc
+
 
 import Graphics.GL.Types
 

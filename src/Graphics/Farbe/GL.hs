@@ -23,31 +23,6 @@ import Graphics.GL.Types
 -- tl;dr use gl types directly
 
 
-class GL m where
-  glGenBuffers :: GLsizei -> Ptr GLuint -> m ()
-  glBindBuffer :: GLenum -> GLuint -> m ()
-  glBufferData :: GLenum -> GLsizeiptr -> Ptr () -> GLenum -> m ()
-  glBufferSubData :: GLenum -> GLintptr -> GLsizeiptr -> Ptr () -> m ()
-  glGenVertexArraysOES :: GLsizei -> Ptr GLuint -> m ()
-  glBindVertexArrayOES :: GLuint -> m ()
-	-- ~ glCreateProgram :: MonadIO m => m GLuint
-	-- ~ glBindAttribLocation :: MonadIO m => GLuint -> GLuint -> Ptr
-	-- ~ glLinkProgram :: MonadIO m => GLuint -> m ()
-	-- ~ glUniform1f
-	-- ~ glUniform2f
-	-- ~ glUniform3f
-	-- ~ glUniform4f
-
-
-
--- ~ instance MonadIO m => GL (Dispatch m) where
-  -- ~ glGenBuffers = GL.glGenBuffers
-  -- ~ glBindBuffer = GL.glBindBuffer
-  -- ~ glBufferData = GL.glBufferData
-  -- ~ glBufferSubData = GL.glBufferSubData
-  -- ~ glGenVertexArraysOES = GLEXT.glGenVertexArraysOES
-  -- ~ glBindVertexArrayOES = GLEXT.glBindVertexArrayOES
-
 
 
 -- GL type information -------------------------------------------------------------------

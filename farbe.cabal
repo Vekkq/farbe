@@ -33,6 +33,7 @@ library
                    , Graphics.Farbe.JuicyPixels
                    , Graphics.Farbe.DChan
                    , Graphics.Farbe.GLScheduler
+                   , Graphics.Farbe.GLFunc
 
     other-modules: Graphics.Farbe.MState
                  , Control.Concurrent.MVar.Lifted
