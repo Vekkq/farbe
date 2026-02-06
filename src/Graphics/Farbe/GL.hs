@@ -27,7 +27,8 @@ import Graphics.GL.Types
 
 -- GL type information -------------------------------------------------------------------
 
-data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex deriving (Eq, Show)
+data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex
+	deriving (Eq, Show)
 
 
 class (Eq a) => GLtype a where

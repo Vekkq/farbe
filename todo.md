@@ -40,6 +40,7 @@
 
 * make eglMakeCurrent available through the outside - this function is for drawing without display
 
+* skip the multithreads. make it work for one thread, have heavy gl work when swapbuffers is running.
 
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.

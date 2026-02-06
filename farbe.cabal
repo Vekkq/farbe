@@ -34,6 +34,7 @@ library
                    , Graphics.Farbe.DChan
                    , Graphics.Farbe.GLScheduler
                    , Graphics.Farbe.GLFunc
+                   , Graphics.Farbe.Utility
 
     other-modules: Graphics.Farbe.MState
                  , Control.Concurrent.MVar.Lifted
