@@ -1,12 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP #-}
 
 module Graphics.Farbe.Array where
 
 -- ~ import Graphics.Farbe.Shader
 import Graphics.Farbe.Vec (itoi)
-import Graphics.Farbe.Tuple (err)
+-- ~ import Graphics.Farbe.Tuple (err)
 
 
 import Data.Array.IO
@@ -54,9 +55,12 @@ readArr (Arr _ sa) = foldrMArray' (:) [] sa
 instance Eq (Arr s a) where
 	(Arr i _) == (Arr i2 _) = i == i2
 
+
+#define bottom undefined
+
 instance (Storable e, KnownNat s) => Storable (Arr s e) where
-	sizeOf a = sizeArr a * sizeOf (err :: e)
-	alignment _ = alignment (err :: e)
+	sizeOf a = sizeArr a * sizeOf (bottom :: e)
+	alignment _ = alignment (bottom :: e)
 	peek p = liftIO $ do
 		ar <- emptyArr
 		modifyArr ar (\sa -> withStorableArray sa $ \p2 -> copyArray (castPtr p) p2 (sizeArr ar))

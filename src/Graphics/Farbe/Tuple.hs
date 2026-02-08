@@ -1,5 +1,6 @@
 -- ~ {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE CPP #-}
 
 -- tuple convertion and storable tuples
 
@@ -9,56 +10,59 @@ import Foreign
 import Control.Monad
 import Data.List
 
-err = error "unreachable value reached."
+
+#define bottom undefined
+
+-- ~ err = error "unreachable value reached."
 
 
 instance (Storable a, Storable b) => Storable (a,b) where
   sizeOf _
-    = sizeOf (err :: a)
-    + sizeOf (err :: b)
-  alignment _ = maximum $ [alignment (err :: a), alignment (err :: b)]
+    = sizeOf (bottom :: a)
+    + sizeOf (bottom :: b)
+  alignment _ = maximum $ [alignment (bottom :: a), alignment (bottom :: b)]
   peek p = liftM2 (,)
     (peek $ castPtr p)
-    (peekByteOff (castPtr p) (sizeOf (err :: a)))
+    (peekByteOff (castPtr p) (sizeOf (bottom :: a)))
   poke p (a,b) = do
     poke (castPtr p) a
-    pokeByteOff (castPtr p) (sizeOf (err :: a)) b
+    pokeByteOff (castPtr p) (sizeOf (bottom :: a)) b
 
 
 instance (Storable a, Storable b, Storable c) => Storable (a,b,c) where
   sizeOf _
-    = sizeOf (err :: a)
-    + sizeOf (err :: b)
-    + sizeOf (err :: c)
-  alignment _ = maximum $ [alignment (err :: a), alignment (err :: b), alignment (err :: c)]
+    = sizeOf (bottom :: a)
+    + sizeOf (bottom :: b)
+    + sizeOf (bottom :: c)
+  alignment _ = maximum $ [alignment (bottom :: a), alignment (bottom :: b), alignment (bottom :: c)]
   peek p = liftM3 (,,)
     (peek $ castPtr p)
-    (peekByteOff (castPtr p) (sizeOf (err :: a)))
-    (peekByteOff (castPtr p) (sizeOf (err :: (a,b))))
+    (peekByteOff (castPtr p) (sizeOf (bottom :: a)))
+    (peekByteOff (castPtr p) (sizeOf (bottom :: (a,b))))
   poke p (a,b,c) = do
     poke (castPtr p) a
-    pokeByteOff (castPtr p) (sizeOf (err :: a)) b
-    pokeByteOff (castPtr p) (sizeOf (err :: (a,b))) c
+    pokeByteOff (castPtr p) (sizeOf (bottom :: a)) b
+    pokeByteOff (castPtr p) (sizeOf (bottom :: (a,b))) c
 
 
 instance (Storable a, Storable b, Storable c, Storable d) => Storable (a,b,c,d) where
   sizeOf _
-    = sizeOf (err :: a)
-    + sizeOf (err :: b)
-    + sizeOf (err :: c)
-    + sizeOf (err :: d)
-  alignment _ = maximum $ [alignment (err :: a), alignment (err :: b)
-    , alignment (err :: c), alignment (err :: d)]
+    = sizeOf (bottom :: a)
+    + sizeOf (bottom :: b)
+    + sizeOf (bottom :: c)
+    + sizeOf (bottom :: d)
+  alignment _ = maximum $ [alignment (bottom :: a), alignment (bottom :: b)
+    , alignment (bottom :: c), alignment (bottom :: d)]
   peek p = liftM4 (,,,)
     (peek $ castPtr p)
-    (peekByteOff (castPtr p) (sizeOf (err :: a)))
-    (peekByteOff (castPtr p) (sizeOf (err :: (a,b))))
-    (peekByteOff (castPtr p) (sizeOf (err :: (a,b,c))))
+    (peekByteOff (castPtr p) (sizeOf (bottom :: a)))
+    (peekByteOff (castPtr p) (sizeOf (bottom :: (a,b))))
+    (peekByteOff (castPtr p) (sizeOf (bottom :: (a,b,c))))
   poke p (a,b,c,d) = do
     poke (castPtr p) a
-    pokeByteOff (castPtr p) (sizeOf (err :: a)) b
-    pokeByteOff (castPtr p) (sizeOf (err :: (a,b))) c
-    pokeByteOff (castPtr p) (sizeOf (err :: (a,b,c))) d
+    pokeByteOff (castPtr p) (sizeOf (bottom :: a)) b
+    pokeByteOff (castPtr p) (sizeOf (bottom :: (a,b))) c
+    pokeByteOff (castPtr p) (sizeOf (bottom :: (a,b,c))) d
 
 
 

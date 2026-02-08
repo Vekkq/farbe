@@ -48,6 +48,7 @@ import GHC.TypeNats
 
 import Debug.Trace
 
+#define bottom undefined
 
 -- | User-facing type expression.
 data Expr e a = Expr { unExpr :: ExprEnv } deriving Functor
@@ -176,17 +177,11 @@ compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
 compile f = do
 	sp <- glCreateProgram
 
-	m <- liftIO $ newMVar () -- signaler for object termination
-	liftIO $ mkWeakMVar m $ do
-		parr <- mallocArray 16
-		c <- withPtr_ $ \pc -> glGetAttachedShaders sp 16 pc parr
-		shdrs <- peekArray (itoi c) parr
-		glDeleteProgram sp
-		mapM_ glDeleteShader shdrs
+	m <- deleteShadersSignal sp
 
 	(vao,exec) <- runShaderEnvT $
 		join $ addShader sp GL_VERTEX_SHADER $ do
-			(i,e) <- setAttributes (err :: a)
+			(i,e) <- setAttributes (bottom :: a)
 			((vs,fs),fm) <- runDeferT $ f e
 			addExpr "gl_Position" $ exprVec vs
 			return $ addShader sp GL_FRAGMENT_SHADER $ do
@@ -198,8 +193,19 @@ compile f = do
 		glBindVertexArray vao
 		exec
 		drawArrays varrs
+		m
 
-		liftIO $ readMVar m
+deleteShadersSignal sp = do
+	m <- liftIO $ newMVar () -- signaler for object termination
+	liftIO $ mkWeakMVar m $ do
+		parr <- mallocArray 16
+		c <- withPtr_ $ \pc -> glGetAttachedShaders sp 16 pc parr
+		shdrs <- peekArray (itoi c) parr
+		glDeleteProgram sp
+		mapM_ glDeleteShader shdrs
+	return $ liftIO $ readMVar m
+
+
 
 
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
@@ -209,7 +215,7 @@ addShader sp t shdr = do
 		=  "#version 100\n"
 		++ unlines (toList $ header st)
 		++ "\n\nvoid main(){\n"
-		++ toCExpr' (bexpr st)
+		++ toCStatements (bexpr st)
 		++ "}"
 	-- ~ debug $ liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
@@ -234,8 +240,8 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 				putStrLn e
 
 
-toCExpr' :: [(String, ExprS)] -> String
-toCExpr' xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
+toCStatements :: [(String, ExprS)] -> String
+toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
 
 
 toCExpr :: ExprS -> String
@@ -327,21 +333,21 @@ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
 
 
 instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
-	setAttribute _ = liftM2 (,) (setAttribute (err :: a)) (setAttribute (err :: b))
+	setAttribute _ = liftM2 (,) (setAttribute (bottom :: a)) (setAttribute (bottom :: b))
 
 instance (AttrType a x, AttrType b y, AttrType c z) => AttrType (a,b,c) (x,y,z) where
 	setAttribute _ = liftM3 (,,)
-		(setAttribute (err :: a))
-		(setAttribute (err :: b))
-		(setAttribute (err :: c))
+		(setAttribute (bottom :: a))
+		(setAttribute (bottom :: b))
+		(setAttribute (bottom :: c))
 
 instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 	AttrType (a,b,c,d) (x,y,z,w) where
 	setAttribute _ = liftM4 (,,,)
-		(setAttribute (err :: a))
-		(setAttribute (err :: b))
-		(setAttribute (err :: c))
-		(setAttribute (err :: d))
+		(setAttribute (bottom :: a))
+		(setAttribute (bottom :: b))
+		(setAttribute (bottom :: c))
+		(setAttribute (bottom :: d))
 
 attribPartsVec
 	:: ( GLtype a, GLtype (v a), Storable a, Storable (v a), Vector v
@@ -398,7 +404,7 @@ liftExpr' :: (GLtype a) => String -> Expr e a
 liftExpr' s = liftExpr s []
 
 liftExprShdr :: forall e a . (GLtype a) => Shdr String -> [ExprEnv] -> Expr e a
-liftExprShdr s p = Expr $ ExprEnv s (toTypeS (err :: a)) p
+liftExprShdr s p = Expr $ ExprEnv s (toTypeS (bottom :: a)) p
 
 liftExprShdr' :: (GLtype a) => Shdr String -> Expr e a
 liftExprShdr' s = liftExprShdr s []
@@ -431,14 +437,14 @@ liftE3 s (Expr a) (Expr b) (Expr c) = liftExpr s [a,b,c]
 
 
 vecParts :: (GLtype a, Vector v) => Expr e (v a) -> v (Expr e a)
-vecParts e = fromListFill err $ map (\i -> arrV e i) $ map expr [0..]
+vecParts e = fromListFill bottom $ map (\i -> arrV e i) $ map expr [0..]
 
 exprVec :: forall e a v . (GLtype a, Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
-exprVec v = liftExpr (slName (err :: v a)) $ map unExpr $ toList v
+exprVec v = liftExpr (slName (bottom :: v a)) $ map unExpr $ toList v
 
 exprMat :: forall a e v .(GLtype a, Vector v, GLtype (v a), GLtype (v (v a)))
 	=> v (v (Expr e a)) -> Expr e (v (v a))
-exprMat v = liftExpr (slName (err :: v a)) $ map unExpr $ concatMap toList $ toList v
+exprMat v = liftExpr (slName (bottom :: v a)) $ map unExpr $ concatMap toList $ toList v
 
 arrV :: (GLtype a, Vector v) => Expr e (v a) -> Expr e Int32 -> Expr e a
 arrV = liftE2 "[]"
@@ -491,14 +497,12 @@ deriving instance (Monad m, BuildShader m) => BuildShader (DeferT' m)
 
 transfer1 :: forall a . GLtype a => Expr V a -> DeferT' Shdr (Expr F a)
 transfer1 e = do
-		let a = err :: a
-		n <- name "t" a
-		lift $ addExpr n e
-		addHeader "varying" a $ n
-		defer $ do
-			addHeader "in" a n
-			return ()
-		return $ liftExprShdr' $ return n
+	let a = bottom :: a
+	n <- name "t" a
+	lift $ addExpr n e
+	addHeader "varying" a $ n
+	defer $ addHeader "in" a n
+	return $ liftExprShdr' $ return n
 
 
 
@@ -526,7 +530,7 @@ makeVar a = do
 			-- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
 			defer $ (liftIO $ readMVar m) >>= runwc wc
 		return vname
-	return $ Var (ExprEnv r (toTypeS (err :: a)) []) m
+	return $ Var (ExprEnv r (toTypeS (bottom :: a)) []) m
 
 
 class (GLtype a, Eq a) => Upload a where

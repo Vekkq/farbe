@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE CPP #-}
 
 
 module Graphics.Farbe.GL where
@@ -164,19 +165,21 @@ data Normalized a = Normalized { unNormalized :: a } deriving (Eq)
 instance Functor Normalized where
 	fmap f (Normalized a) = Normalized $ f a
 
+#define bottom undefined
+
 instance Storable a => Storable (Normalized a) where
-	sizeOf _ = sizeOf (err :: a)
-	alignment _ = alignment (err :: a)
+	sizeOf _ = sizeOf (bottom :: a)
+	alignment _ = alignment (bottom :: a)
 	peek p = fmap Normalized $ peek $ castPtr p
 	poke p (Normalized a) = poke (castPtr p) a
 
 instance GLtype a => GLtype (Normalized a) where
 	glNormalized _ = GL_TRUE
-	slName _ = slName (err :: a)
-	toTypeS _ = toTypeS (err :: a)
-	glType _ = glType (err :: a)
-	glComponents _ = glComponents (err :: a)
-	glShortName _ = "n" ++ glShortName (err :: a)
+	slName _ = slName (bottom :: a)
+	toTypeS _ = toTypeS (bottom :: a)
+	glType _ = glType (bottom :: a)
+	glComponents _ = glComponents (bottom :: a)
+	glShortName _ = "n" ++ glShortName (bottom :: a)
 
 
 

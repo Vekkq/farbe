@@ -21,7 +21,7 @@ import Graphics.GL.Embedded20
 	( pattern GL_FALSE, pattern GL_TRUE, pattern GL_INT
 	, pattern GL_FLOAT, pattern GL_BOOL)
 import qualified Graphics.GL.Embedded20 as GL
-import Graphics.GL.Ext.OES.VertexArrayObject as GLEXT
+import Graphics.GL.Ext.OES.VertexArrayObject as GL
 -- ~ import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
 
@@ -76,31 +76,30 @@ class MonadIO m => GL m where
 	glProgramBinaryOES :: GLuint -> GLenum -> Ptr () -> GLint -> m ()
 
 
-instance MonadIO m => GL (GLAction m) where
-	glCreateProgram = lift GL.glCreateProgram
-	glGenBuffers = lift .: GL.glGenBuffers
-	glGenTextures = lift .: GL.glGenTextures
-	glGenFramebuffers = lift .: GL.glGenFramebuffers
-	glBindBuffer = defer .: GL.glBindBuffer
-	-- ~ glBindBuffer :: GLenum -> GLuint -> m ()
-	-- ~ glBufferData :: GLenum -> GLsizeiptr -> Ptr () -> GLenum -> m ()
-	-- ~ glBufferSubData :: GLenum -> GLintptr -> GLsizeiptr -> Ptr () -> m ()
-	-- ~ glDeleteBuffers :: GLsizei -> Ptr GLuint -> m ()
-	-- ~ glGenVertexArraysOES :: GLsizei -> Ptr GLuint -> m ()
-	-- ~ glBindVertexArrayOES :: GLuint -> m ()
-	-- ~ glDrawArrays :: GLenum -> GLint -> GLsizei -> m ()
-	-- ~ glVertexAttribPointer :: GLuint -> GLint -> GLenum -> GLboolean -> GLsizei -> Ptr () -> m ()
-	-- ~ glUniform1f :: GLint -> GLfloat -> m ()
-	-- ~ glUniform2f :: GLint -> GLfloat -> GLfloat -> m ()
-	-- ~ glUniform3f :: GLint -> GLfloat -> GLfloat -> GLfloat -> m ()
-	-- ~ glUniform4f :: GLint -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> m ()
-	-- ~ glUniform1i :: GLint -> GLint -> m ()
-	-- ~ glUniform2i :: GLint -> GLint -> GLint -> m ()
-	-- ~ glUniform3i :: GLint -> GLint -> GLint -> GLint -> m ()
-	-- ~ glUniform4i :: GLint -> GLint -> GLint -> GLint -> GLint -> m ()
-	-- ~ glUniformMatrix3fv :: GLint -> GLsizei -> GLboolean -> Ptr GLfloat -> m ()
-	-- ~ glUniformMatrix4fv :: GLint -> GLsizei -> GLboolean -> Ptr GLfloat -> m ()
-	-- ~ glActiveTexture :: GLenum -> m ()
+-- ~ instance MonadIO m => GL (GLAction m) where
+	-- ~ glCreateProgram = lift GL.glCreateProgram
+	-- ~ glGenBuffers = lift .: GL.glGenBuffers
+	-- ~ glGenTextures = lift .: GL.glGenTextures
+	-- ~ glGenFramebuffers = lift .: GL.glGenFramebuffers
+	-- ~ glBindBuffer = lift .: GL.glBindBuffer
+	-- ~ glBufferData = defer .:: GL.glBufferData
+	-- ~ glBufferSubData = defer .:: GL.glBufferSubData
+	-- ~ glDeleteBuffers = defer .: GL.glDeleteBuffers
+	-- ~ glGenVertexArraysOES = lift .: GL.glGenVertexArraysOES
+	-- ~ glBindVertexArrayOES = lift . GL.glBindVertexArrayOES
+	-- ~ glDrawArrays = lift .:. GL.glDrawArrays
+	-- ~ glVertexAttribPointer = lift .::: GL.glVertexAttribPointer
+	-- ~ glUniform1f = lift .: GL.glUniform1f
+	-- ~ glUniform2f = lift .:. GL.glUniform2f
+	-- ~ glUniform3f = lift .:: GL.glUniform3f
+	-- ~ glUniform4f = lift .::. GL.glUniform4f
+	-- ~ glUniform1i = lift .: GL.glUniform1i
+	-- ~ glUniform2i = lift .:. GL.glUniform2i
+	-- ~ glUniform3i = lift .:: GL.glUniform3i
+	-- ~ glUniform4i = lift .::. GL.glUniform4i
+	-- ~ glUniformMatrix3fv = lift .:: GL.glUniformMatrix3fv
+	-- ~ glUniformMatrix4fv = lift .:: GL.glUniformMatrix4fv
+	-- ~ glActiveTexture = lift . GL.glActiveTexture
 	-- ~ glBindTexture :: GLenum -> GLuint -> m ()
 	-- ~ glDeleteTextures :: GLsizei -> Ptr GLuint -> m ()
 	-- ~ glTexImage2D :: GLenum -> GLint -> GLint -> GLsizei -> GLsizei -> GLint -> GLenum -> GLenum -> Ptr () -> m ()

@@ -127,10 +127,10 @@ runDeferT'' m = do
 	return (a, w)
 
 class Monad m => Defer n m | m -> n where
-	defer :: n () -> m ()
+	defer :: n a -> m ()
 
-instance Monad m => Defer n (DeferT n m) where
-	defer = DeferT . tell . (:[])
+instance (Functor n, Monad m) => Defer n (DeferT n m) where
+	defer = DeferT . tell . (:[]) . void
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \

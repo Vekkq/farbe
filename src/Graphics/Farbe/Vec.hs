@@ -245,9 +245,10 @@ instance SizeUp a (V3 a) (V4 a) where up i (V3 x y z) = V4 x y z i
 
 
 
+#define bottom undefined
 
 subSizeOf :: forall g a n. (Storable a, Num n) => g a -> n
-subSizeOf _ = itoi $ sizeOf (err :: a)
+subSizeOf _ = itoi $ sizeOf (bottom :: a)
 
 itoi :: (Integral a, Num c) => a -> c
 itoi = fromInteger . toInteger
