@@ -177,8 +177,6 @@ compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
 compile f = do
 	sp <- glCreateProgram
 
-	m <- deleteShadersSignal sp
-
 	(vao,exec) <- runShaderEnvT $
 		join $ addShader sp GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes (bottom :: a)
@@ -193,18 +191,6 @@ compile f = do
 		glBindVertexArray vao
 		exec
 		drawArrays varrs
-		m
-
-deleteShadersSignal sp = do
-	m <- liftIO $ newMVar () -- signaler for object termination
-	liftIO $ mkWeakMVar m $ do
-		parr <- mallocArray 16
-		c <- withPtr_ $ \pc -> glGetAttachedShaders sp 16 pc parr
-		shdrs <- peekArray (itoi c) parr
-		glDeleteProgram sp
-		mapM_ glDeleteShader shdrs
-	return $ liftIO $ readMVar m
-
 
 
 
