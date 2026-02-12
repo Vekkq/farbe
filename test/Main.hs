@@ -67,7 +67,7 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
 	fix $ \loop -> processEvents $ \es -> do
 		glerrcheck
 		case es of
-			[(EventMouseMove (x,y),_)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
+			[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
 			_ -> return ()
 
 
@@ -75,7 +75,9 @@ main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
 
 
 		-- ~ liftIO $ performGC
-		loop
+		case es of
+			[(EventKey Key'Escape Down _, _)] -> return ()
+			_ -> loop
 
 
 

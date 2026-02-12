@@ -19,13 +19,16 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.Window
 
 
-import qualified Data.Set as S
 import Data.Char
 import Data.List
 import Data.Foldable
 import Data.Array.IO
 import Foreign hiding (void)
 import Foreign.C
+import qualified Data.Sequence as S
+import Data.Sequence ((|>))
+
+
 
 
 import Graphics.GL.Embedded20
@@ -48,6 +51,14 @@ import GHC.TypeNats
 import Debug.Trace
 
 
+
+#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
+instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
 
 -- RunOnce -------------------------------------------------------------------------------
 
@@ -97,14 +108,15 @@ fuzzySwapMVar ml a = liftIO $ do
 
 
 -- DeferT --------------------------------------------------------------------------------
+-- | DeferT, simple monad to defer monadic operations.
 
-newtype DeferT n m a = DeferT { unDefer :: WriterT [n ()] m a }
+newtype DeferT n m a = DeferT { unDefer :: StateT (S.Seq n) m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadPlus, MonadIO, Count, HandTex
 		)
 
-type DeferT' m = DeferT m m
+type DeferT' m = DeferT (m ()) m
 
 instance MonadTrans (DeferT n) where
 	lift = DeferT . lift
@@ -112,7 +124,7 @@ instance MonadTrans (DeferT n) where
 
 runDeferT :: (Monad n, Monad m) => DeferT n m a -> m (a, n ())
 runDeferT m = do
-	(a,w) <- runWriterT $ unDefer m
+	(a,w) <- runStateT (unDefer m) S.empty
 	return (a, sequence_ w)
 
 runDeferT' :: Monad m => DeferT' m a -> m a
@@ -123,25 +135,28 @@ runDeferT' m = do
 
 runDeferT'' :: Monad m => DeferT n m a -> m (a, [n ()])
 runDeferT'' m = do
-	(a,w) <- runWriterT $ unDefer m
-	return (a, w)
+	(a,w) <- runStateT (unDefer m) S.empty
+	return (a, toList w)
 
 class Monad m => Defer n m | m -> n where
 	defer :: n a -> m ()
 
 instance (Functor n, Monad m) => Defer n (DeferT n m) where
-	defer = DeferT . tell . (:[]) . void
-
-
-#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
-instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+	defer = DeferT . (\a -> modify (|>a)) . void
 
 SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
+
+class Monad m => GetDeferred n m | m -> n where
+	getDeferred :: m (Maybe (n ()))
+
+instance (Functor n, Monad m) => GetDeferred n (DeferT n m) where
+	getDeferred = DeferT $ do
+		seq <- get
+		put $ S.drop 1 seq
+		return $ S.lookup 0 seq
+
+SIMPLEFUNCTION_CLASSINSTANCES(getDeferred,GetDeferred n,)
+
 
 
 -- CounterT ------------------------------------------------------------------------------

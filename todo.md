@@ -41,6 +41,11 @@
 * make eglMakeCurrent available through the outside - this function is for drawing without display
 
 * skip the multithreads. make it work for one thread, have heavy gl work when swapbuffers is running.
+* compile function is entirely run in gl backlog.
+	* this makes it possible that expr monads on shaders can take all their time needed for loading external data.
+	* alternative is to extend the shader monad for access to the backlogger. with heavy work it is the preferred method
+	* give the work monad a ReaderT (m Double) for time left for processing
+* add function for filtering for pressed keys in events
 
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.

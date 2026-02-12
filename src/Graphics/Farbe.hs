@@ -239,28 +239,3 @@ framebufferStatus = do
 		GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
 		_ -> return ()
 
-
-type Hash = Int
-
-type ShaderFn b = (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-
-newtype ShaderCacheT m a = ShaderCacheT
-	{ runShaderCacheT :: StateT (Map Hash (Maybe Dynamic)) m a }
-
-
-
-class ShaderCache m where
-	shader :: (MonadIO m, HandTex m, AttrType a b)
-		=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-		-> m (MVar ([VArray a] -> m ()))
-
-instance ShaderCache (ShaderCacheT m) where
-	shader f = do
-		g <- compile f
-		m <- newMVar g
-		return m
-
-
-
-newtype GLAction m a = GLAction { runGLAction :: DeferT IO m a }
-

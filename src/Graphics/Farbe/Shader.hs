@@ -18,6 +18,7 @@ import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Window
 import Graphics.Farbe.Utility
+import Graphics.Farbe.Delay
 
 
 import qualified Data.Set as S
@@ -50,22 +51,25 @@ import Debug.Trace
 
 #define bottom undefined
 
+-- | The basic order is
+--   Expr --> BuildShaderState --> String
+
 -- | User-facing type expression.
-data Expr e a = Expr { unExpr :: ExprEnv } deriving Functor
+data Expr e a = Expr { unExpr :: ExprI } deriving Functor
 
 -- | Internal expression description.
-data ExprEnv = ExprEnv { fnName :: Shdr String, rtype :: TypeS, fnAst :: [ExprEnv] }
+data ExprI = ExprI { fnName :: Shdr String, rtype :: TypeS, fnAst :: [ExprI] }
 
 data ExprS = ExprS String TypeS [ExprS] deriving Show
 
 -- | A Shader-building environment.
-type Shdr = BuildShaderT (ShaderEnvT IO)
+type Shdr = DelayedT' (BuildShaderT (ShaderEnvT IO))
 
 
-runExprEnv :: ExprEnv -> Shdr ExprS
-runExprEnv (ExprEnv m r ps) = do
+runExprI :: ExprI -> Shdr ExprS
+runExprI (ExprI m r ps) = do
 	s <- m
-	ps' <- mapM runExprEnv ps
+	ps' <- mapM runExprI ps
 	return $ ExprS s r ps'
 
 newtype ShaderEnvT m a = ShaderEnvT
@@ -96,6 +100,8 @@ liftHandTexT n = do
 	setTex t'
 	return r
 
+-- ~ liftDelayed :: DelayedT m -> m ()
+-- ~ liftDelayed n =
 
 -- Shader building monad -----------------------------------------------------------------
 
@@ -152,7 +158,7 @@ addHeader i a n = do
 
 addExpr :: String -> Expr e a -> Shdr ()
 addExpr n (Expr a) = do
-	e <- runExprEnv a
+	e <- runExprI a
 	buildShaderState $ \s -> ((), s { bexpr = (n,e) : bexpr s })
 
 getShader :: BuildShader m => m Shader
@@ -176,7 +182,6 @@ compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
 	-> m ([VArray a] -> n ())
 compile f = do
 	sp <- glCreateProgram
-
 	(vao,exec) <- runShaderEnvT $
 		join $ addShader sp GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes (bottom :: a)
@@ -193,6 +198,10 @@ compile f = do
 		drawArrays varrs
 
 
+foo :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	-> m (Maybe ([VArray a] -> n ()))
+foo = undefined
 
 addShader :: (MonadIO m) => Shader -> GLenum -> BuildShaderT m a -> m a
 addShader sp t shdr = do
@@ -203,7 +212,7 @@ addShader sp t shdr = do
 		++ "\n\nvoid main(){\n"
 		++ toCStatements (bexpr st)
 		++ "}"
-	-- ~ debug $ liftIO $ putStrLn str
+	-- ~ liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
@@ -383,14 +392,14 @@ expr :: (Show b, GLtype a) => b -> Expr e a
 expr x = liftExpr (show x) []
 
 
-liftExpr :: (GLtype a) => String -> [ExprEnv] -> Expr e a
+liftExpr :: (GLtype a) => String -> [ExprI] -> Expr e a
 liftExpr s p = liftExprShdr (return s) p
 
 liftExpr' :: (GLtype a) => String -> Expr e a
 liftExpr' s = liftExpr s []
 
-liftExprShdr :: forall e a . (GLtype a) => Shdr String -> [ExprEnv] -> Expr e a
-liftExprShdr s p = Expr $ ExprEnv s (toTypeS (bottom :: a)) p
+liftExprShdr :: forall e a . (GLtype a) => Shdr String -> [ExprI] -> Expr e a
+liftExprShdr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p
 
 liftExprShdr' :: (GLtype a) => Shdr String -> Expr e a
 liftExprShdr' s = liftExprShdr s []
@@ -494,7 +503,7 @@ transfer1 e = do
 
 -- Uniform variables ---------------------------------------------------------------------
 
-data Var a = Var { varExpr :: ExprEnv, varMVar :: MVar a }
+data Var a = Var { varExpr :: ExprI, varMVar :: MVar a }
 
 swapVar :: MonadIO m => Var a -> a -> m a
 swapVar v = liftIO . swapMVar (varMVar v)
@@ -516,7 +525,7 @@ makeVar a = do
 			-- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
 			defer $ (liftIO $ readMVar m) >>= runwc wc
 		return vname
-	return $ Var (ExprEnv r (toTypeS (bottom :: a)) []) m
+	return $ Var (ExprI r (toTypeS (bottom :: a)) []) m
 
 
 class (GLtype a, Eq a) => Upload a where
