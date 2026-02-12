@@ -122,34 +122,35 @@ instance MonadTrans (DeferT n) where
 	lift = DeferT . lift
 
 
-runDeferT :: (Monad n, Monad m) => DeferT n m a -> m (a, n ())
+runDeferT :: (Monad m) => DeferT n m a -> m (a, [n])
 runDeferT m = do
 	(a,w) <- runStateT (unDefer m) S.empty
-	return (a, sequence_ w)
+	return (a, toList w)
 
 runDeferT' :: Monad m => DeferT' m a -> m a
 runDeferT' m = do
 	(a,e) <- runDeferT m
-	e
+	sequence_ e
 	return a
 
-runDeferT'' :: Monad m => DeferT n m a -> m (a, [n ()])
+runDeferT'' :: Monad m => DeferT n m a -> m (a, [n])
 runDeferT'' m = do
 	(a,w) <- runStateT (unDefer m) S.empty
 	return (a, toList w)
 
 class Monad m => Defer n m | m -> n where
-	defer :: n a -> m ()
+	defer :: n -> m ()
 
-instance (Functor n, Monad m) => Defer n (DeferT n m) where
-	defer = DeferT . (\a -> modify (|>a)) . void
+instance (Monad m) => Defer n (DeferT n m) where
+	defer = DeferT . (\a -> modify (|>a))
 
 SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
+
 
 class Monad m => GetDeferred n m | m -> n where
 	getDeferred :: m (Maybe (n ()))
 
-instance (Functor n, Monad m) => GetDeferred n (DeferT n m) where
+instance (Monad m) => GetDeferred n (DeferT (n ()) m) where
 	getDeferred = DeferT $ do
 		seq <- get
 		put $ S.drop 1 seq
@@ -165,7 +166,7 @@ newtype CounterT m a = CounterT { counter :: StateT Int m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadPlus, Defer m, HandTex, HandVBO, MonadWindow
+		, MonadPlus, Defer n, HandTex, HandVBO, MonadWindow
 		)
 
 instance MonadState s m => MonadState s (CounterT m) where

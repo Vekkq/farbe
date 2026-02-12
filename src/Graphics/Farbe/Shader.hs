@@ -63,7 +63,7 @@ data ExprI = ExprI { fnName :: Shdr String, rtype :: TypeS, fnAst :: [ExprI] }
 data ExprS = ExprS String TypeS [ExprS] deriving Show
 
 -- | A Shader-building environment.
-type Shdr = DelayedT' (BuildShaderT (ShaderEnvT IO))
+type Shdr = BuildShaderT (ShaderEnvT (DelayedT' IO))
 
 
 runExprI :: ExprI -> Shdr ExprS
@@ -82,26 +82,16 @@ newtype ShaderEnvT m a = ShaderEnvT
 instance MonadTrans ShaderEnvT where
 	lift = ShaderEnvT . lift . lift . lift . lift
 
-instance Monad m => Defer (DeferT' (HandTexT m)) (ShaderEnvT m) where
+instance Monad m => Defer (DeferT' (HandTexT m) ()) (ShaderEnvT m) where
 	-- ~ defer :: DeferT m () -> ShaderEnvT m ()
 	defer = ShaderEnvT . lift . defer
 
-runShaderEnvT :: (HandTex m, HandTex n, MonadIO m, MonadIO n)
-	=> ShaderEnvT IO a -> m (a, n ())
-runShaderEnvT (ShaderEnvT m) = do
+runShaderEnvT :: (HandTex m, HandTex n, MonadIO m, MonadIO n, Delay IO m)
+	=> (ShaderEnvT (DelayedT' IO)) a -> m (a, n ())
+runShaderEnvT (ShaderEnvT m) = liftDelayed $ do
 	(r,rm) <- liftHandTexT $ runDeferT $ runDeferT' $ runCounterT 1 m
-	return (r, liftHandTexT rm)
+	return (r, sequence_ $ liftHandTexT rm)
 
-
-liftHandTexT :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
-liftHandTexT n = do
-	t <- getTex
-	(r,t') <- liftIO $ runHandTexT' t n
-	setTex t'
-	return r
-
--- ~ liftDelayed :: DelayedT m -> m ()
--- ~ liftDelayed n =
 
 -- Shader building monad -----------------------------------------------------------------
 
@@ -171,8 +161,8 @@ class ShaderType a
 instance ShaderType V
 instance ShaderType F
 
-class (MonadIO m, Defer (DeferT' (HandTexT IO)) m) => PostShader m
-instance (MonadIO m, Defer (DeferT' (HandTexT IO)) m) => PostShader m
+class (MonadIO m, Defer (DeferT' (HandTexT IO) ()) m) => PostShader m
+instance (MonadIO m, Defer (DeferT' (HandTexT IO) ()) m) => PostShader m
 
 
 type ShaderM = DeferT' Shdr

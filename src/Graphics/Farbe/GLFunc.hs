@@ -124,11 +124,11 @@ class MonadIO m => GL m where
 
 
 
-type GLAction = DeferT IO
+-- ~ type GLAction = DeferT IO
 
 
-getGLAction :: GLAction m () -> m (IO ())
-getGLAction = undefined
+-- ~ getGLAction :: GLAction m () -> m (IO ())
+-- ~ getGLAction = undefined
 
 
 

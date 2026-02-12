@@ -108,6 +108,15 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
 
 
+liftHandTexT :: (HandTex m, MonadIO m) => HandTexT m a -> m a
+liftHandTexT n = do
+	t <- getTex
+	(r,t') <- runHandTexT' t n
+	setTex t'
+	return r
+
+
+
 data Texture f = Texture
 	{ texId :: GLuint
 	, texLastUnit :: MVar GLenum

@@ -8,6 +8,8 @@ module Graphics.Farbe.Delay where
 import Graphics.Farbe.Utility
 import Graphics.Farbe.Texture
 
+import Data.Foldable
+
 import Control.Concurrent.MVar
 
 import Control.Applicative
@@ -24,18 +26,18 @@ import Control.Monad.RWS (RWST)
 -- Shader delay monad --------------------------------------------------------------------
 
 
-newtype DelayedT n m a = DelayedT { runGLAction :: DeferT n m a }
+newtype DelayedT n m a = DelayedT { runGLAction :: DeferT (n ()) m a }
 	deriving
 		( Functor, Applicative, Monad, MonadTrans, Alternative
 		, MonadPlus, MonadIO, Count, HandTex
 		)
 
-instance (Defer n m, Monad m) => Defer n (DelayedT n m) where
+instance (Defer (n ()) m, Monad m) => Defer (n ()) (DelayedT n m) where
 	defer = lift . defer
 
-type DelayedT' m = DelayedT (m ()) m
+type DelayedT' m = DelayedT m m
 
-class Delay n m where
+class Delay n m | m -> n where
 	delay :: n a -> m (MVar a)
 
 instance (MonadIO n, MonadIO m) => Delay n (DelayedT n m) where
@@ -45,6 +47,12 @@ instance (MonadIO n, MonadIO m) => Delay n (DelayedT n m) where
 			defer $ n >>= liftIO . putMVar mvar
 			return mvar
 
+
+liftDelayed :: (Monad m, Delay n m) => DelayedT n m a -> m a
+liftDelayed (DelayedT (DeferT ms)) = do
+	(a,seq) <- runStateT ms mempty
+	mapM_ delay $ toList seq
+	return a
 -- ~ runGLAction :: GetDeferred m => m ()
 -- ~ runGLAction
 
