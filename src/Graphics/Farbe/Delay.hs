@@ -53,8 +53,6 @@ liftDelayed (DelayedT (DeferT ms)) = do
 	(a,seq) <- runStateT ms mempty
 	mapM_ delay $ toList seq
 	return a
--- ~ runGLAction :: GetDeferred m => m ()
--- ~ runGLAction
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
