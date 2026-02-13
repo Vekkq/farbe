@@ -32,7 +32,7 @@ newtype DelayedT n m a = DelayedT { runGLAction :: DeferT (n ()) m a }
 		, MonadPlus, MonadIO, Count, HandTex
 		)
 
-instance (Defer (n ()) m, Monad m) => Defer (n ()) (DelayedT n m) where
+instance (Defer n m, Monad m) => Defer n (DelayedT r m) where
 	defer = lift . defer
 
 type DelayedT' m = DelayedT m m
@@ -53,6 +53,11 @@ liftDelayed (DelayedT (DeferT ms)) = do
 	(a,seq) <- runStateT ms mempty
 	mapM_ delay $ toList seq
 	return a
+
+-- ~ liftDelayed' :: (Monad m, Delay n m) => DelayedT n o a -> m (o a)
+-- ~ liftDelayed' (DelayedT d) = do
+	-- ~ (a,seq) <- runDeferT d
+	-- ~ undefined -- somethin somethin
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \

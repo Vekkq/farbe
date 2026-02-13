@@ -90,16 +90,16 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 
 type World = DelayedT' (HandTexT IO)
 
+liftWorld :: (Delay (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
+liftWorld = undefined -- _ . liftHandTexT . liftDelayed
+
+
 type ShaderEnv = CounterT (DeferT' (DeferT' World))
 -- ~ instance MonadTrans ShaderEnvT where
 	-- ~ lift = ShaderEnvT . lift . lift . lift . lift . lift
 
-liftWorld :: (Delay (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
-liftWorld = liftHandTexT' . liftDelayed
-
-
 runShaderEnv
-	:: (HandTex m, HandTex n, MonadIO m, MonadIO n, Delay (HandTexT IO) m)
+	:: (HandTex m, HandTex n, MonadIO m, MonadIO n, Delay (HandTexT IO) m, Delay (HandTexT IO) n)
 	=> ShaderEnv a -> m (a, n ())
 runShaderEnv m = do
 	(r,rm) <- liftWorld $ runDeferT $ runDeferT' $ runCounterT 1 m
@@ -167,13 +167,12 @@ class ShaderType a
 instance ShaderType V
 instance ShaderType F
 
-class (MonadIO m, Defer (DeferT' (HandTexT IO) ()) m) => PostShader m
-instance (MonadIO m, Defer (DeferT' (HandTexT IO) ()) m) => PostShader m
-
+class (MonadIO m, Defer (DeferT' (World) ()) m) => PostShader m
+instance (MonadIO m, Defer (DeferT' (World) ()) m) => PostShader m
 
 type ShaderM = DeferT' Shdr
 
-compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
+compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b, Delay (HandTexT IO) m, Delay (HandTexT IO) n)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
 	-> m ([VArray a] -> n ())
 compile f = do
@@ -185,7 +184,7 @@ compile f = do
 			addExpr "gl_Position" $ exprVec vs
 			return $ addShader sp GL_FRAGMENT_SHADER $ do
 				addExpr "gl_FragColor" $ exprVec $ fs
-				fm
+				sequence_ fm
 				return i
 	return $ \varrs -> do
 		glUseProgram sp

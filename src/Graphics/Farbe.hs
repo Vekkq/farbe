@@ -47,6 +47,7 @@ import Graphics.Farbe.Shader
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Utils
+import Graphics.Farbe.Delay
 import Graphics.Farbe.Expr
 import Graphics.Farbe.GL
 import Graphics.Farbe.Window
@@ -204,7 +205,7 @@ drawDepth = do
 
 
 
-renderTexture :: (MonadIO m, HandTex m)
+renderTexture :: (MonadIO m, HandTex m, Delay (HandTexT IO) m)
 	=> Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
 renderTexture t = compile $ \v -> do
 	let V4 x y _ _ = fragCoord
@@ -213,7 +214,7 @@ renderTexture t = compile $ \v -> do
 
 
 
-compile' :: (Farbe m, AttrType a b)
+compile' :: (Farbe m, AttrType a b, Delay (HandTexT IO) m)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
 	-> m ([VArray a] -> Render m)
 compile' a = fmap (DrawShader .) $ compile a
