@@ -115,6 +115,14 @@ liftHandTexT n = do
 	setTex t'
 	return r
 
+liftHandTexT' :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
+liftHandTexT' n = do
+	t <- getTex
+	(r,t') <- liftIO $ runHandTexT' t n
+	setTex t'
+	return r
+
+
 
 
 data Texture f = Texture

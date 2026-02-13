@@ -63,7 +63,7 @@ data ExprI = ExprI { fnName :: Shdr String, rtype :: TypeS, fnAst :: [ExprI] }
 data ExprS = ExprS String TypeS [ExprS] deriving Show
 
 -- | A Shader-building environment.
-type Shdr = BuildShaderT (ShaderEnvT)
+type Shdr = BuildShaderT (ShaderEnv)
 
 
 runExprI :: ExprI -> Shdr ExprS
@@ -81,56 +81,30 @@ instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }            
 instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
 
-SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)
 
-type PostShader m = DeferT' (PreRender m)
-type PreRender m = DeferT' (HandTexT (DelayedT (HandTexT m) m
-type World = (DelayedT' (HandTexT IO) IO)
-type ShaderEnv = CounterT (PostShader World)
+-- ~ newtype World a = World { runWorld :: DelayedT' (HandTexT IO) a }
+	-- ~ deriving
+		-- ~ ( Functor, Applicative, Monad, Alternative
+		-- ~ , MonadPlus, MonadIO, HandTex, Delay (HandTexT IO)
+		-- ~ )
+
+type World = DelayedT' (HandTexT IO)
+
+type ShaderEnv = CounterT (DeferT' (DeferT' World))
 -- ~ instance MonadTrans ShaderEnvT where
 	-- ~ lift = ShaderEnvT . lift . lift . lift . lift . lift
 
-runShaderEnvT
-	:: (HandTex m, HandTex n, MonadIO m, MonadIO n
-	,  HandTex p, MonadIO p, Delay p m)
+liftWorld :: (Delay (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
+liftWorld = liftHandTexT' . liftDelayed
+
+
+runShaderEnv
+	:: (HandTex m, HandTex n, MonadIO m, MonadIO n, Delay (HandTexT IO) m)
 	=> ShaderEnv a -> m (a, n ())
-runShaderEnvT (ShaderEnvT m) = do
-	(r,rm) <- liftDelayed $ runDeferT $ runDeferT' $ runCounterT 1 m
+runShaderEnv m = do
+	(r,rm) <- liftWorld $ runDeferT $ runDeferT' $ runCounterT 1 m
 
-	return (r, liftDelayed $ liftHandTexT $ sequence_ rm)
-
-{-
-
--- | A Shader-building environment.
-type Shdr = BuildShaderT (ShaderEnvT IO)
-
-
-runExprEnv :: ExprEnv -> Shdr ExprS
-runExprEnv (ExprEnv m r ps) = do
-	s <- m
-	ps' <- mapM runExprEnv ps
-	return $ ExprS s r ps'
-
-newtype ShaderEnvT m a = ShaderEnvT
-	{ unShaderEnvT :: CounterT (DeferT' (DeferT' (HandTexT m))) a }
-	deriving
-		( Functor, Applicative, Monad, Alternative
-		, MonadIO, Count
-		)
-
-instance MonadTrans ShaderEnvT where
-	lift = ShaderEnvT . lift . lift . lift . lift
-
-instance Monad m => Defer (DeferT' (HandTexT m)) (ShaderEnvT m) where
-	-- ~ defer :: DeferT m () -> ShaderEnvT m ()
-	defer = ShaderEnvT . lift . defer
-
-runShaderEnvT :: (HandTex m, HandTex n, MonadIO m, MonadIO n)
-	=> ShaderEnvT IO a -> m (a, n ())
-runShaderEnvT (ShaderEnvT m) = do
-	(r,rm) <- liftHandTexT $ runDeferT $ runDeferT' $ runCounterT 1 m
-	return (r, liftHandTexT rm)
--}
+	return (r, liftWorld $ sequence_ rm)
 
 
 -- Shader building monad -----------------------------------------------------------------
@@ -199,25 +173,25 @@ instance (MonadIO m, Defer (DeferT' (HandTexT IO) ()) m) => PostShader m
 
 type ShaderM = DeferT' Shdr
 
--- ~ compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
-	-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-- ~ -> m ([VArray a] -> n ())
--- ~ compile f = do
-	-- ~ sp <- glCreateProgram
-	-- ~ (vao,exec) <- runShaderEnvT $
-		-- ~ join $ addShader sp GL_VERTEX_SHADER $ do
-			-- ~ (i,e) <- setAttributes (bottom :: a)
-			-- ~ ((vs,fs),fm) <- runDeferT $ f e
-			-- ~ addExpr "gl_Position" $ exprVec vs
-			-- ~ return $ addShader sp GL_FRAGMENT_SHADER $ do
-				-- ~ addExpr "gl_FragColor" $ exprVec $ fs
-				-- ~ fm
-				-- ~ return i
-	-- ~ return $ \varrs -> do
-		-- ~ glUseProgram sp
-		-- ~ glBindVertexArray vao
-		-- ~ exec
-		-- ~ drawArrays varrs
+compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	-> m ([VArray a] -> n ())
+compile f = do
+	sp <- glCreateProgram
+	(vao,exec) <- runShaderEnv $
+		join $ addShader sp GL_VERTEX_SHADER $ do
+			(i,e) <- setAttributes (bottom :: a)
+			((vs,fs),fm) <- runDeferT $ f e
+			addExpr "gl_Position" $ exprVec vs
+			return $ addShader sp GL_FRAGMENT_SHADER $ do
+				addExpr "gl_FragColor" $ exprVec $ fs
+				fm
+				return i
+	return $ \varrs -> do
+		glUseProgram sp
+		glBindVertexArray vao
+		exec
+		drawArrays varrs
 
 
 foo :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
