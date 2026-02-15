@@ -91,7 +91,13 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 type World = DelayedT' (HandTexT IO)
 
 liftWorld :: (Delay (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
-liftWorld = undefined -- _ . liftHandTexT . liftDelayed
+liftWorld n = do
+	t <- getTex
+	((r,seq),t') <- liftIO $ runHandTexT' t $ runDelayedT n
+	mapM_ delay $ toList seq
+	setTex t'
+	return r
+
 
 
 type ShaderEnv = CounterT (DeferT' (DeferT' World))
@@ -187,9 +193,9 @@ compile f = do
 				sequence_ fm
 				return i
 	return $ \varrs -> do
-		glUseProgram sp
-		glBindVertexArray vao
-		exec
+		glUseProgram sp       -- lines to back up
+		glBindVertexArray vao --
+		exec                  --
 		drawArrays varrs
 
 

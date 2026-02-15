@@ -75,16 +75,17 @@ import Graphics.GL.Types
 
 import Graphics.Farbe.GLScheduler
 
-newtype FarbeT m a = FarbeT { unFarbe :: CounterT (HandTexT (HandVBOT m)) a }
+newtype FarbeT m a = FarbeT { unFarbe :: DelayedT (HandTexT IO) (CounterT (HandTexT (HandVBOT m))) a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
 		, Count, HandTex, HandVBO
 		, MonadReader r, MonadState s, MonadWriter w
 		, MonadError e, MonadWindow
+		, Delay (HandTexT IO)
 		)
 
 instance MonadTrans FarbeT where
-	lift = FarbeT . lift . lift . lift
+	lift = FarbeT . lift . lift . lift . lift
 
 -- ~ deriving instance (Monad m) => Count (WindowT m)
 
@@ -103,7 +104,7 @@ instance MonadIO m => MonadFail (FarbeT m) where
 
 
 runFarbeT :: MonadIO m => FarbeT m a -> m a
-runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . unFarbe $ do
+runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . fmap fst . runDelayedT . unFarbe $ do
 	glClearColor 0.1 0.1 0.1 1
 	glEnable GL_DEPTH_TEST
 	glPixelStorei GL_UNPACK_ALIGNMENT 1

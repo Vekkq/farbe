@@ -7,8 +7,12 @@ module Graphics.Farbe.Delay where
 
 import Graphics.Farbe.Utility
 import Graphics.Farbe.Texture
+import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Window
 
 import Data.Foldable
+import qualified Data.Sequence as S
+import Data.Sequence ((|>))
 
 import Control.Concurrent.MVar
 
@@ -25,34 +29,63 @@ import Control.Monad.RWS (RWST)
 
 -- Shader delay monad --------------------------------------------------------------------
 
+type DSeq n = S.Seq (n ())
 
-newtype DelayedT n m a = DelayedT { runGLAction :: DeferT (n ()) m a }
+newtype DelayedT n m a = DelayedT { unDelayedT :: StateT (DSeq n) m a }
 	deriving
 		( Functor, Applicative, Monad, MonadTrans, Alternative
-		, MonadPlus, MonadIO, Count, HandTex
+		, MonadPlus, MonadIO, Count, HandTex, HandVBO, Defer d
+		, MonadReader r, MonadWriter w
+		, MonadError e, MonadWindow
 		)
 
-instance (Defer n m, Monad m) => Defer n (DelayedT r m) where
-	defer = lift . defer
+instance MonadState s m => MonadState s (DelayedT n m) where
+	get = lift get
+	put = lift . put
+
+-- ~ instance (Defer n m, Monad m) => Defer n (DelayedT r m) where
+	-- ~ defer = lift . defer
 
 type DelayedT' m = DelayedT m m
 
+runDelayedT :: Monad m => DelayedT n m a -> m (a, DSeq n)
+runDelayedT (DelayedT m) = do
+	(a,w) <- runStateT m S.empty
+	return (a, w)
+
+
+class Monad m => DelayedState n m where
+	delayedState :: (DSeq n -> (a, DSeq n)) -> m a
+
+	delayedStateGet :: m (DSeq n)
+	delayedStateGet = delayedState $ \s -> (s,s)
+	delayedStatePut :: DSeq n -> m ()
+	delayedStatePut a = delayedState $ \_ -> ((),a)
+
+
+instance Monad m => DelayedState n (DelayedT n m) where
+	delayedState = DelayedT . state
+
+
+
+
 class Delay n m | m -> n where
-	delay :: n a -> m (MVar a)
+	delay :: n a -> m ()
 
 instance (MonadIO n, MonadIO m) => Delay n (DelayedT n m) where
 	-- ~ delay :: n a -> DelayedT n m (MVar a)
-	delay n = DelayedT $ do
-			mvar <- liftIO newEmptyMVar
-			defer $ n >>= liftIO . putMVar mvar
-			return mvar
+	delay n = DelayedT $ modify (|>void n)
 
+delayR n = do
+		mvar <- liftIO newEmptyMVar
+		delay $ n >>= liftIO . putMVar mvar
+		return mvar
 
-liftDelayed :: (Monad m, Delay n m) => DelayedT n m a -> m a
-liftDelayed (DelayedT (DeferT ms)) = do
-	(a,seq) <- runStateT ms mempty
-	mapM_ delay $ toList seq
-	return a
+-- ~ liftDelayed :: (Monad m, Delay n m) => DelayedT n m a -> m a
+-- ~ liftDelayed (DelayedT (DeferT ms)) = do
+	-- ~ (a,seq) <- runStateT ms mempty
+	-- ~ mapM_ delay $ toList seq
+	-- ~ return a
 
 -- ~ liftDelayed' :: (Monad m, Delay n m) => DelayedT n o a -> m (o a)
 -- ~ liftDelayed' (DelayedT d) = do

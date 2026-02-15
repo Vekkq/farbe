@@ -147,16 +147,16 @@ instance (Monad m) => Defer n (DeferT n m) where
 SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
 
 
-class Monad m => GetDeferred n m | m -> n where
-	getDeferred :: m (Maybe (n ()))
+-- ~ class Monad m => GetDeferred n m | m -> n where
+	-- ~ getDeferred :: m (Maybe (n ()))
 
-instance (Monad m) => GetDeferred n (DeferT (n ()) m) where
-	getDeferred = DeferT $ do
-		seq <- get
-		put $ S.drop 1 seq
-		return $ S.lookup 0 seq
+-- ~ instance (Monad m) => GetDeferred n (DeferT (n ()) m) where
+	-- ~ getDeferred = DeferT $ do
+		-- ~ seq <- get
+		-- ~ put $ S.drop 1 seq
+		-- ~ return $ S.lookup 0 seq
 
-SIMPLEFUNCTION_CLASSINSTANCES(getDeferred,GetDeferred n,)
+-- ~ SIMPLEFUNCTION_CLASSINSTANCES(getDeferred,GetDeferred n,)
 
 
 
