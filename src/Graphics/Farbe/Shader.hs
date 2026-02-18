@@ -32,6 +32,8 @@ import Foreign hiding (void)
 import Foreign.C
 import Data.Hashable
 import System.Mem.StableName
+import qualified Data.Sequence as Se
+import Data.Sequence ((|>))
 
 
 
@@ -93,12 +95,14 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 		-- ~ , MonadPlus, MonadIO, HandTex, Delay (HandTexT IO)
 		-- ~ )
 
-type World = DelayedT' (HandTexT IO)
+type World = DelayedT' (ShaderCacheT' (HandTexT IO))
+type SmallWorld = (ShaderCacheT' (HandTexT IO))
 
-liftWorld :: (Delay (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
+liftWorld :: (Delay SmallWorld m, ShaderCache (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
 liftWorld n = do
 	t <- getTex
-	((r,seq),t') <- liftIO $ runHandTexT' t $ runDelayedT n
+	sc <- shaderCacheStateGet
+	(((r,seq),sc'),t') <- liftIO $ runHandTexT' t $ runShaderCache' sc $ runDelayedT n
 	mapM_ delay $ toList seq
 	setTex t'
 	return r
@@ -110,12 +114,114 @@ type ShaderEnv = CounterT (DeferT' (DeferT' World))
 	-- ~ lift = ShaderEnvT . lift . lift . lift . lift . lift
 
 runShaderEnv
-	:: (HandTex m, HandTex n, MonadIO m, MonadIO n, Delay (HandTexT IO) m, Delay (HandTexT IO) n)
+	:: (HandTex m, HandTex n, MonadIO m, MonadIO n, Delay SmallWorld m, Delay SmallWorld n, ShaderCache (HandTexT IO) m, ShaderCache (HandTexT IO) n)
 	=> ShaderEnv a -> m (a, n ())
 runShaderEnv m = do
 	(r,rm) <- liftWorld $ runDeferT $ runDeferT' $ runCounterT 1 m
 
 	return (r, liftWorld $ sequence_ rm)
+
+
+-- Shader delay monad --------------------------------------------------------------------
+
+type DSeq n = Se.Seq (n ())
+
+newtype DelayedT n m a = DelayedT { unDelayedT :: StateT (DSeq n) m a }
+	deriving
+		( Functor, Applicative, Monad, MonadTrans, Alternative
+		, MonadPlus, MonadIO, Count, HandTex, HandVBO, Defer d, ShaderCache f
+		, MonadReader r, MonadWriter w
+		, MonadError e, MonadWindow
+		)
+
+instance MonadState s m => MonadState s (DelayedT n m) where
+	get = lift get
+	put = lift . put
+
+-- ~ instance (Defer n m, Monad m) => Defer n (DelayedT r m) where
+	-- ~ defer = lift . defer
+
+type DelayedT' m = DelayedT m m
+
+runDelayedT :: Monad m => DelayedT n m a -> m (a, DSeq n)
+runDelayedT (DelayedT m) = do
+	(a,w) <- runStateT m Se.empty
+	return (a, w)
+
+
+class Monad m => DelayedState n m where
+	delayedState :: (DSeq n -> (a, DSeq n)) -> m a
+
+	delayedStateGet :: m (DSeq n)
+	delayedStateGet = delayedState $ \s -> (s,s)
+	delayedStatePut :: DSeq n -> m ()
+	delayedStatePut a = delayedState $ \_ -> ((),a)
+
+
+instance Monad m => DelayedState n (DelayedT n m) where
+	delayedState = DelayedT . state
+
+
+
+
+class Delay n m | m -> n where
+	delay :: n a -> m ()
+
+instance (MonadIO n, MonadIO m) => Delay n (DelayedT n m) where
+	-- ~ delay :: n a -> DelayedT n m (MVar a)
+	delay n = DelayedT $ modify (|>void n)
+
+delayR n = do
+		mvar <- liftIO newEmptyMVar
+		delay $ n >>= liftIO . putMVar mvar
+		return mvar
+
+-- ~ liftDelayed :: (Monad m, Delay n m) => DelayedT n m a -> m a
+-- ~ liftDelayed (DelayedT (DeferT ms)) = do
+	-- ~ (a,seq) <- runStateT ms mempty
+	-- ~ mapM_ delay $ toList seq
+	-- ~ return a
+
+-- ~ liftDelayed' :: (Monad m, Delay n m) => DelayedT n o a -> m (o a)
+-- ~ liftDelayed' (DelayedT d) = do
+	-- ~ (a,seq) <- runDeferT d
+	-- ~ undefined -- somethin somethin
+
+
+#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
+instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+
+SIMPLEFUNCTION_CLASSINSTANCES(delay,Delay n,.)
+
+
+-- ~ type Time = Double
+
+-- ~ type Hash = Int
+
+-- ~ type ShaderFn b = (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+
+-- ~ data SKey = SKey Hash String deriving (Eq, Ord)
+
+-- ~ newtype ShaderCacheT m a = ShaderCacheT
+	-- ~ { runShaderCacheT :: StateT (Map SKey (Maybe Int)) m a }
+
+
+
+-- ~ class ShaderCache m where
+	-- ~ shader :: (MonadIO m, HandTex m, AttrType a b)
+		-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+		-- ~ -> m (MVar ([VArray a] -> m ()))
+
+-- ~ instance ShaderCache (ShaderCacheT m) where
+	-- ~ shader f = do
+		-- ~ g <- compile f
+		-- ~ m <- newMVar g
+		-- ~ return m
 
 
 -- Shader Cache --------------------------------------------------------------------------
@@ -156,11 +262,22 @@ newtype ShaderCacheT w m r = ShaderCacheT { unshaderCacheT :: StateT (CacheState
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, MonadTrans
-		, Count, HandTex
+		, Count, HandTex, HandVBO
+		, MonadReader q, MonadWriter v
+		, MonadError e, MonadWindow
 		)
 
-runShaderCache :: Shader -> ShaderCacheT w m a -> m (a, CacheState w)
-runShaderCache i b = runStateT (unshaderCacheT b) emptyCacheState
+instance MonadState s m => MonadState s (ShaderCacheT w m) where
+	get = lift get
+	put = lift . put
+
+type ShaderCacheT' m = ShaderCacheT m m
+
+runShaderCache :: ShaderCacheT w m a -> m (a, CacheState w)
+runShaderCache b = runStateT (unshaderCacheT b) emptyCacheState
+
+runShaderCache' :: CacheState w -> ShaderCacheT w m a -> m (a, CacheState w)
+runShaderCache' s b = runStateT (unshaderCacheT b) s
 
 
 class Monad m => ShaderCache w m where
@@ -242,7 +359,7 @@ instance (MonadIO m, Defer (DeferT' (World) ()) m) => PostShader m
 
 type ShaderM = DeferT' Shdr
 
-compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b, Delay (HandTexT IO) m, Delay (HandTexT IO) n)
+compile :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b, Delay SmallWorld m, Delay SmallWorld n, ShaderCache (HandTexT IO) m, ShaderCache (HandTexT IO) n)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
 	-> m ([VArray a] -> n ())
 compile f = do

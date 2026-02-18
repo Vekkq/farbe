@@ -75,17 +75,18 @@ import Graphics.GL.Types
 
 import Graphics.Farbe.GLScheduler
 
-newtype FarbeT m a = FarbeT { unFarbe :: DelayedT (HandTexT IO) (CounterT (HandTexT (HandVBOT m))) a }
+newtype FarbeT m a = FarbeT { unFarbe :: DelayedT SmallWorld (ShaderCacheT (HandTexT IO) (CounterT (HandTexT (HandVBOT m)))) a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
 		, Count, HandTex, HandVBO
 		, MonadReader r, MonadState s, MonadWriter w
 		, MonadError e, MonadWindow
-		, Delay (HandTexT IO)
+		, Delay SmallWorld
+		, ShaderCache (HandTexT IO)
 		)
 
 instance MonadTrans FarbeT where
-	lift = FarbeT . lift . lift . lift . lift
+	lift = FarbeT . lift . lift . lift . lift . lift
 
 -- ~ deriving instance (Monad m) => Count (WindowT m)
 
@@ -104,7 +105,7 @@ instance MonadIO m => MonadFail (FarbeT m) where
 
 
 runFarbeT :: MonadIO m => FarbeT m a -> m a
-runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . fmap fst . runDelayedT . unFarbe $ do
+runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . fmap fst . runShaderCache . fmap fst . runDelayedT . unFarbe $ do
 	glClearColor 0.1 0.1 0.1 1
 	glEnable GL_DEPTH_TEST
 	glPixelStorei GL_UNPACK_ALIGNMENT 1
@@ -206,7 +207,7 @@ drawDepth = do
 
 
 
-renderTexture :: (MonadIO m, HandTex m, Delay (HandTexT IO) m)
+renderTexture :: (MonadIO m, HandTex m, Delay SmallWorld m, ShaderCache (HandTexT IO) m)
 	=> Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
 renderTexture t = compile $ \v -> do
 	let V4 x y _ _ = fragCoord
@@ -215,7 +216,7 @@ renderTexture t = compile $ \v -> do
 
 
 
-compile' :: (Farbe m, AttrType a b, Delay (HandTexT IO) m)
+compile' :: (Farbe m, AttrType a b, Delay SmallWorld m, ShaderCache (HandTexT IO) m)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
 	-> m ([VArray a] -> Render m)
 compile' a = fmap (DrawShader .) $ compile a
