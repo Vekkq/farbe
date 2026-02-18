@@ -193,3 +193,39 @@ runCounterT' = runCounterT 1
 generateName :: Count m => String -> m String
 generateName s = (s++) . ("_"++) . show <$> count
 
+
+data LastFrame = LastFrame { lastFrame :: Double }
+
+newtype FrameTimingT m a = FrameTimingT { unFrameTime :: StateT Double m a }
+	deriving
+		( Functor, Applicative, Monad, Alternative, MonadTrans
+		, MonadReader r, MonadWriter w, MonadError e, MonadIO
+		, MonadPlus, Defer n, HandTex, HandVBO, MonadWindow
+		)
+
+instance MonadState s m => MonadState s (FrameTimingT m) where
+	get = lift get
+	put = lift . put
+
+runFrameTimingT (FrameTimingT m) = runStateT m 0
+
+class FrameTiming m where
+	frameTimeState :: (Double -> (a, Double)) -> m a
+
+	frameTimeGet :: m Double
+	frameTimeGet = frameTimeState $ \s -> (s,s)
+
+instance Monad m => FrameTiming (FrameTimingT m) where
+	frameTimeState = FrameTimingT . state
+
+#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
+instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+
+
+SIMPLEFUNCTION_CLASSINSTANCES(frameTimeState,FrameTiming,.)
+

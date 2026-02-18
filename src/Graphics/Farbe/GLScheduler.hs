@@ -69,7 +69,7 @@ runSchedule = fix $ \loop -> do
 	last <- liftIO $ readMVar mlast
 	t <- getTime
 	if last + slot < t then loop else do
-		swapBuffer
+		swapBuffers
 		t' <- getTime
 		liftIO $ void $ swapMVar mlast t'
 

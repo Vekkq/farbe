@@ -75,13 +75,35 @@ import Graphics.GL.Types
 
 import Graphics.Farbe.GLScheduler
 
+
+data Config = Config
+	{ debugMode :: Bool
+	, devDebugMode :: Bool
+	}
+
+defaultConfig = Config { debugMode = True, devDebugMode = True }
+
+newtype ConfigT m a = ConfigT { unConfigT :: ReaderT Config m a }
+	deriving
+		( Functor, Applicative, Monad, MonadIO
+		, Count, HandTex, HandVBO
+		, MonadState s, MonadWriter w
+		, MonadError e, MonadWindow
+		, DelayedState f
+		, ShaderCache g
+		)
+
+runConfigT :: Config -> ConfigT m a -> m a
+runConfigT c (ConfigT m) = runReaderT m c
+
+
 newtype FarbeT m a = FarbeT { unFarbe :: DelayedT SmallWorld (ShaderCacheT (HandTexT IO) (CounterT (HandTexT (HandVBOT m)))) a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
 		, Count, HandTex, HandVBO
 		, MonadReader r, MonadState s, MonadWriter w
 		, MonadError e, MonadWindow
-		, Delay SmallWorld
+		, DelayedState SmallWorld
 		, ShaderCache (HandTexT IO)
 		)
 
@@ -105,24 +127,30 @@ instance MonadIO m => MonadFail (FarbeT m) where
 
 
 runFarbeT :: MonadIO m => FarbeT m a -> m a
-runFarbeT m = runHandVBOT (2^24) . runHandTexT . runCounterT' . fmap fst . runShaderCache . fmap fst . runDelayedT . unFarbe $ do
-	glClearColor 0.1 0.1 0.1 1
-	glEnable GL_DEPTH_TEST
-	glPixelStorei GL_UNPACK_ALIGNMENT 1
-	-- ~ glStencilOp GL_KEEP GL_KEEP GL_REPLACE
+runFarbeT m = runHandVBOT (2^24)
+	. runHandTexT
+	. runCounterT'
+	. fmap fst . runShaderCache
+	. fmap fst . runDelayedT
+	. unFarbe $ do
+		glClearColor 0.1 0.1 0.1 1
+		glEnable GL_DEPTH_TEST
+		glPixelStorei GL_UNPACK_ALIGNMENT 1
+		-- ~ glStencilOp GL_KEEP GL_KEEP GL_REPLACE
 
-	-- ~ glEnable GL_CULL_FACE
-	m
+		-- ~ glEnable GL_CULL_FACE
+		m
 
 
 -- ~ runFarbeT' :: MonadIO m => WindowT (FarbeT m) a -> m a
 -- ~ runFarbeT' = runFarbeT . runWindowT "" (InWindow (1000,1024))
 
 
+
 display :: Farbe m => Render m -> m ()
 display r = do
 	display' r
-	swapBuffer
+	swapBuffers
 
 data Render m
 	= DrawShader (m ())
@@ -157,6 +185,15 @@ display' (DrawInto a b) = do
 
 	glStencilFunc GL_ALWAYS 0 0xFF
 	glDisable GL_STENCIL_TEST
+
+
+nextFrame :: MonadWindow m => m ()
+nextFrame = do
+
+	swapBuffers
+
+
+
 
 
 drawTexture :: Farbe m => m (Render m -> m (Texture RGB))
@@ -207,7 +244,7 @@ drawDepth = do
 
 
 
-renderTexture :: (MonadIO m, HandTex m, Delay SmallWorld m, ShaderCache (HandTexT IO) m)
+renderTexture :: (MonadIO m, HandTex m, DelayedState SmallWorld m, ShaderCache (HandTexT IO) m)
 	=> Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
 renderTexture t = compile $ \v -> do
 	let V4 x y _ _ = fragCoord
@@ -216,7 +253,7 @@ renderTexture t = compile $ \v -> do
 
 
 
-compile' :: (Farbe m, AttrType a b, Delay SmallWorld m, ShaderCache (HandTexT IO) m)
+compile' :: (Farbe m, AttrType a b, DelayedState SmallWorld m, ShaderCache (HandTexT IO) m)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
 	-> m ([VArray a] -> Render m)
 compile' a = fmap (DrawShader .) $ compile a

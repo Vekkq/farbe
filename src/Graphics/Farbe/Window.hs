@@ -25,7 +25,7 @@ module Graphics.Farbe.Window
 	, Display (..)
 	, WindowT (..)
 	, MonadWindow
-	, swapBuffer
+	, swapBuffers
 	-- * Event processing
 	, processEvents
 	, processEvents'
@@ -532,9 +532,9 @@ for = flip map
 
 
 
--- | Finish render and display it on screen. 
-swapBuffer :: MonadWindow m => m ()
-swapBuffer = do
+-- | Finish render and display it on screen.
+swapBuffers :: MonadWindow m => m ()
+swapBuffers = do
 	w <- glfwWindow
 	liftIO $ W.swapBuffers w
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT

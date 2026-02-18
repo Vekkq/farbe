@@ -60,3 +60,10 @@ info:
 new framebuffers need a depth buffer in order to render in respect to depth.
 renderbuffers are for when you do need depth or stencil, but without directly accessing them. rendering color will access depth and depending on settings also stencil.
 stencil settings need to be reset, directly after use or it messes up the following frames. glStencilOp says how stencil is written. glStencilFunc says how stencil is used. if GL_REPLACE, glStencilFunc also writes.
+
+
+question:
+I have a big stack of mostly StateT transformers, each StateT wrapped in their respective newtype, next to functions that operate on it. I ran into the issue that I have to write a lot of boilerplate instances and increasingly long deriving lists. are there any shortcuts to it, that dont involve flattening the transformers?
+I particular see an issue when building ontop of the stack, when the next top has to derive a huge list of classes to keep the below working. arguably one could write a dedicated class to abstract all that is to be pushed out.
+
+
