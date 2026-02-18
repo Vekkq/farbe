@@ -22,12 +22,17 @@ import Graphics.Farbe.Delay
 
 
 import qualified Data.Set as S
+import qualified Data.Map as M
 import Data.Char
+import Data.Maybe
 import Data.List
 import Data.Foldable
 import Data.Array.IO
 import Foreign hiding (void)
 import Foreign.C
+import Data.Hashable
+import System.Mem.StableName
+
 
 
 import Graphics.GL.Embedded20
@@ -52,7 +57,7 @@ import Debug.Trace
 #define bottom undefined
 
 -- | The basic order is
---   Expr --> BuildShaderState --> String
+--   Expr to BuildShaderState to String
 
 -- | User-facing type expression.
 data Expr e a = Expr { unExpr :: ExprI } deriving Functor
@@ -111,6 +116,65 @@ runShaderEnv m = do
 	(r,rm) <- liftWorld $ runDeferT $ runDeferT' $ runCounterT 1 m
 
 	return (r, liftWorld $ sequence_ rm)
+
+
+-- Shader Cache --------------------------------------------------------------------------
+
+instance Eq ExprI where
+	(ExprI _ r ps) == (ExprI _ r2 ps2) = r == r2 && ps == ps2
+
+instance Hashable ExprI where
+	hashWithSalt salt (ExprI _ r ps) = salt `hashWithSalt` r `hashWithSalt` ps
+
+type Hash = Int
+
+data CacheState w = CacheState
+	{ cacheMap :: M.Map Hash (MVar (w ())) -- holds items based on StableName
+	, backupMap :: M.Map Hash (MVar (w ())) -- holds items based on partial hashes
+	}
+
+emptyCacheState = CacheState M.empty M.empty
+
+addToCache :: (ShaderCache w m, MonadIO m) => ExprI -> MVar (w ()) -> m ()
+addToCache e v = do
+	h <- snHash e
+	shaderCacheState (\(CacheState m1 m2)
+		-> ((),CacheState (M.insert h v m1) (M.insert (hash e) v m2)))
+
+snHash :: MonadIO m => a -> m Int
+snHash a = liftIO $ hashStableName <$> makeStableName a
+
+lookupCache :: (ShaderCache w m, MonadIO m) => ExprI -> m (Maybe (MVar (w ())))
+lookupCache e = do
+	(CacheState m1 m2) <- shaderCacheStateGet
+	h <- snHash e
+	let mw = M.lookup h m1
+	let mw2 = M.lookup (hash e) m2
+	return $ listToMaybe $ catMaybes [mw, mw2]
+
+newtype ShaderCacheT w m r = ShaderCacheT { unshaderCacheT :: StateT (CacheState w) m r }
+	deriving
+		( Functor, Applicative, Monad, Alternative
+		, MonadIO, MonadTrans
+		, Count, HandTex
+		)
+
+runShaderCache :: Shader -> ShaderCacheT w m a -> m (a, CacheState w)
+runShaderCache i b = runStateT (unshaderCacheT b) emptyCacheState
+
+
+class Monad m => ShaderCache w m where
+	shaderCacheState :: (CacheState w -> (a, CacheState w)) -> m a
+
+	shaderCacheStateGet :: m (CacheState w)
+	shaderCacheStateGet = shaderCacheState $ \s -> (s,s)
+	shaderCacheStatePut :: CacheState w -> m ()
+	shaderCacheStatePut a = shaderCacheState $ \_ -> ((),a)
+
+instance Monad m => ShaderCache w (ShaderCacheT w m) where
+	shaderCacheState = ShaderCacheT . state
+
+SIMPLEFUNCTION_CLASSINSTANCES(shaderCacheState,ShaderCache n,.)
 
 
 -- Shader building monad -----------------------------------------------------------------
@@ -190,6 +254,7 @@ compile f = do
 			addExpr "gl_Position" $ exprVec vs
 			return $ addShader sp GL_FRAGMENT_SHADER $ do
 				addExpr "gl_FragColor" $ exprVec $ fs
+				-- splice fs here to add further outputs
 				sequence_ fm
 				return i
 	return $ \varrs -> do

@@ -2,6 +2,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 
 module Graphics.Farbe.GL where
@@ -9,6 +10,9 @@ module Graphics.Farbe.GL where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
+
+import GHC.Generics (Generic)
+import Data.Hashable
 
 import Control.Monad.IO.Class
 import Foreign hiding (void)
@@ -29,7 +33,9 @@ import Graphics.GL.Types
 -- GL type information -------------------------------------------------------------------
 
 data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex
-	deriving (Eq, Show)
+	deriving (Eq, Ord, Read, Show, Generic)
+
+instance Hashable TypeS
 
 
 class (Eq a) => GLtype a where

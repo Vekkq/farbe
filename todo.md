@@ -47,6 +47,15 @@
 	* give the work monad a ReaderT (m Double) for time left for processing
 * add function for filtering for pressed keys in events
 
+* make it so, Farbe can be derived once and provide all functionality
+	* maybe have to merge the "world" to a single state monad
+	* provide a single class that covers all underlying functionality
+		* maybe by just returning its own monad object, which has all the underlying instances
+
+* free up the definition for textures, such that more types can be created
+	* e.g. with options to have yes/no mipmaps
+	* repeating layouts or no
+
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.
 renderbuffers are for when you do need depth or stencil, but without directly accessing them. rendering color will access depth and depending on settings also stencil.
