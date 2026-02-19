@@ -87,8 +87,6 @@ newtype ConfigT m a = ConfigT { unConfigT :: ReaderT Config m a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
 		, Count, HandTex, HandVBO
-		, MonadState s, MonadWriter w
-		, MonadError e, MonadWindow
 		, DelayedState f
 		, ShaderCache g
 		)
@@ -97,18 +95,23 @@ runConfigT :: Config -> ConfigT m a -> m a
 runConfigT c (ConfigT m) = runReaderT m c
 
 
-newtype FarbeT m a = FarbeT { unFarbe :: DelayedT SmallWorld (ShaderCacheT (HandTexT IO) (CounterT (HandTexT (HandVBOT m)))) a }
+newtype FarbeT m a = FarbeT { unFarbe ::
+	DelayedT SmallWorld
+	(ShaderCacheT (HandTexT IO)
+	(FrameTimingT
+	(CounterT
+	(HandTexT
+	(HandVBOT m)
+	)))) a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
-		, Count, HandTex, HandVBO
-		, MonadReader r, MonadState s, MonadWriter w
-		, MonadError e, MonadWindow
-		, DelayedState SmallWorld
-		, ShaderCache (HandTexT IO)
+		, MonadReader r, MonadState s, MonadWriter w, MonadError e
+		, MonadWindow, Count, HandTex, HandVBO, FrameTiming
+		, DelayedState SmallWorld, ShaderCache (HandTexT IO)
 		)
 
 instance MonadTrans FarbeT where
-	lift = FarbeT . lift . lift . lift . lift . lift
+	lift = FarbeT . lift . lift . lift . lift . lift . lift
 
 -- ~ deriving instance (Monad m) => Count (WindowT m)
 
@@ -130,6 +133,7 @@ runFarbeT :: MonadIO m => FarbeT m a -> m a
 runFarbeT m = runHandVBOT (2^24)
 	. runHandTexT
 	. runCounterT'
+	. fmap fst . runFrameTimingT
 	. fmap fst . runShaderCache
 	. fmap fst . runDelayedT
 	. unFarbe $ do

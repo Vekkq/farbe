@@ -122,14 +122,14 @@ runShaderEnv m = do
 	return (r, liftWorld $ sequence_ rm)
 
 
--- Shader DelayedState monad --------------------------------------------------------------------
+-- Shader DelayedState monad -------------------------------------------------------------
 
 type DSeq n = Seq.Seq (n ())
 
 newtype DelayedT n m a = DelayedT { unDelayedT :: StateT (DSeq n) m a }
 	deriving
 		( Functor, Applicative, Monad, MonadTrans, Alternative
-		, MonadPlus, MonadIO, Count, HandTex, HandVBO, Defer d, ShaderCache f
+		, MonadPlus, MonadIO, Count, HandTex, HandVBO, FrameTiming, Defer d, ShaderCache f
 		, MonadReader r, MonadWriter w
 		, MonadError e, MonadWindow
 		)
@@ -237,7 +237,7 @@ newtype ShaderCacheT w m r = ShaderCacheT { unshaderCacheT :: StateT (CacheState
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, MonadTrans
-		, Count, HandTex, HandVBO
+		, Count, HandTex, HandVBO, FrameTiming
 		, MonadReader q, MonadWriter v
 		, MonadError e, MonadWindow
 		)
