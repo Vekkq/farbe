@@ -204,8 +204,8 @@ newtype FrameTimingT m a = FrameTimingT { unFrameTime :: StateT Double m a }
 		)
 
 instance MonadState s m => MonadState s (FrameTimingT m) where
-	get = lift get
-	put = lift . put
+	state = lift . state
+
 
 runFrameTimingT (FrameTimingT m) = runStateT m 0
 
@@ -217,6 +217,9 @@ class FrameTiming m where
 
 instance Monad m => FrameTiming (FrameTimingT m) where
 	frameTimeState = FrameTimingT . state
+
+-- ~ logTime = do
+	-- ~ getTime
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\

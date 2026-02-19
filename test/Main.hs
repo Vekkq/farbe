@@ -52,7 +52,7 @@ import System.Mem
 
 
 main :: IO ()
-main = runWindowT "" (InWindow (1000,1024)) $ runFarbeT $ do
+main = runFarbeT $ do
 
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
