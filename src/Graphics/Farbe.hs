@@ -102,15 +102,15 @@ runConfigT c (ConfigT m) = runReaderT m c
 
 
 newtype FarbeT m a = FarbeT { unFarbe ::
-	DelayedT SmallWorld
+	DelayedT (ShaderCacheT' (HandTexT IO))
 	(ShaderCacheT (HandTexT IO)
 	(ConfigT
 	(FrameTimingT
 	(CounterT
 	(HandTexT
 	(HandVBOT
-	(WindowT m)
-	)))))) a }
+	(WindowT m
+	))))))) a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
 		, MonadWindow, Count, HandTex, HandVBO, FrameTiming
@@ -123,7 +123,7 @@ instance MonadTrans FarbeT where
 -- ~ deriving instance (Monad m) => Count (WindowT m)
 
 class (Count m, HandTex m, HandVBO m, MonadWindow m, MonadIO m) => Farbe m
-instance (MonadWindow m, MonadIO m) => Farbe (FarbeT m)
+instance (MonadIO m) => Farbe (FarbeT m)
 
 instance (Farbe m, Monad m) => Farbe (ReaderT r m)
 instance (Farbe m, Monad m, Monoid w) => Farbe (WriterT w m)

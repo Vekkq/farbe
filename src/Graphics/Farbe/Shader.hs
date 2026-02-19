@@ -128,10 +128,9 @@ type DSeq n = Seq.Seq (n ())
 
 newtype DelayedT n m a = DelayedT { unDelayedT :: StateT (DSeq n) m a }
 	deriving
-		( Functor, Applicative, Monad, MonadTrans, Alternative
-		, MonadPlus, MonadIO, Count, HandTex, HandVBO, FrameTiming, Defer d, ShaderCache f
-		, MonadReader r, MonadWriter w
-		, MonadError e, MonadWindow
+		( Functor, Applicative, Monad, MonadTrans, Alternative, MonadPlus, MonadIO
+		, Count, HandTex, HandVBO, FrameTiming, Defer d, ShaderCache f
+		, MonadReader r, MonadWriter w, MonadError e, MonadWindow
 		)
 
 instance MonadState s m => MonadState s (DelayedT n m) where
@@ -173,30 +172,6 @@ delay n = delayedState $ \seq -> ((),seq |> n)
 
 SIMPLEFUNCTION_CLASSINSTANCES(delayedState,DelayedState n,.)
 
-
--- ~ type Time = Double
-
--- ~ type Hash = Int
-
--- ~ type ShaderFn b = (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-
--- ~ data SKey = SKey Hash String deriving (Eq, Ord)
-
--- ~ newtype ShaderCacheT m a = ShaderCacheT
-	-- ~ { runShaderCacheT :: StateT (Map SKey (Maybe Int)) m a }
-
-
-
--- ~ class ShaderCache m where
-	-- ~ shader :: (MonadIO m, HandTex m, AttrType a b)
-		-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-		-- ~ -> m (MVar ([VArray a] -> m ()))
-
--- ~ instance ShaderCache (ShaderCacheT m) where
-	-- ~ shader f = do
-		-- ~ g <- compile f
-		-- ~ m <- newMVar g
-		-- ~ return m
 
 
 -- Shader Cache --------------------------------------------------------------------------
