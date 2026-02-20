@@ -69,6 +69,7 @@ import Graphics.Farbe.Utility
 
 import Data.Map
 import Data.Dynamic
+import Data.Bits
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
@@ -79,6 +80,7 @@ import Graphics.Farbe.GLScheduler
 data Config = Config
 	{ debugMode :: Bool
 	, devDebugMode :: Bool
+	, workTime :: Double
 	}
 
 class MonadConfig m where
@@ -87,12 +89,22 @@ class MonadConfig m where
 instance Monad m => MonadConfig (ConfigT m) where
 	config = ConfigT ask
 
-defaultConfig = Config { debugMode = True, devDebugMode = True }
+defaultConfig = Config { debugMode = True, devDebugMode = True, workTime = 1/80 }
+
+
+#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
+instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+
+SIMPLEFUNCTION_CLASSINSTANCES(config,MonadConfig,)
 
 newtype ConfigT m a = ConfigT { unConfigT :: ReaderT Config m a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO, MonadTrans
 		, MonadWindow, Count, HandTex, HandVBO, FrameTiming
+		, MonadState s
 		, DelayedState f, ShaderCache g
 		-- ~ , DelayedState SmallWorld, ShaderCache (HandTexT IO)
 		)
@@ -113,7 +125,7 @@ newtype FarbeT m a = FarbeT { unFarbe ::
 	))))))) a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
-		, MonadWindow, Count, HandTex, HandVBO, FrameTiming
+		, MonadWindow, Count, HandTex, HandVBO, FrameTiming, MonadConfig
 		, DelayedState SmallWorld, ShaderCache (HandTexT IO)
 		)
 
@@ -158,7 +170,20 @@ runFarbeT m = runWindowT "" (InWindow (1000,1024))
 -- ~ runFarbeT' :: MonadIO m => WindowT (FarbeT m) a -> m a
 -- ~ runFarbeT' = runFarbeT . runWindowT "" (InWindow (1000,1024))
 
+deriving instance (Monad m, MonadConfig m) => MonadConfig (DelayedT d m)
+deriving instance (Monad m, MonadConfig m) => MonadConfig (ShaderCacheT d m)
 
+nextFrame :: (DelayedState m m, FrameTiming m, MonadIO m, MonadConfig m, MonadWindow m) => m ()
+nextFrame = do
+	doDelayedWork
+	tl <- frameTimeGet
+	t <- getTime
+	c <- config
+	if t - tl > workTime c
+		then doDelayedWork
+		else do
+			logTime
+			swapBuffers
 
 display :: Farbe m => Render m -> m ()
 display r = do
@@ -200,10 +225,6 @@ display' (DrawInto a b) = do
 	glDisable GL_STENCIL_TEST
 
 
-nextFrame :: MonadWindow m => m ()
-nextFrame = do
-
-	swapBuffers
 
 
 

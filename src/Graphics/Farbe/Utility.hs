@@ -215,11 +215,15 @@ class FrameTiming m where
 	frameTimeGet :: m Double
 	frameTimeGet = frameTimeState $ \s -> (s,s)
 
+	frameTimePut :: Double -> m ()
+	frameTimePut d = frameTimeState $ \_ -> ((),d)
+
 instance Monad m => FrameTiming (FrameTimingT m) where
 	frameTimeState = FrameTimingT . state
 
--- ~ logTime = do
-	-- ~ getTime
+logTime :: (MonadWindow m, FrameTiming m) => m ()
+logTime = getTime >>= frameTimePut
+
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
