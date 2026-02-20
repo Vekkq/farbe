@@ -36,6 +36,7 @@ library
                    , Graphics.Farbe.GLFunc
                    , Graphics.Farbe.Utility
                    , Graphics.Farbe.Delay
+                   , Graphics.Farbe.State
 
     other-modules: Graphics.Farbe.MState
                  , Control.Concurrent.MVar.Lifted
