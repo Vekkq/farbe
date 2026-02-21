@@ -37,24 +37,6 @@ import Debug.Trace
 import Graphics.Farbe.VertexArray (HandVBO)
 
 
-newtype HandTexT m a = HandTexT { unTex :: StateT TexState m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative, MonadTrans
-		, MonadReader r, MonadWriter w, MonadError e, MonadIO, HandVBO
-		, MonadFix, MonadPlus, MonadWindow
-		)
-
-instance Monad m => Semigroup (HandTexT m a) where
-	(<>) = (>>)
-
-instance Monad m => Monoid (HandTexT m a) where
-	mempty = return $ error ""
-
-
-instance MonadState s m => MonadState s (HandTexT m) where
-	get = lift get
-	put = lift . put
-
 data TexState = TexState
 	{ lastUsed :: Word32
 	, texArr :: (IOUArray Word32 GLuint)
@@ -66,16 +48,16 @@ initTexState = liftIO $ do
 	ar <- MA.newArray (1, itoi $ i `quot` 3) 0
 	return $ TexState 1 ar
 
-evalHandTexT :: MonadIO m => HandTexT m a -> m a
-evalHandTexT (HandTexT m) = do
-	t <- initTexState
-	evalStateT m t
+-- ~ evalHandTexT :: MonadIO m => HandTexT m a -> m a
+-- ~ evalHandTexT (HandTexT m) = do
+	-- ~ t <- initTexState
+	-- ~ evalStateT m t
 
-runHandTexT :: MonadIO m => HandTexT m a -> m a
-runHandTexT (HandTexT m) = initTexState >>= evalStateT m
+-- ~ runHandTexT :: MonadIO m => HandTexT m a -> m a
+-- ~ runHandTexT (HandTexT m) = initTexState >>= evalStateT m
 
-runHandTexT' :: MonadIO m => TexState -> HandTexT m a -> m (a, TexState)
-runHandTexT' s (HandTexT m) = runStateT m s
+-- ~ runHandTexT' :: MonadIO m => TexState -> HandTexT m a -> m (a, TexState)
+-- ~ runHandTexT' s (HandTexT m) = runStateT m s
 
 -- ~ joinHandTex :: (MonadIO m, HandTex m) => HandTexT m a -> m a
 -- ~ joinHandTex (HandTexT m) = do
@@ -94,9 +76,6 @@ class HandTex m where
 	setTex s = stateTex (\_ -> ((), s))
 
 
-instance Monad m => HandTex (HandTexT m) where
-	stateTex = HandTexT . state
-
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
@@ -108,19 +87,19 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
 
 
-liftHandTexT :: (HandTex m, MonadIO m) => HandTexT m a -> m a
-liftHandTexT n = do
-	t <- getTex
-	(r,t') <- runHandTexT' t n
-	setTex t'
-	return r
+-- ~ liftHandTexT :: (HandTex m, MonadIO m) => HandTexT m a -> m a
+-- ~ liftHandTexT n = do
+	-- ~ t <- getTex
+	-- ~ (r,t') <- runHandTexT' t n
+	-- ~ setTex t'
+	-- ~ return r
 
-liftHandTexT' :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
-liftHandTexT' n = do
-	t <- getTex
-	(r,t') <- liftIO $ runHandTexT' t n
-	setTex t'
-	return r
+-- ~ liftHandTexT' :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
+-- ~ liftHandTexT' n = do
+	-- ~ t <- getTex
+	-- ~ (r,t') <- liftIO $ runHandTexT' t n
+	-- ~ setTex t'
+	-- ~ return r
 
 
 

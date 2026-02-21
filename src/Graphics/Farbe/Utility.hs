@@ -166,7 +166,7 @@ newtype CounterT m a = CounterT { counter :: StateT Int m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadPlus, Defer n, HandTex, HandVBO, MonadWindow
+		, MonadPlus, Defer n, HandTex, MonadWindow
 		)
 
 instance MonadState s m => MonadState s (CounterT m) where
@@ -200,7 +200,7 @@ newtype FrameTimingT m a = FrameTimingT { unFrameTime :: StateT Double m a }
 	deriving
 		( Functor, Applicative, Monad, Alternative, MonadTrans
 		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadPlus, Defer n, Count, HandTex, HandVBO, MonadWindow
+		, MonadPlus, Defer n, Count, HandTex, MonadWindow
 		)
 
 instance MonadState s m => MonadState s (FrameTimingT m) where

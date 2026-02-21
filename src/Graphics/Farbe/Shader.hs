@@ -12,13 +12,14 @@ module Graphics.Farbe.Shader where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
-import Graphics.Farbe.Utils
+-- ~ import Graphics.Farbe.Utils
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
-import Graphics.Farbe.Window
-import Graphics.Farbe.Utility
-import Graphics.Farbe.Delay
+import Graphics.Farbe.State
+-- ~ import Graphics.Farbe.Window
+-- ~ import Graphics.Farbe.Utility
+-- ~ import Graphics.Farbe.Delay
 
 
 import qualified Data.Set as S
@@ -70,23 +71,14 @@ data ExprI = ExprI { fnName :: Shdr String, rtype :: TypeS, fnAst :: [ExprI] }
 data ExprS = ExprS String TypeS [ExprS] deriving Show
 
 -- | A Shader-building environment.
-type Shdr = BuildShaderT (ShaderEnv)
+type Shdr = BuildShaderT (ShaderEnvT (FarbeT IO))
 
 
-runExprI :: ExprI -> Shdr ExprS
-runExprI (ExprI m r ps) = do
-	s <- m
-	ps' <- mapM runExprI ps
-	return $ ExprS s r ps'
-
-
-#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
-instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+-- ~ runExprI :: ExprI -> Shdr ExprS
+-- ~ runExprI (ExprI m r ps) = do
+	-- ~ s <- m
+	-- ~ ps' <- mapM runExprI ps
+	-- ~ return $ ExprS s r ps'
 
 
 -- ~ newtype World a = World { runWorld :: DelayedT' (HandTexT IO) a }
@@ -95,33 +87,63 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 		-- ~ , MonadPlus, MonadIO, HandTex, DelayedState (HandTexT IO)
 		-- ~ )
 
-type World = DelayedT' (ShaderCacheT' (HandTexT IO))
-type SmallWorld = (ShaderCacheT' (HandTexT IO))
+-- ~ type World = DelayedT' (ShaderCacheT' (HandTexT IO))
+-- ~ type SmallWorld = (ShaderCacheT' (HandTexT IO))
 
-liftWorld :: (DelayedState SmallWorld m, ShaderCache (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
-liftWorld n = do
-	t <- getTex
-	sc <- shaderCacheStateGet
-	(((r,seq),sc'),t') <- liftIO $ runHandTexT' t $ runShaderCache' sc $ runDelayedT n
-	mapM_ delay $ toList seq
-	setTex t'
-	return r
+-- ~ liftWorld :: (DelayedState SmallWorld m, ShaderCache (HandTexT IO) m, HandTex m, MonadIO m) => World a -> m a
+-- ~ liftWorld n = do
+	-- ~ t <- getTex
+	-- ~ sc <- shaderCacheStateGet
+	-- ~ (((r,seq),sc'),t') <- liftIO $ runHandTexT' t $ runShaderCache' sc $ runDelayedT n
+	-- ~ mapM_ delay $ toList seq
+	-- ~ setTex t'
+	-- ~ return r
+
+data ShaderData w = ShaderData
+	{ count :: Int
+	, postShaderM :: ShaderEnvT w ()
+	, preRenderM :: ShaderEnvT w ()
+	}
+
+postShader :: (Monad m) => ShaderEnvT m () -> ShaderEnvT m ()
+postShader m = ShaderEnvT $ modify (\s -> s { postShaderM = postShaderM s >> m } )
+
+preRender :: (Monad m, HandTex m) => ShaderEnvT m () -> ShaderEnvT m ()
+preRender m = ShaderEnvT $ modify (\s -> s { preRenderM = preRenderM s >> m } )
+
+newtype ShaderEnvT m a = ShaderEnvT { unShaderEnv :: StateT (ShaderData m) m a }
+	deriving
+		(Functor, Applicative, Monad, MonadIO)
+
+instance MonadTrans ShaderEnvT where lift = ShaderEnvT . lift
 
 
 
-type ShaderEnv = CounterT (DeferT' (DeferT' World))
+instance MonadState s m => MonadState s (ShaderEnvT m) where state = lift . state
+
+
+class (MonadIO m) => ShaderEnv m where
+	stateShader :: (ShaderData m -> (a, ShaderData m)) -> m a
+
+	getShader :: m (ShaderData m)
+	getShader = stateShader (\s -> (s, s))
+
+	setShader :: (ShaderData m) -> m ()
+	setShader s = stateShader (\_ -> ((), s))
+
+-- ~ type ShaderEnv = CounterT (DeferT' (DeferT' World))
 -- ~ instance MonadTrans ShaderEnvT where
 	-- ~ lift = ShaderEnvT . lift . lift . lift . lift . lift
 
-runShaderEnv
-	:: (HandTex m, HandTex n, MonadIO m, MonadIO n, DelayedState SmallWorld m, DelayedState SmallWorld n, ShaderCache (HandTexT IO) m, ShaderCache (HandTexT IO) n)
-	=> ShaderEnv a -> m (a, n ())
-runShaderEnv m = do
-	(r,rm) <- liftWorld $ runDeferT $ runDeferT' $ runCounterT 1 m
+-- ~ runShaderEnv
+	-- ~ :: (HandTex m, HandTex n, MonadIO m, MonadIO n, DelayedState SmallWorld m, DelayedState SmallWorld n, ShaderCache o m, ShaderCache o n)
+	-- ~ => ShaderEnv a -> m (a, n ())
+-- ~ runShaderEnv m = do
+	-- ~ (r,rm) <- liftWorld $ runDeferT $ runDeferT' $ runCounterT 1 m
 
-	return (r, liftWorld $ sequence_ rm)
+	-- ~ return (r, liftWorld $ sequence_ rm)
 
-
+{-
 -- Shader DelayedState monad -------------------------------------------------------------
 
 type DSeq n = Seq.Seq (n ())
@@ -129,7 +151,7 @@ type DSeq n = Seq.Seq (n ())
 newtype DelayedT n m a = DelayedT { unDelayedT :: StateT (DSeq n) m a }
 	deriving
 		( Functor, Applicative, Monad, MonadTrans, Alternative, MonadPlus, MonadIO
-		, Count, HandTex, HandVBO, FrameTiming, Defer d, ShaderCache f
+		, Count, HandTex, FrameTiming, Defer d, ShaderCache f
 		, MonadReader r, MonadWriter w, MonadError e, MonadWindow
 		)
 
@@ -212,7 +234,7 @@ newtype ShaderCacheT w m r = ShaderCacheT { unshaderCacheT :: StateT (CacheState
 	deriving
 		( Functor, Applicative, Monad, Alternative
 		, MonadIO, MonadTrans
-		, Count, HandTex, HandVBO, FrameTiming
+		, Count, HandTex, FrameTiming
 		, MonadReader q, MonadWriter v
 		, MonadError e, MonadWindow
 		)
@@ -243,6 +265,7 @@ instance Monad m => ShaderCache w (ShaderCacheT w m) where
 
 SIMPLEFUNCTION_CLASSINSTANCES(shaderCacheState,ShaderCache n,.)
 
+-}
 
 -- Shader building monad -----------------------------------------------------------------
 
@@ -259,10 +282,7 @@ emptyShaderState i = BuildShaderState i S.empty []
 
 newtype BuildShaderT m r = BuildShaderT { unBuildShaderT :: StateT BuildShaderState m r }
 	deriving
-		( Functor, Applicative, Monad, Alternative
-		, MonadIO, MonadTrans
-		, Count, HandTex, Defer n
-		)
+		(Functor, Applicative, Monad, Alternative, MonadIO, MonadTrans)
 
 runBuildShader :: Shader -> BuildShaderT m a -> m (a, BuildShaderState)
 runBuildShader i b = runStateT (unBuildShaderT b) $ emptyShaderState i
@@ -279,7 +299,7 @@ class Monad m => BuildShader m where
 instance Monad m => BuildShader (BuildShaderT m) where
 	buildShaderState = BuildShaderT . state
 
-SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)
+-- ~ SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)
 
 addHeader :: (GLtype a, BuildShader m) => String -> a -> String -> m Bool
 addHeader i a n = do
@@ -294,8 +314,8 @@ addExpr n (Expr a) = do
 	e <- runExprI a
 	buildShaderState $ \s -> ((), s { bexpr = (n,e) : bexpr s })
 
-getShader :: BuildShader m => m Shader
-getShader = shaderId <$> buildShaderStateGet
+getShaderId :: BuildShader m => m Shader
+getShaderId = shaderId <$> buildShaderStateGet
 
 data V -- | Vertex shader signifier.
 data F -- | Fragment/pixel shader signifier.
@@ -304,6 +324,7 @@ class ShaderType a
 instance ShaderType V
 instance ShaderType F
 
+{-
 class (MonadIO m, Defer (DeferT' (World) ()) m) => PostShader m
 instance (MonadIO m, Defer (DeferT' (World) ()) m) => PostShader m
 
@@ -424,7 +445,7 @@ setupAttribute1
 	=> a
 	-> m (Expr V a)
 setupAttribute1 a = do
-	s <- getShader
+	s <- getShaderId
 	n <- name "a" a
 	entireSize <- ask
 	o <- advanceBy a
@@ -651,7 +672,7 @@ makeVar a = do
 	vname <- (name "u" a)
 	let r = do
 		b <- addHeader "uniform" a vname
-		s <- getShader
+		s <- getShaderId
 		when b $ defer $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged $ upload l
@@ -818,3 +839,5 @@ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) wher
 
 instance Use (Var (Texture f)) e (Expr e (Texture f)) where
   use = Expr . varExpr
+
+-}

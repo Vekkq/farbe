@@ -5,10 +5,8 @@
 
 module Graphics.Farbe.VertexArray where
 
+-- ~ import Graphics.Farbe.State
 import Graphics.Farbe.Vec
-import Graphics.Farbe.Window
-import Graphics.Farbe.MState
-import Graphics.Farbe.Utils
 
 
 import qualified Data.Map as M
@@ -29,78 +27,45 @@ import Graphics.GL.Ext.OES.VertexArrayObject
 import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
 
-import Control.Concurrent.MVar
-import Control.Monad
-import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Cont (ContT)
-import Control.Monad.Except (ExceptT, MonadError)
-import Control.Monad.Fix (MonadFix)
-import Control.Applicative (Alternative)
-import Control.Monad.RWS (RWST)
-
-import Debug.Trace
 import System.Mem
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Concurrent.MVar
 
 
-newtype HandVBOT m a = HandVBOT { unHandVBO :: MStateT HandVBOState m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative, MonadTrans
-		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadWindow
-		)
-
-instance MonadState s m => MonadState s (HandVBOT m) where
-	get = lift get
-	put = lift . put
-
-runHandVBOT :: MonadIO m => GLintptr -> HandVBOT m a -> m a
-runHandVBOT i (HandVBOT m) = do
-	s <- initHandVBOState i
-	runMStateT s m
-
-runHandVBOT' :: MonadIO m => HandVBOState -> HandVBOT m a -> m HandVBOState
-runHandVBOT' a (HandVBOT m) = runMStateT a $ m >> get
-
-class (MonadIO m) => HandVBO m where
-	stateHandVBO :: (HandVBOState -> (a, HandVBOState)) -> m a
-
-	getHandVBO :: m HandVBOState
-	getHandVBO = stateHandVBO (\s -> (s, s))
-
-	setHandVBO :: HandVBOState -> m ()
-	setHandVBO s = stateHandVBO (\_ -> ((), s))
-
-	getVBOMVar :: m (MVar HandVBOState)
-
-instance (MonadIO m) => HandVBO (HandVBOT m) where
-	stateHandVBO = HandVBOT . state
-	getVBOMVar = HandVBOT getMVar
-
-#define SIMPLEFUNCTION2_CLASSINSTANCES(fn,op,fn2,op2,cn) \
-instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn; fn2 = lift op2 fn2 }            ;\
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn; fn2 = lift op2 fn2 }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn; fn2 = lift op2 fn2 }             ;\
-instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn; fn2 = lift op2 fn2 }              ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn; fn2 = lift op2 fn2 }            ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn; fn2 = lift op2 fn2 } ;\
-
-SIMPLEFUNCTION2_CLASSINSTANCES(stateHandVBO,.,getVBOMVar,,HandVBO)
-
--- VBO manager ---------------------------------------------------------------------------
-
-data HandVBOState = HandVBOState
+data VBOState = VBOState
 	{ pager :: Pager GLintptr
 	, vboIndex :: GLuint
 	}
 
-initHandVBOState :: MonadIO m => GLintptr -> m HandVBOState
+class (MonadIO m) => HandVBO m where
+	stateVBO :: (VBOState -> (a, VBOState)) -> m a
+
+	getVBO :: m VBOState
+	getVBO = stateVBO (\s -> (s, s))
+
+	setVBO :: VBOState -> m ()
+	setVBO s = stateVBO (\_ -> ((), s))
+
+	-- ~ getVBOMVar :: m (MVar VBOState)
+
+-- VBO manager ---------------------------------------------------------------------------
+
+withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)
+withPtr f = liftIO $ alloca $ \p -> do
+		x <- f p
+		y <- peek p
+		return (y, x)
+
+withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
+withPtr_ f = fst <$> withPtr f
+
+initHandVBOState :: MonadIO m => GLintptr -> m VBOState
 initHandVBOState s = liftIO $ do
 	vboMan <- withPtr_ $ glGenBuffers 1
 	glBindBuffer GL_ARRAY_BUFFER vboMan
 	glBufferData GL_ARRAY_BUFFER s nullPtr GL_DYNAMIC_DRAW
-	return $ HandVBOState (newPager s) vboMan
+	return $ VBOState (newPager s) vboMan
 
 vboUpdate :: (MonadIO m, Storable a) => VArrayF a -> StorableArray Int a -> m ()
 vboUpdate (VArrayF s i) a =
@@ -109,7 +74,7 @@ vboUpdate (VArrayF s i) a =
 
 vboAlloc :: HandVBO m => GLintptr -> GLintptr -> m GLintptr
 vboAlloc a i = do
-	pager <- pager <$> getHandVBO
+	pager <- pager <$> getVBO
 	let maybeP = calcAlloc a pager i
 	case maybeP of
 		Just (pager', p) -> do
@@ -124,18 +89,18 @@ vboAlloc a i = do
 
 vboRecover :: HandVBO m => m ()
 vboRecover = do
-	pager <- pager <$> getHandVBO
+	pager <- pager <$> getVBO
 	let size = fst $ M.findMax $ imap pager
 	let newSize = size*2
-	oldvbo <- vboIndex <$> getHandVBO
+	oldvbo <- vboIndex <$> getVBO
 	p <- liftIO $ withPtr_ $ glGetBufferPointervOES GL_ARRAY_BUFFER GL_BUFFER_MAP_POINTER_OES
 	v <- liftIO $ withPtr_ $ glGenBuffers 1
 	glBindBuffer GL_ARRAY_BUFFER v
 	glBufferData GL_ARRAY_BUFFER newSize p GL_STATIC_DRAW
 	deleteBuffer oldvbo
-	mvm <- getHandVBO
+	mvm <- getVBO
 	let pager' = pager { imap = fixKey size newSize $ imap pager }
-	setHandVBO $ HandVBOState pager' v
+	setVBO $ VBOState pager' v
 	return ()
 	where
 		fixKey o n m = M.insert n (negate n) $ M.delete o m
@@ -170,6 +135,7 @@ drawRanges = condense . map vArrayRange . sortBy (comparing vArrayPos)
 
 -- Pager - calculations for Buffer allocation --------------------------------------------
 
+
 data Pager n = Pager
 	{ imap :: M.Map n n -- | position - length
 	, lastCheck :: n
@@ -183,9 +149,9 @@ newPager s = Pager (M.fromList [((-1), 1), (s,negate s)]) 0
 
 updatePager :: HandVBO m => (Pager GLintptr -> m (Pager GLintptr, a)) -> m a
 updatePager f = do
-	vm <- getHandVBO
+	vm <- getVBO
 	(p',r) <- f $ pager vm
-	setHandVBO $ vm { pager = p' }
+	setVBO $ vm { pager = p' }
 	return r
 
 putPager :: HandVBO m => Pager GLintptr -> m ()
@@ -269,13 +235,13 @@ newtype VArray a = VArray { unVArray :: (MVar (VArrayF a)) }
 newVArray :: (HandVBO m, Storable a, Foldable f) => f a -> m (VArray a)
 newVArray xs = do
 	f <- newVArrayF xs
-	mvbo <- getVBOMVar
+	-- ~ mvbo <- getVBOMVar
 	mva <- liftIO $ newMVar f
-	liftIO $ mkWeakMVar mva (free mvbo f)
+	-- ~ liftIO $ mkWeakMVar mva (free mvbo f)
 	liftIO $ performGC
 	return $ VArray mva
 	where
-		free mvbo f = modifyMVarMasked_ mvbo $ \vbo -> runHandVBOT' vbo $ removeVArrayF f
+		-- ~ free mvbo f = modifyMVarMasked_ mvbo $ \vbo -> runHandVBOT' vbo $ removeVArrayF f
 
 drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays xs = do

@@ -7,56 +7,36 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
-module Graphics.Farbe
-	( runFarbeT
-	, Farbe (..)
-	, newVArray
-	, frame
-	, compile'
-	, Render
-	, transfer
-	, use
-	, renderTexture
-	, display
-	, drawTexture
-	, drawDepth
-	, module Graphics.Farbe.Vec
-	, module Graphics.Farbe.Expr
-	, makeVar
-	, makeVarF
-	, makeVarI
-	, makeVarB
-	, makeVarV2F
-	, makeVarV2I
-	, makeVarV2B
-	, makeVarV3F
-	, makeVarV3I
-	, makeVarV3B
-	, makeVarV4F
-	, makeVarV4I
-	, makeVarV4B
-	, makeVarM2
-	, makeVarM3
-	, makeVarM4
-	, makeVarT
+module Graphics.Farbe where
 
-	) where
-
-import Graphics.Farbe.Vec
-import Graphics.Farbe.Shader
+import Graphics.Farbe.Window
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
-import Graphics.Farbe.Utils
-import Graphics.Farbe.Delay
-import Graphics.Farbe.Expr
-import Graphics.Farbe.GL
-import Graphics.Farbe.Window
-import Control.Monad.IO.Class
-import Data.Int
-import Foreign.Storable
-import Foreign.Ptr
+import Graphics.Farbe.Shader
+import Graphics.Farbe.State
 
-import Control.Concurrent.MVar.Lifted
+import Data.Map
+import Data.Dynamic
+import Data.Bits
+import qualified Data.Set as S
+import qualified Data.Map as M
+import Data.Char
+import Data.Maybe
+import Data.List
+import Data.Foldable
+import Data.Array.IO
+import Foreign hiding (void)
+import Foreign.C
+import Data.Hashable
+import qualified Data.Sequence as Seq
+import Data.Sequence ((|>))
+
+import System.Mem.StableName
+import Control.Exception
+import Control.Concurrent.MVar
+
+import Graphics.GL.Embedded20
+import Graphics.GL.Types
 
 import Control.Monad
 import Control.Monad.Fail
@@ -65,114 +45,11 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
-import Graphics.Farbe.Utility
 
-import Data.Map
-import Data.Dynamic
-import Data.Bits
-
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
-
-import Graphics.Farbe.GLScheduler
+import Control.Monad.IO.Class
 
 
-data Config = Config
-	{ debugMode :: Bool
-	, devDebugMode :: Bool
-	, workTime :: Double
-	}
-
-class MonadConfig m where
-	config :: m Config
-
-instance Monad m => MonadConfig (ConfigT m) where
-	config = ConfigT ask
-
-defaultConfig = Config { debugMode = True, devDebugMode = True, workTime = 1/80 }
-
-
-#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
-
-SIMPLEFUNCTION_CLASSINSTANCES(config,MonadConfig,)
-
-newtype ConfigT m a = ConfigT { unConfigT :: ReaderT Config m a }
-	deriving
-		( Functor, Applicative, Monad, MonadIO, MonadTrans
-		, MonadWindow, Count, HandTex, HandVBO, FrameTiming
-		, MonadState s
-		, DelayedState f, ShaderCache g
-		-- ~ , DelayedState SmallWorld, ShaderCache (HandTexT IO)
-		)
-
-runConfigT :: Config -> ConfigT m a -> m a
-runConfigT c (ConfigT m) = runReaderT m c
-
-
-newtype FarbeT m a = FarbeT { unFarbe ::
-	DelayedT (ShaderCacheT' (HandTexT IO))
-	(ShaderCacheT (HandTexT IO)
-	(ConfigT
-	(FrameTimingT
-	(CounterT
-	(HandTexT
-	(HandVBOT
-	(WindowT m
-	))))))) a }
-	deriving
-		( Functor, Applicative, Monad, MonadIO
-		, MonadWindow, Count, HandTex, HandVBO, FrameTiming, MonadConfig
-		, DelayedState SmallWorld, ShaderCache (HandTexT IO)
-		)
-
-instance MonadTrans FarbeT where
-	lift = FarbeT . lift . lift . lift . lift . lift . lift . lift . lift
-
--- ~ deriving instance (Monad m) => Count (WindowT m)
-
-class (Count m, HandTex m, HandVBO m, MonadWindow m, MonadIO m) => Farbe m
-instance (MonadIO m) => Farbe (FarbeT m)
-
-instance (Farbe m, Monad m) => Farbe (ReaderT r m)
-instance (Farbe m, Monad m, Monoid w) => Farbe (WriterT w m)
-instance (Farbe m, Monad m) => Farbe (StateT r m)
-instance (Farbe m, Monad m) => Farbe (ExceptT r m)
-instance (Farbe m, Monad m, Monoid w) => Farbe (RWST r w s m)
-
-instance MonadIO m => MonadFail (FarbeT m) where
-	fail s = liftIO $ do
-		return $ error s
-
-
-runFarbeT :: MonadIO m => FarbeT m a -> m a
-runFarbeT m = runWindowT "" (InWindow (1000,1024))
-	. runHandVBOT (2^24)
-	. runHandTexT
-	. runCounterT'
-	. fmap fst . runFrameTimingT
-	. runConfigT defaultConfig
-	. fmap fst . runShaderCache
-	. fmap fst . runDelayedT
-	. unFarbe $ do
-		glClearColor 0.1 0.1 0.1 1
-		glEnable GL_DEPTH_TEST
-		glPixelStorei GL_UNPACK_ALIGNMENT 1
-		-- ~ glStencilOp GL_KEEP GL_KEEP GL_REPLACE
-
-		-- ~ glEnable GL_CULL_FACE
-		m
-
-
--- ~ runFarbeT' :: MonadIO m => WindowT (FarbeT m) a -> m a
--- ~ runFarbeT' = runFarbeT . runWindowT "" (InWindow (1000,1024))
-
-deriving instance (Monad m, MonadConfig m) => MonadConfig (DelayedT d m)
-deriving instance (Monad m, MonadConfig m) => MonadConfig (ShaderCacheT d m)
-
+{-
 nextFrame :: (DelayedState m m, FrameTiming m, MonadIO m, MonadConfig m, MonadWindow m) => m ()
 nextFrame = do
 	doDelayedWork
@@ -313,3 +190,4 @@ framebufferStatus = do
 		GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
 		_ -> return ()
 
+-}

@@ -1,10 +1,18 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DataKinds #-}
 
 module Graphics.Farbe.State where
 
 import Graphics.Farbe.Window
+import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Texture
+-- ~ import Graphics.Farbe.Shader
 
 import Data.Map
 import Data.Dynamic
@@ -36,6 +44,8 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
+
+import Control.Monad.IO.Class
 
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
 	deriving
@@ -77,7 +87,10 @@ data FarbeState = FarbeState
 	, lastFrameTime :: Double
 	}
 
-
+data CacheState w = CacheState
+	{ cacheMap :: M.Map Hash (MVar (w ())) -- holds items based on StableName
+	, backupMap :: M.Map Hash (MVar (w ())) -- holds items based on partial hashes
+	}
 
 data Config = Config
 	{ debugMode :: Bool
@@ -85,25 +98,25 @@ data Config = Config
 	, workTime :: Double
 	}
 
-
-data Pager n = Pager
-	{ imap :: M.Map n n -- | position - length
-	, lastCheck :: n
-	} deriving (Read, Show, Eq, Ord)
-
-data VBOState = VBOState
-	{ pager :: Pager GLintptr
-	, vboIndex :: GLuint
+emptyFarbeState = FarbeState
+	{ config = Config True True (1/80)
+	, counter = 0
+	, vboState = undefined
+	, texState = undefined
+	, delayed = undefined
+	, shaderCache = undefined
+	, lastFrameTime = undefined
 	}
 
-data TexState = TexState
-	{ lastUsed :: Word32
-	, texArr :: (IOUArray Word32 GLuint)
-	}
+runFarbeT m = FarbeT $ runStateT m emptyFarbeState
+
 
 type Hash = Int
 
-data CacheState w = CacheState
-	{ cacheMap :: M.Map Hash (MVar (w ())) -- holds items based on StableName
-	, backupMap :: M.Map Hash (MVar (w ())) -- holds items based on partial hashes
-	}
+
+instance (MonadIO m, Farbe m) => HandVBO m where
+	stateVBO f = farbeState (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+
+instance (MonadIO m, Farbe m) => HandTex m where
+	stateTex f = farbeState (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
+

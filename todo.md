@@ -56,6 +56,8 @@
 	* e.g. with options to have yes/no mipmaps
 	* repeating layouts or no
 
+* fix cleansing of VArray with Delayed
+
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.
 renderbuffers are for when you do need depth or stencil, but without directly accessing them. rendering color will access depth and depending on settings also stencil.
