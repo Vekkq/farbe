@@ -1,0 +1,248 @@
+
+{-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE CPP #-}
+module Graphics.Farbe.Uniform where
+
+import Graphics.Farbe.Vec
+import Graphics.Farbe.Tuple
+import Graphics.Farbe.GL
+import Graphics.Farbe.Utils
+import Graphics.Farbe.Utility
+import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Array
+import Graphics.Farbe.Texture
+import Graphics.Farbe.State
+import Graphics.Farbe.Shader
+-- ~ import Graphics.Farbe.Window
+-- ~ import Graphics.Farbe.Utility
+-- ~ import Graphics.Farbe.Delay
+
+
+import qualified Data.Set as S
+import qualified Data.Map as M
+import Data.Char
+import Data.Maybe
+import Data.List
+import Data.Foldable
+import Data.Array.IO
+import Foreign hiding (void)
+import Foreign.C
+import Data.Hashable
+import System.Mem.StableName
+import qualified Data.Sequence as Seq
+import Data.Sequence ((|>))
+
+
+
+import Graphics.GL.Embedded20
+import Graphics.GL.Types
+
+import Control.Exception
+import Control.Concurrent.MVar
+
+import Control.Monad
+import Control.Monad.Reader
+import Control.Monad.State.Strict
+import Control.Monad.Writer.Strict
+import Control.Monad.Cont (ContT)
+import Control.Monad.Except (ExceptT, MonadError)
+import Control.Applicative (Alternative)
+import Control.Monad.RWS (RWST)
+
+import GHC.TypeNats
+
+import Debug.Trace
+
+#define bottom undefined
+
+-- Uniform variables ---------------------------------------------------------------------
+
+data Var a = Var { varExpr :: ExprI, varMVar :: MVar a }
+
+swapVar :: MonadIO m => Var a -> a -> m a
+swapVar v = liftIO . swapMVar (varMVar v)
+
+readVar :: MonadIO m => Var a -> m a
+readVar = liftIO . readMVar . varMVar
+
+
+makeVar :: forall a m . (Count m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
+makeVar a = do
+	m <- liftIO $ newMVar a
+	vname <- (name "u" a)
+	let r = do
+		b <- addHeader "uniform" a vname
+		s <- getShaderId
+		when b $ defer $ do
+			l <- withString vname $ glGetUniformLocation s
+			wc <- makeRunWhenChanged $ upload l
+			-- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
+			defer $ (liftIO $ readMVar m) >>= runwc wc
+		return vname
+	return $ Var (ExprI r (toTypeS (bottom :: a)) []) m
+
+
+class (GLtype a, Eq a) => Upload a where
+	upload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
+	-- TODO: makeUploadFn :: GLint -> a -> m (a -> m ())
+	-- move RunWhenChanged into instances
+
+instance Upload Bool where upload l = glUniform1i l . boolToInt
+instance Upload Int32 where upload l = glUniform1i l . itoi
+instance Upload Float where	upload l = glUniform1f l
+instance Upload (V2 Float) where upload l (V2 a b) = glUniform2f l a b
+instance Upload (V3 Float) where upload l (V3 a b c) = glUniform3f l a b c
+instance Upload (V4 Float) where upload l (V4 a b c d) = glUniform4f l a b c d
+
+instance Upload (V2 Int32) where
+	upload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
+
+instance Upload (V3 Int32) where
+	upload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
+
+instance Upload (V4 Int32) where
+	upload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
+
+instance Upload (V2 Bool) where
+	upload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
+
+instance Upload (V3 Bool) where
+	upload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
+
+instance Upload (V4 Bool) where
+	upload l (V4 a b c d) =
+		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+
+
+instance Upload (Mat V2 V2 Float) where
+	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
+
+instance Upload (Mat V3 V3 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+
+instance Upload (Mat V4 V4 Float) where
+	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
+
+instance Upload (Texture f) where
+	upload l (Texture i mu _ _ _) = do
+		TexState u' ts <- getTex
+		u <- liftIO $ readMVar mu
+		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		if (i /= i') then do
+			glActiveTexture $ GL_TEXTURE0 + u'
+			glBindTexture GL_TEXTURE_2D i
+			glUniform1i l $ itoi u'
+			liftIO $ swapMVar mu u'
+			liftIO $ writeArray ts u' i
+			u'' <- succU ts u'
+			setTex $ TexState u'' ts
+		else glUniform1i l $ itoi u
+		where
+		succU ts x = do
+			let x' = succ x
+			(a,b) <- liftIO $ getBounds ts
+			return $ if x' >= b then a else x'
+
+{-
+instance Upload (Texture f) where
+	upload l (Texture i mu _ _ _) = do
+		TexState u' ts <- getTex
+		u <- liftIO $ readMVar mu
+		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		if (i /= i') then do
+			glActiveTexture $ GL_TEXTURE0 + u'
+			glBindTexture GL_TEXTURE_2D i
+			glUniform1i l $ itoi u'
+			liftIO $ swapMVar mu u'
+			liftIO $ writeArray ts u' i
+			u'' <- succU ts u'
+			setTex $ TexState u'' ts
+		else glUniform1i l $ itoi u
+		where
+		succU ts x = do
+			let x' = succ x
+			(a,b) <- liftIO $ getBounds ts
+			return $ if x' >= b then a else x'
+-}
+
+-- makeVars ------------------------------------------------------------------------------
+
+makeVarF :: (Count m, MonadIO m) => Float -> m (Var Float)
+makeVarI :: (Count m, MonadIO m) => Int32 -> m (Var Int32)
+makeVarB :: (Count m, MonadIO m) => Bool -> m (Var Bool)
+makeVarV2F :: (Count m, MonadIO m) => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: (Count m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: (Count m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: (Count m, MonadIO m) => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: (Count m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: (Count m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: (Count m, MonadIO m) => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: (Count m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: (Count m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: (Count m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: (Count m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: (Count m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+makeVarT :: (Count m, MonadIO m) => Texture t -> m (Var (Texture t))
+
+makeVarF   = makeVar
+makeVarI   = makeVar
+makeVarB   = makeVar
+makeVarV2F = makeVar
+makeVarV2I = makeVar
+makeVarV2B = makeVar
+makeVarV3F = makeVar
+makeVarV3I = makeVar
+makeVarV3B = makeVar
+makeVarV4F = makeVar
+makeVarV4I = makeVar
+makeVarV4B = makeVar
+makeVarM2  = makeVar
+makeVarM3  = makeVar
+makeVarM4  = makeVar
+makeVarT   = makeVar
+
+-- add expr texture shader access functions
+
+-- Access uniform variables --------------------------------------------------------------
+
+class Use a e r | a e -> r, r -> a e where
+	use :: a -> r
+
+instance Use (Var Float) e (Expr e Float) where use = Expr . varExpr
+instance Use (Var Int32) e (Expr e Int32) where use = Expr . varExpr
+instance Use (Var Bool) e (Expr e Bool) where use = Expr . varExpr
+
+usePartsVec :: (Vector v, GLtype a) => Var (v a) -> v (Expr e a)
+usePartsVec = vecParts . Expr . varExpr
+
+instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where use = usePartsVec
+instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where use = usePartsVec
+instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where use = usePartsVec
+instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where use = usePartsVec
+instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where use = usePartsVec
+
+usePartsMat :: (Vector v, GLtype a, GLtype (v a)) => Var (v (v a)) -> v (v (Expr e a))
+usePartsMat v = vecParts <$> vecParts (Expr $ varExpr v)
+
+instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where use = usePartsMat
+instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where use = usePartsMat
+
+instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
+	use = Expr . varExpr
+
+
+
+instance Use (Var (Texture f)) e (Expr e (Texture f)) where
+  use = Expr . varExpr
+

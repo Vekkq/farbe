@@ -13,9 +13,7 @@ import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utils
-import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Array
-import Graphics.Farbe.Texture
 import Graphics.Farbe.Window
 
 
@@ -107,44 +105,15 @@ fuzzySwapMVar ml a = liftIO $ do
 	return r
 
 
--- DeferT --------------------------------------------------------------------------------
--- | DeferT, simple monad to defer monadic operations.
 
-newtype DeferT n m a = DeferT { unDefer :: StateT (S.Seq n) m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative
-		, MonadPlus, MonadIO, Count, HandTex
-		)
+withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)
+withPtr f = liftIO $ alloca $ \p -> do
+		x <- f p
+		y <- peek p
+		return (y, x)
 
-type DeferT' m = DeferT (m ()) m
-
-instance MonadTrans (DeferT n) where
-	lift = DeferT . lift
-
-
-runDeferT :: (Monad m) => DeferT n m a -> m (a, [n])
-runDeferT m = do
-	(a,w) <- runStateT (unDefer m) S.empty
-	return (a, toList w)
-
-runDeferT' :: Monad m => DeferT' m a -> m a
-runDeferT' m = do
-	(a,e) <- runDeferT m
-	sequence_ e
-	return a
-
-runDeferT'' :: Monad m => DeferT n m a -> m (a, [n])
-runDeferT'' m = do
-	(a,w) <- runStateT (unDefer m) S.empty
-	return (a, toList w)
-
-class Monad m => Defer n m | m -> n where
-	defer :: n -> m ()
-
-instance (Monad m) => Defer n (DeferT n m) where
-	defer = DeferT . (\a -> modify (|>a))
-
-SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
+withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
+withPtr_ f = fst <$> withPtr f
 
 
 -- ~ class Monad m => GetDeferred n m | m -> n where
@@ -158,81 +127,4 @@ SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
 
 -- ~ SIMPLEFUNCTION_CLASSINSTANCES(getDeferred,GetDeferred n,)
 
-
-
--- CounterT ------------------------------------------------------------------------------
-
-newtype CounterT m a = CounterT { counter :: StateT Int m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative, MonadTrans
-		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadPlus, Defer n, HandTex, MonadWindow
-		)
-
-instance MonadState s m => MonadState s (CounterT m) where
-	get = lift get
-	put = lift . put
-
--- ~ instance Monad m => Semigroup (CounterT m a) where (<>) = (>>)
--- ~ instance Monad m => Monoid (CounterT m ()) where mempty = return ()
-
-class Monad m => Count m where
-	count :: m Int
-
-instance Monad m => Count (CounterT m) where
-	count = CounterT $ state $ \s -> (s, succ s)
-
-SIMPLEFUNCTION_CLASSINSTANCES(count,Count,)
-
-runCounterT :: Monad m => Int -> CounterT m a -> m a
-runCounterT i (CounterT st) = evalStateT st i
-
-runCounterT' :: Monad m => CounterT m a -> m a
-runCounterT' = runCounterT 1
-
-generateName :: Count m => String -> m String
-generateName s = (s++) . ("_"++) . show <$> count
-
-
-data LastFrame = LastFrame { lastFrame :: Double }
-
-newtype FrameTimingT m a = FrameTimingT { unFrameTime :: StateT Double m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative, MonadTrans
-		, MonadReader r, MonadWriter w, MonadError e, MonadIO
-		, MonadPlus, Defer n, Count, HandTex, MonadWindow
-		)
-
-instance MonadState s m => MonadState s (FrameTimingT m) where
-	state = lift . state
-
-
-runFrameTimingT (FrameTimingT m) = runStateT m 0
-
-class FrameTiming m where
-	frameTimeState :: (Double -> (a, Double)) -> m a
-
-	frameTimeGet :: m Double
-	frameTimeGet = frameTimeState $ \s -> (s,s)
-
-	frameTimePut :: Double -> m ()
-	frameTimePut d = frameTimeState $ \_ -> ((),d)
-
-instance Monad m => FrameTiming (FrameTimingT m) where
-	frameTimeState = FrameTimingT . state
-
-logTime :: (MonadWindow m, FrameTiming m) => m ()
-logTime = getTime >>= frameTimePut
-
-
-#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
-instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
-
-
-SIMPLEFUNCTION_CLASSINSTANCES(frameTimeState,FrameTiming,.)
 

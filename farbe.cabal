@@ -37,6 +37,11 @@ library
                    , Graphics.Farbe.Utility
                    , Graphics.Farbe.Delay
                    , Graphics.Farbe.State
+                   , Graphics.Farbe.Attribute
+                   , Graphics.Farbe.Uniform
+                   , Graphics.Farbe.ShaderEnv
+                   , Graphics.Farbe.BuildShader
+                   , Graphics.Farbe.Name
 
     other-modules: Graphics.Farbe.MState
                  , Control.Concurrent.MVar.Lifted

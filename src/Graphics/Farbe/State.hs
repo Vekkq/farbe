@@ -64,6 +64,12 @@ class Farbe m where
 	farbeGets :: (FarbeState -> a) -> m a
 	farbeGets f = farbeState $ \s -> (f s, s)
 
+	farbeGet :: m FarbeState
+	farbeGet = farbeState (\s -> (s,s))
+
+	farbePut :: FarbeState -> m ()
+	farbePut s = farbeState (\_ -> ((),s))
+
 instance Monad m => Farbe (FarbeT m) where
 	farbeState = FarbeT . state
 
@@ -79,7 +85,7 @@ SIMPLEFUNCTION_CLASSINSTANCES(farbeState,Farbe,.)
 
 data FarbeState = FarbeState
 	{ config :: Config
-	, counter :: Int
+	-- ~ , counter :: Int
 	, vboState :: VBOState
 	, texState :: TexState
 	, delayed :: Seq.Seq (FarbeT IO ())
@@ -100,7 +106,7 @@ data Config = Config
 
 emptyFarbeState = FarbeState
 	{ config = Config True True (1/80)
-	, counter = 0
+	-- ~ , counter = 0
 	, vboState = undefined
 	, texState = undefined
 	, delayed = undefined
@@ -108,7 +114,11 @@ emptyFarbeState = FarbeState
 	, lastFrameTime = undefined
 	}
 
-runFarbeT m = FarbeT $ runStateT m emptyFarbeState
+runFarbeT :: Functor m => FarbeT m a -> m a
+runFarbeT (FarbeT m) = fst <$> runStateT m emptyFarbeState
+
+runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
+runFarbeT' fs (FarbeT m) = runStateT m fs
 
 
 type Hash = Int

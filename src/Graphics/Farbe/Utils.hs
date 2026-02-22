@@ -23,15 +23,4 @@ import Foreign.C
 
 
 
-withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)
-withPtr f = liftIO $ alloca $ \p -> do
-		x <- f p
-		y <- peek p
-		return (y, x)
-
-withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
-withPtr_ f = fst <$> withPtr f
-
-
-
 

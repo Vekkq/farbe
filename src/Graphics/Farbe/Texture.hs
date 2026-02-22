@@ -6,7 +6,7 @@
 module Graphics.Farbe.Texture where
 
 import Graphics.Farbe.GL
-import Graphics.Farbe.Utils
+import Graphics.Farbe.Utility
 -- ~ import Graphics.Farbe.Uniform
 
 
