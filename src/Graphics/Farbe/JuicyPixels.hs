@@ -20,7 +20,7 @@ import Foreign.ForeignPtr.Unsafe
 
 
 
-loadImage :: forall m t j f
+loadImage :: forall m t f
   . (MonadIO m, HandTex m, TextureFormat t, ToTexture f, JuiceTextureFormat t f)
   => String -> m (Either String (Texture t))
 loadImage s = do

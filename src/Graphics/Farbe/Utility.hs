@@ -14,7 +14,6 @@ import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utils
 import Graphics.Farbe.Array
-import Graphics.Farbe.Window
 
 
 import Data.Char

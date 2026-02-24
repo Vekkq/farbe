@@ -35,7 +35,6 @@ library
                    , Graphics.Farbe.GLScheduler
                    , Graphics.Farbe.GLFunc
                    , Graphics.Farbe.Utility
-                   , Graphics.Farbe.Delay
                    , Graphics.Farbe.State
                    , Graphics.Farbe.Attribute
                    , Graphics.Farbe.Uniform
@@ -43,8 +42,7 @@ library
                    , Graphics.Farbe.BuildShader
                    , Graphics.Farbe.Name
 
-    other-modules: Graphics.Farbe.MState
-                 , Control.Concurrent.MVar.Lifted
+    other-modules:
 
     build-depends: base ^>=4.21
                  , containers^>=0.7

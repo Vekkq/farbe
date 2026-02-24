@@ -1,7 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
@@ -14,39 +12,16 @@ import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 -- ~ import Graphics.Farbe.Shader
 
-import Data.Map
-import Data.Dynamic
-import Data.Bits
 import qualified Data.Sequence as Seq
-import qualified Data.Set as S
 import qualified Data.Map as M
-import Data.Char
-import Data.Maybe
-import Data.List
-import Data.Foldable
-import Data.Array.IO
-import Foreign hiding (void)
-import Foreign.C
-import Data.Hashable
-import qualified Data.Sequence as Seq
-import Data.Sequence ((|>))
 
-import System.Mem.StableName
-import Control.Exception
 import Control.Concurrent.MVar
 
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
-
-import Control.Monad
-import Control.Monad.Fail
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
-
-import Control.Monad.IO.Class
 
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
 	deriving

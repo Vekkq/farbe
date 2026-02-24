@@ -10,7 +10,6 @@
 module Graphics.Farbe.ShaderEnv where
 
 import Graphics.Farbe.State
--- ~ import Graphics.Farbe.Shader
 
 import Foreign hiding (void)
 import Graphics.GL.Types

@@ -7,7 +7,6 @@ module Main (main) where
 
 import Graphics.Farbe
 import Graphics.Farbe.Shader
-import Graphics.Farbe.Delay
 import Graphics.Farbe.Window
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL

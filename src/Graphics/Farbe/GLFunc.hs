@@ -6,26 +6,26 @@
 module Graphics.Farbe.GLFunc where
 
 
-import Graphics.Farbe.Vec
-import Graphics.Farbe.Tuple
-import Graphics.Farbe.Utility
-import Data.Composition
+-- ~ import Graphics.Farbe.Vec
+-- ~ import Graphics.Farbe.Tuple
+-- ~ import Graphics.Farbe.Utility
+-- ~ import Data.Composition
 
 
 import Control.Monad.IO.Class
-import Control.Monad.Trans
+-- ~ import Control.Monad.Trans
 
 import Foreign hiding (void)
 
-import Graphics.GL.Embedded20
-	( pattern GL_FALSE, pattern GL_TRUE, pattern GL_INT
-	, pattern GL_FLOAT, pattern GL_BOOL)
-import qualified Graphics.GL.Embedded20 as GL
-import Graphics.GL.Ext.OES.VertexArrayObject as GL
+-- ~ import Graphics.GL.Embedded20
+	-- ~ ( pattern GL_FALSE, pattern GL_TRUE, pattern GL_INT
+	-- ~ , pattern GL_FLOAT, pattern GL_BOOL)
+-- ~ import qualified Graphics.GL.Embedded20 as GL
+-- ~ import Graphics.GL.Ext.OES.VertexArrayObject as GL
 -- ~ import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
 
-import Graphics.GL.Ext.OES.GetProgramBinary as GL
+-- ~ import Graphics.GL.Ext.OES.GetProgramBinary as GL
 
 
 

@@ -2,6 +2,8 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
@@ -42,8 +44,8 @@ import Graphics.Farbe.VertexArray
 -- ~ import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
 import Graphics.Farbe.ShaderEnv
-import Graphics.Farbe.Vec
-import Graphics.Farbe.Expr
+import Graphics.Farbe.Vec ()
+import Graphics.Farbe.Expr ()
 import Control.Monad.Trans
 
 -- ~ import Control.Monad.IO.Class

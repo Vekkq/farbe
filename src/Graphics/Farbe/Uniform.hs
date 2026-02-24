@@ -74,7 +74,7 @@ readVar :: MonadIO m => Var a -> m a
 readVar = liftIO . readMVar . varMVar
 
 
-makeVar :: forall a n m . (Farbe m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
+makeVar :: forall a m . (Farbe m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
 makeVar a = do
 	m <- liftIO $ newMVar a
 	vname <- (name "u" a)

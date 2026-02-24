@@ -9,7 +9,6 @@ module Graphics.Farbe.VertexArray where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Utility
 
-
 import qualified Data.Map as M
 import Data.List
 import Data.Maybe
@@ -20,7 +19,6 @@ import Data.Array.Base
 import Foreign hiding (void)
 import Foreign.C
 
-import System.Mem.Weak
 
 -- ~ import Graphics.GL
 import Graphics.GL.Embedded20
@@ -29,7 +27,6 @@ import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
 
 import System.Mem
-import Control.Monad
 import Control.Monad.IO.Class
 import Control.Concurrent.MVar
 

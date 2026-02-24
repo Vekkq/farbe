@@ -18,7 +18,6 @@ import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Name
 
-
 import Data.Char
 import Data.List
 import Data.Foldable
