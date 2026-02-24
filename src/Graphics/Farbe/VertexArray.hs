@@ -19,7 +19,6 @@ import Data.Array.Base
 import Foreign hiding (void)
 import Foreign.C
 
-
 -- ~ import Graphics.GL
 import Graphics.GL.Embedded20
 import Graphics.GL.Ext.OES.VertexArrayObject
@@ -87,7 +86,7 @@ vboRecover = do
 	glBindBuffer GL_ARRAY_BUFFER v
 	glBufferData GL_ARRAY_BUFFER newSize p GL_STATIC_DRAW
 	deleteBuffer oldvbo
-	mvm <- getVBO
+	-- ~ mvm <- getVBO
 	let pager' = pager { imap = fixKey size newSize $ imap pager }
 	setVBO $ VBOState pager' v
 	return ()

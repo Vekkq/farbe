@@ -19,30 +19,28 @@ library
 
     exposed-modules: Graphics.Farbe
                    , Graphics.Farbe.Vec
-                   , Graphics.Farbe.Tuple
                    , Graphics.Farbe.Window
-                   , Graphics.Farbe.Utils
-                   , Graphics.Farbe.STL
-                   , Graphics.Farbe.Texture
-                   , Graphics.Farbe.VertexArray
-                   , Graphics.Farbe.Array
-                   , Graphics.Farbe.Shader
-                   , Graphics.Farbe.GL
-                   , Graphics.Farbe.Counter
-                   , Graphics.Farbe.Expr
                    , Graphics.Farbe.JuicyPixels
-                   , Graphics.Farbe.DChan
-                   , Graphics.Farbe.GLScheduler
-                   , Graphics.Farbe.GLFunc
-                   , Graphics.Farbe.Utility
-                   , Graphics.Farbe.State
-                   , Graphics.Farbe.Attribute
-                   , Graphics.Farbe.Uniform
-                   , Graphics.Farbe.ShaderEnv
-                   , Graphics.Farbe.BuildShader
-                   , Graphics.Farbe.Name
+                   , Graphics.Farbe.STL
 
-    other-modules:
+    other-modules: Graphics.Farbe.Tuple
+                 , Graphics.Farbe.Utils
+                 , Graphics.Farbe.Texture
+                 , Graphics.Farbe.VertexArray
+                 , Graphics.Farbe.Array
+                 , Graphics.Farbe.Shader
+                 , Graphics.Farbe.GL
+                 , Graphics.Farbe.Expr
+                 , Graphics.Farbe.GLFunc
+                 , Graphics.Farbe.Utility
+                 , Graphics.Farbe.State
+                 , Graphics.Farbe.Attribute
+                 , Graphics.Farbe.Uniform
+                 , Graphics.Farbe.ShaderEnv
+                 , Graphics.Farbe.BuildShader
+                 , Graphics.Farbe.Name
+                 , Graphics.Farbe.Array
+
 
     build-depends: base ^>=4.21
                  , containers^>=0.7

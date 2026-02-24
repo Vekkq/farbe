@@ -8,13 +8,12 @@ import Data.Binary.Get
 import Data.ByteString.Lazy (ByteString)
 import Data.Int
 import Graphics.Farbe.Vec
-import Graphics.Farbe.Utils
-import Graphics.Farbe.Tuple
+-- ~ import Graphics.Farbe.Utils
+-- ~ import Graphics.Farbe.Tuple
 import Control.Monad
 import GHC.Generics
 import Control.Monad.IO.Class
 import Data.Maybe
-
 
 
 data STL = STL { triangles :: [Triangle] } deriving Show

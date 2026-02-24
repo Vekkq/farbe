@@ -17,6 +17,7 @@ module Graphics.Farbe
 	, use
 	, display
 	, newVArray
+	, transfer
 	, makeVarF
 	, makeVarI
 	, makeVarB

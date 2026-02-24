@@ -6,11 +6,9 @@
 module Main (main) where
 
 import Graphics.Farbe
-import Graphics.Farbe.Shader
 import Graphics.Farbe.Window
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL
-import Graphics.Farbe.Texture
 import Data.Function
 import Data.Either
 import Control.Concurrent
@@ -23,11 +21,6 @@ import Data.Function
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 import Graphics.Farbe
-import Graphics.Farbe.Utils
-import Graphics.Farbe.JuicyPixels
-import Graphics.Farbe.VertexArray
-import Graphics.Farbe.Texture
-import Graphics.Farbe.Window
 
 import Foreign hiding (void)
 import Codec.Picture
@@ -35,7 +28,6 @@ import Codec.Picture
 
 import Control.Monad.State.Strict
 
-import Graphics.Farbe.GLFunc
 
 
 import Graphics.GL.Types
