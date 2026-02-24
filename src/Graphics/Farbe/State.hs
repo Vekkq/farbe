@@ -59,19 +59,23 @@ instance MonadState s m => MonadState s (FarbeT m) where state = lift . state
 instance MonadTrans FarbeT where lift = FarbeT . lift
 
 class Farbe m where
-	farbeState :: (FarbeState -> (a, FarbeState)) -> m a
+	stateFarbe :: (FarbeState -> (a, FarbeState)) -> m a
 
-	farbeGets :: (FarbeState -> a) -> m a
-	farbeGets f = farbeState $ \s -> (f s, s)
+	getsFarbe :: (FarbeState -> a) -> m a
+	getsFarbe f = stateFarbe $ \s -> (f s, s)
 
-	farbeGet :: m FarbeState
-	farbeGet = farbeState (\s -> (s,s))
+	getFarbe :: m FarbeState
+	getFarbe = stateFarbe (\s -> (s,s))
 
-	farbePut :: FarbeState -> m ()
-	farbePut s = farbeState (\_ -> ((),s))
+	putFarbe :: FarbeState -> m ()
+	putFarbe s = stateFarbe (\_ -> ((),s))
 
 instance Monad m => Farbe (FarbeT m) where
-	farbeState = FarbeT . state
+	stateFarbe = FarbeT . state
+
+
+count :: Farbe m => m Int
+count = stateFarbe (\s -> let c = counter s in (c, s { counter = succ c }))
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
@@ -81,11 +85,11 @@ instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }           
 instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
 
-SIMPLEFUNCTION_CLASSINSTANCES(farbeState,Farbe,.)
+SIMPLEFUNCTION_CLASSINSTANCES(stateFarbe,Farbe,.)
 
 data FarbeState = FarbeState
 	{ config :: Config
-	-- ~ , counter :: Int
+	, counter :: Int
 	, vboState :: VBOState
 	, texState :: TexState
 	, delayed :: Seq.Seq (FarbeT IO ())
@@ -106,7 +110,7 @@ data Config = Config
 
 emptyFarbeState = FarbeState
 	{ config = Config True True (1/80)
-	-- ~ , counter = 0
+	, counter = 0
 	, vboState = undefined
 	, texState = undefined
 	, delayed = undefined
@@ -125,8 +129,8 @@ type Hash = Int
 
 
 instance (MonadIO m, Farbe m) => HandVBO m where
-	stateVBO f = farbeState (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+	stateVBO f = stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
 
 instance (MonadIO m, Farbe m) => HandTex m where
-	stateTex f = farbeState (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
+	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
 

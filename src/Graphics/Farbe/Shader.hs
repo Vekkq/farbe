@@ -2,105 +2,45 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 module Graphics.Farbe.Shader where
 
 import Graphics.Farbe.Vec
-import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
-import Graphics.Farbe.Array
-import Graphics.Farbe.Texture
 import Graphics.Farbe.State
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Name
--- ~ import Graphics.Farbe.Window
--- ~ import Graphics.Farbe.Utility
--- ~ import Graphics.Farbe.Delay
 
 
-import qualified Data.Set as S
-import qualified Data.Map as M
 import Data.Char
-import Data.Maybe
 import Data.List
 import Data.Foldable
-import Data.Array.IO
 import Foreign hiding (void)
 import Foreign.C
-import Data.Hashable
-import System.Mem.StableName
 import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
-
-
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
 import Control.Exception
-import Control.Concurrent.MVar
-
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Cont (ContT)
-import Control.Monad.Except (ExceptT, MonadError)
-import Control.Applicative (Alternative)
-import Control.Monad.RWS (RWST)
-
-import GHC.TypeNats
-
-import Debug.Trace
 
 #define bottom undefined
 
 
 
--- DeferT --------------------------------------------------------------------------------
--- | DeferT, simple monad to defer monadic operations.
-
-newtype DeferT n m a = DeferT { unDefer :: StateT (Seq.Seq n) m a }
-	deriving
-		( Functor, Applicative, Monad, Alternative
-		, MonadPlus, MonadIO
-		)
-
-type DeferT' m = DeferT (m ()) m
-
-instance MonadTrans (DeferT n) where
-	lift = DeferT . lift
-
-
-runDeferT :: (Monad m) => DeferT n m a -> m (a, [n])
-runDeferT m = do
-	(a,w) <- runStateT (unDefer m) Seq.empty
-	return (a, toList w)
-
-runDeferT' :: Monad m => DeferT' m a -> m a
-runDeferT' m = do
-	(a,e) <- runDeferT m
-	sequence_ e
-	return a
-
-runDeferT'' :: Monad m => DeferT n m a -> m (a, [n])
-runDeferT'' m = do
-	(a,w) <- runStateT (unDefer m) Seq.empty
-	return (a, toList w)
-
-class Monad m => Defer n m | m -> n where
-	defer :: n -> m ()
-
-instance (Monad m) => Defer n (DeferT n m) where
-	defer = DeferT . (\a -> modify (|>a))
-
--- ~ SIMPLEFUNCTION_CLASSINSTANCES(defer,Defer n,.)
+instance (Monad m, ShaderEnv n m) => ShaderEnv n (BuildShaderT m) where
+	stateShader = lift . stateShader
 
 
 type ShaderM = DeferT' Shdr
@@ -110,7 +50,7 @@ compile :: (MonadIO m, Farbe m, AttrType a b)
 	-> m ([VArray a] -> m ())
 compile f = do
 	sp <- glCreateProgram
-	(vao,exec) <- runShaderEnvT' $
+	(vao,exec) <- runShaderEnvT'' $
 		join $ addShader GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes (bottom :: a)
 			((vs,fs),fm) <- runDeferT $ f e
@@ -215,15 +155,53 @@ instance (GLtype a, GLtype (V4 a), GLtype (V4 (V4 a))) =>
 	transfer = fmap (fmap vecParts . vecParts) . transfer1 . exprMat
 
 
-deriving instance (Monad m, BuildShader m) => BuildShader (DeferT' m)
-
 transfer1 :: forall a . GLtype a => Expr V a -> DeferT' Shdr (Expr F a)
 transfer1 e = do
 	let a = bottom :: a
 	n <- name "t" a
 	lift $ addExpr n e
-	addHeader "varying" a $ n
+	addHeader "varying" a n
 	defer $ void $ addHeader "in" a n
 	return $ liftExprShdr' $ return n
 
 
+
+-- DeferT --------------------------------------------------------------------------------
+-- | DeferT, simple monad to defer monadic operations.
+
+newtype DeferT n m a = DeferT { unDefer :: StateT (Seq.Seq n) m a }
+	deriving (Functor, Applicative, Monad, MonadIO, Farbe)
+
+type DeferT' m = DeferT (m ()) m
+
+instance MonadTrans (DeferT n) where
+	lift = DeferT . lift
+
+instance (Monad m, BuildShader m) => BuildShader (DeferT' m) where
+	buildShaderState = lift . buildShaderState
+
+instance (Monad m, ShaderEnv n m) => ShaderEnv n (DeferT' m) where
+	stateShader = lift . stateShader
+
+
+runDeferT :: (Monad m) => DeferT n m a -> m (a, [n])
+runDeferT m = do
+	(a,w) <- runStateT (unDefer m) Seq.empty
+	return (a, toList w)
+
+runDeferT' :: Monad m => DeferT' m a -> m a
+runDeferT' m = do
+	(a,e) <- runDeferT m
+	sequence_ e
+	return a
+
+runDeferT'' :: Monad m => DeferT n m a -> m (a, [n])
+runDeferT'' m = do
+	(a,w) <- runStateT (unDefer m) Seq.empty
+	return (a, toList w)
+
+class Monad m => Defer n m | m -> n where
+	defer :: n -> m ()
+
+instance (Monad m) => Defer n (DeferT n m) where
+	defer = DeferT . (\a -> modify (|>a))

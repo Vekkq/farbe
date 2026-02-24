@@ -19,6 +19,9 @@ import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 import Graphics.Farbe.State
 import Graphics.Farbe.Shader
+import Graphics.Farbe.BuildShader
+import Graphics.Farbe.Name
+import Graphics.Farbe.ShaderEnv
 -- ~ import Graphics.Farbe.Window
 -- ~ import Graphics.Farbe.Utility
 -- ~ import Graphics.Farbe.Delay
@@ -37,7 +40,6 @@ import Data.Hashable
 import System.Mem.StableName
 import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
-
 
 
 import Graphics.GL.Embedded20
@@ -72,18 +74,18 @@ readVar :: MonadIO m => Var a -> m a
 readVar = liftIO . readMVar . varMVar
 
 
-makeVar :: forall a m . (Count m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
+makeVar :: forall a n m . (Farbe m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
 makeVar a = do
 	m <- liftIO $ newMVar a
 	vname <- (name "u" a)
 	let r = do
 		b <- addHeader "uniform" a vname
 		s <- getShaderId
-		when b $ defer $ do
+		when b $ postShader $ do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged $ upload l
 			-- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
-			defer $ (liftIO $ readMVar m) >>= runwc wc
+			preRender $ (liftIO $ readMVar m) >>= runwc wc
 		return vname
 	return $ Var (ExprI r (toTypeS (bottom :: a)) []) m
 
@@ -173,22 +175,22 @@ instance Upload (Texture f) where
 
 -- makeVars ------------------------------------------------------------------------------
 
-makeVarF :: (Count m, MonadIO m) => Float -> m (Var Float)
-makeVarI :: (Count m, MonadIO m) => Int32 -> m (Var Int32)
-makeVarB :: (Count m, MonadIO m) => Bool -> m (Var Bool)
-makeVarV2F :: (Count m, MonadIO m) => V2 Float -> m (Var (V2 Float))
-makeVarV2I :: (Count m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
-makeVarV2B :: (Count m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
-makeVarV3F :: (Count m, MonadIO m) => V3 Float -> m (Var (V3 Float))
-makeVarV3I :: (Count m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
-makeVarV3B :: (Count m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
-makeVarV4F :: (Count m, MonadIO m) => V4 Float -> m (Var (V4 Float))
-makeVarV4I :: (Count m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
-makeVarV4B :: (Count m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
-makeVarM2 :: (Count m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
-makeVarM3 :: (Count m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
-makeVarM4 :: (Count m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
-makeVarT :: (Count m, MonadIO m) => Texture t -> m (Var (Texture t))
+makeVarF :: (Farbe m, MonadIO m) => Float -> m (Var Float)
+makeVarI :: (Farbe m, MonadIO m) => Int32 -> m (Var Int32)
+makeVarB :: (Farbe m, MonadIO m) => Bool -> m (Var Bool)
+makeVarV2F :: (Farbe m, MonadIO m) => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: (Farbe m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: (Farbe m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: (Farbe m, MonadIO m) => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: (Farbe m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: (Farbe m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: (Farbe m, MonadIO m) => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: (Farbe m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: (Farbe m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: (Farbe m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: (Farbe m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: (Farbe m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+makeVarT :: (Farbe m, MonadIO m) => Texture t -> m (Var (Texture t))
 
 makeVarF   = makeVar
 makeVarI   = makeVar

@@ -7,62 +7,70 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
-module Graphics.Farbe where
+module Graphics.Farbe
+	( runFarbeT
+	, makeVar
+	, makeVarF
+	, makeVarI
+	, makeVarB
+	, makeVarV2F
+	, makeVarV2I
+	, makeVarV2B
+	, makeVarV3F
+	, makeVarV3I
+	, makeVarV3B
+	, makeVarV4F
+	, makeVarV4I
+	, makeVarV4B
+	, makeVarM2
+	, makeVarM3
+	, makeVarM4
+	, makeVarT
+	, compile
+	, use
+	, swapVar
+	, display
+	, Render (..)
+	) where
 
+import qualified Graphics.Farbe.State as S
+import Graphics.Farbe.State hiding (runFarbeT)
 import Graphics.Farbe.Window
+import Graphics.Farbe.Uniform
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
-import Graphics.Farbe.State
-
-import Data.Map
-import Data.Dynamic
-import Data.Bits
-import qualified Data.Set as S
-import qualified Data.Map as M
-import Data.Char
-import Data.Maybe
-import Data.List
-import Data.Foldable
-import Data.Array.IO
-import Foreign hiding (void)
-import Foreign.C
-import Data.Hashable
-import qualified Data.Sequence as Seq
-import Data.Sequence ((|>))
-
-import System.Mem.StableName
-import Control.Exception
-import Control.Concurrent.MVar
-
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
-
-import Control.Monad
-import Control.Monad.Fail
-import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Except
-import Control.Monad.RWS
+import Graphics.Farbe.ShaderEnv
+import Graphics.Farbe.Vec
+import Control.Monad.Trans
 
 import Control.Monad.IO.Class
+import Graphics.GL
+
+instance (Farbe m, Monad m) => Farbe (WindowT m) where
+	stateFarbe = lift . stateFarbe
+
+instance (ShaderEnv n m, Monad m) => ShaderEnv n (WindowT m) where
+	stateShader = lift . stateShader
 
 
-{-
-nextFrame :: (DelayedState m m, FrameTiming m, MonadIO m, MonadConfig m, MonadWindow m) => m ()
-nextFrame = do
-	doDelayedWork
-	tl <- frameTimeGet
-	t <- getTime
-	c <- config
-	if t - tl > workTime c
-		then doDelayedWork
-		else do
-			logTime
-			swapBuffers
 
-display :: Farbe m => Render m -> m ()
+runFarbeT :: MonadIO m => String -> Display -> WindowT (S.FarbeT m) a -> m a
+runFarbeT s d = S.runFarbeT . runWindowT s d
+
+-- ~ nextFrame :: (Farbe m, MonadIO m) => m ()
+-- ~ nextFrame = do
+	-- ~ doDelayedWork
+	-- ~ tl <- frameTimeGet
+	-- ~ t <- getTime
+	-- ~ c <- config
+	-- ~ if t - tl > workTime c
+		-- ~ then doDelayedWork
+		-- ~ else do
+			-- ~ logTime
+			-- ~ swapBuffers
+
+display :: (Farbe m, MonadWindow m) => Render m -> m ()
 display r = do
 	display' r
 	swapBuffers
@@ -73,7 +81,7 @@ data Render m
 	| DrawInto (Render m) (Render m)
 	| Draws [(Render m)]
 
-display' :: Farbe m => Render m -> m ()
+display' :: (Farbe m, MonadIO m) => Render m -> m ()
 display' (DrawShader m) = m
 display' (Draws ms) = mapM_ display' ms
 display' (DrawOver a b) = do
@@ -104,6 +112,7 @@ display' (DrawInto a b) = do
 
 
 
+{-
 
 
 

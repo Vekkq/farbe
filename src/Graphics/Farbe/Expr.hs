@@ -4,15 +4,15 @@
 
 module Graphics.Farbe.Expr where
 
-import Graphics.Farbe.Shader
 import Graphics.Farbe.GL
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Array
-
+import Graphics.Farbe.BuildShader
 
 import Numeric
 import Foreign hiding (void)
+
 
 
 instance (GLtype a, Num a) => Num (Expr e a) where

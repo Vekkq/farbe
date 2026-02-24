@@ -61,17 +61,17 @@ import Debug.Trace
 
 #define bottom undefined
 
-name :: (ShaderEnv n m, GLtype a) => String -> a -> m String
+name :: (Farbe m, Functor m, GLtype a) => String -> a -> m String
 name s a = generateName $ s ++ glShortName a
 
-nameAttrib :: (ShaderEnv n m, GLtype a) => String -> a -> m String
+nameAttrib :: (Farbe m, Functor m, GLtype a) => String -> a -> m String
 nameAttrib s a = (++ glShortName a) <$> generateName s
 
 withString :: MonadIO m => String -> (CString -> IO a) -> m a
 withString n f = liftIO $ bracket (newCAString n) free f
 
 
-generateName :: ShaderEnv n m => String -> m String
+generateName :: (Farbe m, Functor m) => String -> m String
 generateName s = (s++) . ("_"++) . show <$> count
 
 

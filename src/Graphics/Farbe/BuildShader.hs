@@ -15,39 +15,15 @@ import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.State
 import Graphics.Farbe.Vec
 
-
--- ~ import Data.Map
-import Data.Dynamic
-import Data.Bits
 import qualified Data.Set as S
-import qualified Data.Map as M
-import Data.Char
-import Data.Maybe
-import Data.List
 import Data.Foldable
-import Data.Array.IO
 import Foreign hiding (void)
-import Foreign.C
-import Data.Hashable
-import qualified Data.Sequence as Seq
-import Data.Sequence ((|>))
-
-import System.Mem.StableName
-import Control.Exception
-import Control.Concurrent.MVar
-
-import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
 import Control.Monad
-import Control.Monad.Fail
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Except
-import Control.Monad.RWS
 
-import Control.Monad.IO.Class
 
 
 #define bottom undefined
@@ -131,7 +107,7 @@ emptyShaderState = BuildShaderState S.empty []
 
 newtype BuildShaderT m a = BuildShaderT { unBuildShaderT :: StateT BuildShaderState m a }
 	deriving
-		(Functor, Applicative, Monad, MonadIO, MonadTrans)
+		(Functor, Applicative, Monad, MonadIO, MonadTrans, Farbe)
 
 instance MonadState s m => MonadState s (BuildShaderT m) where
 	state = lift . state
@@ -161,6 +137,7 @@ addHeader i a n = do
 	let b = not $ S.member str (header s)
 	when b $ buildShaderStatePut $ s { header = S.insert str $ header s }
 	return b
+
 
 addExpr :: String -> Expr e a -> Shdr ()
 addExpr n (Expr a) = do
