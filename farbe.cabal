@@ -31,7 +31,6 @@ library
                  , Graphics.Farbe.Shader
                  , Graphics.Farbe.GL
                  , Graphics.Farbe.Expr
-                 , Graphics.Farbe.GLFunc
                  , Graphics.Farbe.Utility
                  , Graphics.Farbe.State
                  , Graphics.Farbe.Attribute
