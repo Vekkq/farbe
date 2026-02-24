@@ -15,27 +15,17 @@ import Data.Array.MArray as MA
 import Foreign hiding (void)
 
 import Control.Concurrent.MVar
-import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
-import Control.Monad.Fix
 import Control.Monad.Cont
 import Control.Monad.RWS
 import Graphics.Farbe.Vec
 import Graphics.GL
 -- ~ import Graphics.Farbe.Utils
 -- ~ import Graphics.Farbe.GL
-import Graphics.Farbe.Window
-
-import Graphics.GL.Ext.OES.DepthTexture
-
-import Debug.Trace
-
-import Graphics.Farbe.VertexArray (HandVBO)
-
 
 data TexState = TexState
 	{ lastUsed :: Word32

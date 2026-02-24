@@ -52,15 +52,6 @@ class (MonadIO m) => HandVBO m where
 
 -- VBO manager ---------------------------------------------------------------------------
 
--- ~ withPtr :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m (a, b)
--- ~ withPtr f = liftIO $ alloca $ \p -> do
-		-- ~ x <- f p
-		-- ~ y <- peek p
-		-- ~ return (y, x)
-
--- ~ withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
--- ~ withPtr_ f = fst <$> withPtr f
-
 initHandVBOState :: MonadIO m => GLintptr -> m VBOState
 initHandVBOState s = liftIO $ do
 	vboMan <- withPtr_ $ glGenBuffers 1
@@ -198,7 +189,7 @@ pagerSize :: Integral n => Pager n -> n
 pagerSize = fst . fromJust . M.lookupMax . imap
 
 
--- VArrayF interface - required to be freed manually -------------------------------------
+-- VArrayF interface - currently required to be freed manually ---------------------------
 
 data VArrayF a = VArrayF { vArraySize :: GLintptr, vArrayPos :: GLintptr } deriving (Eq,Ord,Show)
 

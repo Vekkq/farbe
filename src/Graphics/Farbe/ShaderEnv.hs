@@ -9,45 +9,14 @@
 
 module Graphics.Farbe.ShaderEnv where
 
-import Graphics.Farbe.Window
-import Graphics.Farbe.VertexArray
-import Graphics.Farbe.Texture
 import Graphics.Farbe.State
-import Graphics.Farbe.GL
 -- ~ import Graphics.Farbe.Shader
 
-import Data.Map
-import Data.Dynamic
-import Data.Bits
-import qualified Data.Set as S
-import qualified Data.Map as M
-import Data.Char
-import Data.Maybe
-import Data.List
-import Data.Foldable
-import Data.Array.IO
 import Foreign hiding (void)
-import Foreign.C
-import Data.Hashable
-import qualified Data.Sequence as Seq
-import Data.Sequence ((|>))
-
-import System.Mem.StableName
-import Control.Exception
-import Control.Concurrent.MVar
-
-import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
-import Control.Monad
-import Control.Monad.Fail
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Except
-import Control.Monad.RWS
-
-import Control.Monad.IO.Class
 
 
 type ShaderId = GLuint
@@ -68,6 +37,7 @@ emptyShaderData = ShaderData
 	, preRenderM = return ()
 	, shaderId = error "unset shader id"
 	}
+
 
 newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: StateT ShaderData m a }
 	deriving
@@ -107,12 +77,11 @@ runShaderEnvT ms = do
 	return (a, liftFarbe $ preRenderM sd)
 
 runShaderEnvT'' :: (MonadIO m, Farbe m) => ShaderEnvT (FarbeT IO) a -> m (a, m ())
-runShaderEnvT'' ms = undefined
-	-- ~ (a,sd) <- runShaderEnvT' $ do
-		-- ~ a <- ms
-		-- ~ getsShader postShaderM
-		-- ~ return a
-	-- ~ return (a, liftFarbe $ preRenderM sd)
+runShaderEnvT'' ms = do
+	s <- getFarbe
+	((a, sd),s') <- liftIO $ runFarbeT' s $ runShaderEnvT ms
+	putFarbe s'
+	return $ (a, liftFarbe sd)
 
 runShaderEnvT' :: (Monad m) => ShaderEnvT m a -> m (a, ShaderData)
 runShaderEnvT' (ShaderEnvT ms) = runStateT ms emptyShaderData

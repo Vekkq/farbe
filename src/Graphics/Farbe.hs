@@ -10,6 +10,11 @@
 module Graphics.Farbe
 	( runFarbeT
 	, makeVar
+	, compile
+	, swapVar
+	, use
+	, display
+	, newVArray
 	, makeVarF
 	, makeVarI
 	, makeVarB
@@ -26,10 +31,6 @@ module Graphics.Farbe
 	, makeVarM3
 	, makeVarM4
 	, makeVarT
-	, compile
-	, use
-	, swapVar
-	, display
 	, Render (..)
 	) where
 
@@ -38,13 +39,14 @@ import Graphics.Farbe.State hiding (runFarbeT)
 import Graphics.Farbe.Window
 import Graphics.Farbe.Uniform
 import Graphics.Farbe.VertexArray
-import Graphics.Farbe.Texture
+-- ~ import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Vec
+import Graphics.Farbe.Expr
 import Control.Monad.Trans
 
-import Control.Monad.IO.Class
+-- ~ import Control.Monad.IO.Class
 import Graphics.GL
 
 instance (Farbe m, Monad m) => Farbe (WindowT m) where

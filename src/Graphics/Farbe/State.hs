@@ -17,6 +17,7 @@ import Graphics.Farbe.Texture
 import Data.Map
 import Data.Dynamic
 import Data.Bits
+import qualified Data.Sequence as Seq
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.Char
@@ -108,18 +109,24 @@ data Config = Config
 	, workTime :: Double
 	}
 
-emptyFarbeState = FarbeState
-	{ config = Config True True (1/80)
-	, counter = 0
-	, vboState = undefined
-	, texState = undefined
-	, delayed = undefined
-	, shaderCache = undefined
-	, lastFrameTime = undefined
-	}
+emptyFarbeState :: MonadIO m => m FarbeState
+emptyFarbeState = do
+	vbo <- initHandVBOState (2^24)
+	tex <- initTexState
+	return $ FarbeState
+		{ config = Config True True (1/80)
+		, counter = 0
+		, vboState = vbo
+		, texState = tex
+		, delayed = Seq.empty
+		, shaderCache = CacheState M.empty M.empty
+		, lastFrameTime = 1/50
+		}
 
-runFarbeT :: Functor m => FarbeT m a -> m a
-runFarbeT (FarbeT m) = fst <$> runStateT m emptyFarbeState
+runFarbeT :: MonadIO m => FarbeT m a -> m a
+runFarbeT (FarbeT m) = do
+	e <- emptyFarbeState
+	fst <$> runStateT m e
 
 runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT' fs (FarbeT m) = runStateT m fs
