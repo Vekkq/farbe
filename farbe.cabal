@@ -15,7 +15,7 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 library
-    import:         warnings
+    --import:         warnings
 
     exposed-modules: Graphics.Farbe
                    , Graphics.Farbe.Vec
@@ -24,7 +24,6 @@ library
                    , Graphics.Farbe.STL
 
     other-modules: Graphics.Farbe.Tuple
-                 , Graphics.Farbe.Utils
                  , Graphics.Farbe.Texture
                  , Graphics.Farbe.VertexArray
                  , Graphics.Farbe.Array
@@ -38,7 +37,6 @@ library
                  , Graphics.Farbe.ShaderEnv
                  , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Name
-                 , Graphics.Farbe.Array
 
 
     build-depends: base ^>=4.21

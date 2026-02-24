@@ -24,8 +24,6 @@ import Control.Monad.Cont
 import Control.Monad.RWS
 import Graphics.Farbe.Vec
 import Graphics.GL
--- ~ import Graphics.Farbe.Utils
--- ~ import Graphics.Farbe.GL
 
 data TexState = TexState
 	{ lastUsed :: Word32
@@ -37,24 +35,6 @@ initTexState = liftIO $ do
 	i <- withPtr_ $ glGetIntegerv GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS
 	ar <- MA.newArray (1, itoi $ i `quot` 3) 0
 	return $ TexState 1 ar
-
--- ~ evalHandTexT :: MonadIO m => HandTexT m a -> m a
--- ~ evalHandTexT (HandTexT m) = do
-	-- ~ t <- initTexState
-	-- ~ evalStateT m t
-
--- ~ runHandTexT :: MonadIO m => HandTexT m a -> m a
--- ~ runHandTexT (HandTexT m) = initTexState >>= evalStateT m
-
--- ~ runHandTexT' :: MonadIO m => TexState -> HandTexT m a -> m (a, TexState)
--- ~ runHandTexT' s (HandTexT m) = runStateT m s
-
--- ~ joinHandTex :: (MonadIO m, HandTex m) => HandTexT m a -> m a
--- ~ joinHandTex (HandTexT m) = do
-	-- ~ t <- getTex
-	-- ~ (a,s) <- runStateT m t
-	-- ~ setTex s
-	-- ~ return a
 
 
 class HandTex m where
@@ -75,22 +55,6 @@ instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }          
 instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
 
 SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
-
-
--- ~ liftHandTexT :: (HandTex m, MonadIO m) => HandTexT m a -> m a
--- ~ liftHandTexT n = do
-	-- ~ t <- getTex
-	-- ~ (r,t') <- runHandTexT' t n
-	-- ~ setTex t'
-	-- ~ return r
-
--- ~ liftHandTexT' :: (HandTex m, MonadIO m) => HandTexT IO a -> m a
--- ~ liftHandTexT' n = do
-	-- ~ t <- getTex
-	-- ~ (r,t') <- liftIO $ runHandTexT' t n
-	-- ~ setTex t'
-	-- ~ return r
-
 
 
 
@@ -158,28 +122,10 @@ loadTexture2Base (w,h) p = do
 	when (glMipMap t) $ glGenerateMipmap GL_TEXTURE_2D
 	-- ~ when (p /= nullptr) $ glGenerateMipmap GL_TEXTURE_2D
 
-	liftIO $ mkWeakMVar m (with tex $ glDeleteTextures 1)
+	liftIO $ void $ mkWeakMVar m (with tex $ glDeleteTextures 1)
 	-- TODO wait for bufferswap before deleting
 
 	return $ Texture tex m 0 w h
-
-{-
--- @loadTexture2Base@ requires an image with width and height at base of 2 .
-loadTexture2Base :: MonadIO m
-	=> TextureFormat -> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
-loadTexture2Base t (w,h) p = do
-	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	-- ~ liftIO $ putStrLn $ "new tex: " ++ show tex
-	glActiveTexture $ GL_TEXTURE0
-	glBindTexture GL_TEXTURE_2D tex
-	glTexImage2D GL_TEXTURE_2D 0 (glTex t) w h 0 (glTex t) GL_UNSIGNED_BYTE (castPtr p)
-	glGenerateMipmap GL_TEXTURE_2D
-	m <- liftIO $ newMVar 0
-	liftIO $ mkWeakMVar m (with tex $ glDeleteTextures 1)
-	-- todo wait for bufferswap before deleting
-
-	return $ Texture tex m 0 w h
--}
 
 
 assignTexUnit' :: (MonadIO m, HandTex m, Num n) => GLuint -> GLenum -> m n

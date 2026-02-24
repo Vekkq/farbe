@@ -49,8 +49,9 @@ import Graphics.Farbe.Vec ()
 import Graphics.Farbe.Expr ()
 import Control.Monad.Trans
 
--- ~ import Control.Monad.IO.Class
 import Graphics.GL
+
+
 
 instance (Farbe m, Monad m) => Farbe (WindowT m) where
 	stateFarbe = lift . stateFarbe

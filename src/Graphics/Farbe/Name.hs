@@ -12,7 +12,6 @@ module Graphics.Farbe.Name where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
-import Graphics.Farbe.Utils
 import Graphics.Farbe.Utility
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.VertexArray

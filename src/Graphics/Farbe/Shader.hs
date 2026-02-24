@@ -49,7 +49,7 @@ compile :: (MonadIO m, Farbe m, AttrType a b)
 	-> m ([VArray a] -> m ())
 compile f = do
 	sp <- glCreateProgram
-	(vao,exec) <- runShaderEnvT'' $
+	(vao,exec) <- createShader sp $
 		join $ addShader GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes (bottom :: a)
 			((vs,fs),fm) <- runDeferT $ f e

@@ -23,6 +23,10 @@ import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
 
+import System.IO.Unsafe (unsafeInterleaveIO)
+
+import Debug.Trace
+
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
 	deriving
 		( Functor, Applicative, Monad, MonadIO
@@ -100,8 +104,8 @@ emptyFarbeState = do
 
 runFarbeT :: MonadIO m => FarbeT m a -> m a
 runFarbeT (FarbeT m) = do
-	e <- emptyFarbeState
-	fst <$> runStateT m e
+	e <- liftIO $ unsafeInterleaveIO emptyFarbeState
+	evalStateT m e
 
 runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT' fs (FarbeT m) = runStateT m fs

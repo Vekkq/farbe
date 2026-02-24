@@ -5,21 +5,15 @@
 
 module Graphics.Farbe.Array where
 
--- ~ import Graphics.Farbe.Shader
 import Graphics.Farbe.Vec (itoi)
--- ~ import Graphics.Farbe.Tuple (err)
 
 
 import Data.Array.IO
 import Data.Array.Storable
 import Foreign hiding (void)
-
-
 import Control.Monad.Reader
-
 import GHC.TypeNats
 import Data.Proxy
-
 import System.Mem.StableName
 
 

@@ -6,7 +6,7 @@
 module Graphics.Farbe.Vec where
 
 
-import Graphics.Farbe.Tuple
+import Graphics.Farbe.Tuple ()
 
 import Control.Applicative
 import Foreign.Storable

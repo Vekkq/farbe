@@ -14,6 +14,7 @@ import Graphics.Farbe.State
 
 import Foreign hiding (void)
 import Graphics.GL.Types
+import Graphics.GL
 
 import Control.Monad.Reader
 import Control.Monad.State.Strict
@@ -76,10 +77,12 @@ runShaderEnvT ms = do
 		return a
 	return (a, liftFarbe $ preRenderM sd)
 
-runShaderEnvT'' :: (MonadIO m, Farbe m) => ShaderEnvT (FarbeT IO) a -> m (a, m ())
-runShaderEnvT'' ms = do
+createShader :: (MonadIO m, Farbe m) => ShaderId -> ShaderEnvT (FarbeT IO) a -> m (a, m ())
+createShader i ms = do
 	s <- getFarbe
-	((a, sd),s') <- liftIO $ runFarbeT' s $ runShaderEnvT ms
+	((a, sd),s') <- liftIO $ runFarbeT' s $ runShaderEnvT $ do
+		setShaderId i
+		ms
 	putFarbe s'
 	return $ (a, liftFarbe sd)
 
@@ -126,6 +129,8 @@ setByteMax i = modifyShader (\s -> s { byteMax = i } )
 getByteMax :: (ShaderEnv n m) => m Int
 getByteMax = getsShader byteMax
 
+setShaderId :: ShaderEnv n m => ShaderId -> m ()
+setShaderId i = modifyShader (\s -> s { shaderId = i })
 
 getShaderId :: ShaderEnv n m => m ShaderId
 getShaderId = getsShader shaderId

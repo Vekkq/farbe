@@ -71,13 +71,13 @@ import Control.Monad.RWS (RWST)
 import qualified Control.Monad.State.Strict as Strict (StateT)
 import qualified Control.Monad.Writer.Strict as Strict (WriterT)
 import qualified Control.Monad.RWS.Strict as Strict (RWST)
-import Control.Monad.Cont (ContT, MonadCont)
-import Control.Monad.Trans (lift)
+-- ~ import Control.Monad.Cont (ContT, MonadCont)
+-- ~ import Control.Monad.Trans (lift)
 import Control.Monad.Except (ExceptT, MonadError)
 import Control.Monad.Zip (MonadZip)
 import Control.Monad.Fix (MonadFix)
 import Control.Applicative (Alternative)
-import Control.Monad.IO.Class
+-- ~ import Control.Monad.IO.Class
 
 import Data.Bits
 
@@ -86,7 +86,7 @@ import Debug.Trace
 
 -- | Creates a fullscreen window, runs your action and terminates window after.
 runWindowT :: MonadIO m => String -> Display -> WindowT m a -> m a
-runWindowT s d m = do
+runWindowT s d m = traceShow "rip" $ do
 	liftIO $ W.swapInterval 1 -- test rendering times using gl query methods instead
 	ws <- createWindow s d
 	f <- toBeRun $ W.destroyWindow $ wsGlfwWindow ws
@@ -105,9 +105,9 @@ data Display
 
 -- Lift this entire pack into a failable monad. ErrGLFWInitFailed often drops when starting from a different thread than main. TODO
 createWindow :: MonadIO m => String -> Display -> m WindowState
-createWindow s d = do
-	setErrorCallback $ Just $ \e s -> throwIO $ toErr (e,s)
-	b <- init
+createWindow st d = do
+	setErrorCallback $ Just $ \e s' -> throwIO $ toErr (e,s')
+	b <- liftIO $ W.init
 	when (not b) $ throwIO' ErrGLFWInitFailed
 
 	windowHint $ W.WindowHint'DepthBits (Just 16)
@@ -119,10 +119,10 @@ createWindow s d = do
 			e <- getMonitor
 			W.VideoMode mx my _ _ _ _ <- getVideoMode e
 			windowHint $ W.WindowHint'Decorated False
-			glfwCreateWindow mx my s (Just e) Nothing
-		InWindow (x,y) -> glfwCreateWindow x y s Nothing Nothing
+			glfwCreateWindow mx my st (Just e) Nothing
+		InWindow (x,y) -> glfwCreateWindow x y st Nothing Nothing
 		InWindowAt (x,y) (px,py) -> do
-			w <- glfwCreateWindow x y s Nothing Nothing
+			w <- glfwCreateWindow x y st Nothing Nothing
 			liftIO $ W.setWindowPos w px py
 			return w
 
@@ -144,21 +144,20 @@ createWindow s d = do
 			case kst of
 				W.KeyState'Pressed -> throwEvent $ EventKey k Down s
 				W.KeyState'Released -> throwEvent $ EventKey k Up s
-				W.KeyState'Repeating -> return ()
+				W.KeyState'Repeating -> throwEvent $ EventKey k Down s
 		W.setCharCallback w $ Just $ \_ c -> throwEvent $ EventTyping c
-		W.setMouseButtonCallback w $ Just $ \_ m mst mkeys -> do
+		W.setMouseButtonCallback w $ Just $ \_ m mst _ -> do
 			(x,y) <- W.getCursorPos w
 			throwEvent $ EventMouseKey (d2f x, d2f y) m (convertMouseKeyState mst)
 		W.setCursorPosCallback w $ Just $ \_ x y -> throwEvent $ EventMouseMove (d2f x, d2f y)
 		W.setScrollCallback w $ Just $ \_ x y -> throwEvent $ EventScroll (d2f x) (d2f y)
 		W.setDropCallback w $ Just $ \_ ss -> throwEvent $ EventDrop ss
-		W.setWindowFocusCallback w $ Just $ \_ b -> throwEvent $ EventFocus b
+		W.setWindowFocusCallback w $ Just $ \_ bb -> throwEvent $ EventFocus bb
 		W.setCursorEnterCallback w $ Just $ \_ c ->
 			throwEvent $ EventMouseInOutWindow $ c == W.CursorState'InWindow
 
 	return $ hsw
 	where
-		init = liftIO $ W.init
 		windowHint h = liftIO $ W.windowHint h
 		getMonitor = do
 			mm <- (join . fmap listToMaybe) <$> liftIO W.getMonitors
@@ -169,8 +168,8 @@ createWindow s d = do
 		glfwCreateWindow x y s a b = do
 			w <- liftIO $ W.createWindow x y s a b
 			mte ErrWindowCreationFailed w
-		makeContextCurrent w = liftIO $ W.makeContextCurrent w
-		swapInterval n = liftIO $ W.swapInterval n
+		-- ~ makeContextCurrent w = liftIO $ W.makeContextCurrent w
+		-- ~ swapInterval n = liftIO $ W.swapInterval n
 		setErrorCallback f = liftIO $ W.setErrorCallback f
 
 d2f :: Double -> Float
@@ -182,14 +181,16 @@ mte e = maybe (throwIO' e) return
 throwIO' :: (MonadIO m, Exception e) => e -> m a
 throwIO' = liftIO . throwIO
 
+convertMouseKeyState :: W.MouseButtonState -> KeyState
 convertMouseKeyState W.MouseButtonState'Released = Up
 convertMouseKeyState _ = Down
 
+convertKeyState :: W.KeyState -> KeyState
 convertKeyState W.KeyState'Released = Up
 convertKeyState _ = Down
 
-
-toErr err@(e,s) = case e of
+toErr :: (W.Error, String) -> WindowErr
+toErr (e,s) = case e of
 	W.Error'NotInitialized -> ErrGLFWInitFailed
 	W.Error'NoCurrentContext -> ErrNoContext
 	W.Error'ApiUnavailable -> ErrApiUnavailable
@@ -209,13 +210,13 @@ eventContextFromGLFW = do
 	return $ S.fromList $ map Right kk ++ map Left mk
 
 toEventContext1 :: MonadWindow m => EventContext -> Event -> m EventContext
-toEventContext1 c (EventFocus True) = eventContextFromGLFW
+toEventContext1 _ (EventFocus True) = eventContextFromGLFW
 toEventContext1 c e = return $ case e of
 	(EventKey k Down _) -> S.insert (Right k) c
 	(EventKey k Up _) -> S.delete (Right k) c
 	(EventMouseKey _ k Down) -> S.insert (Left k) c
 	(EventMouseKey _ k Up) -> S.delete (Left k) c
-
+	_ -> error "idk events"
 
 scanM :: Monad m => (b -> a -> m b) -> b -> [a] -> m [b]
 scanM f y (x:xs) = do
@@ -230,7 +231,7 @@ toEventContext es = do
 	mc <- wsEventContext <$> windowState
 	c <- liftIO $ readMVar mc
 	cs <- scanM toEventContext1 c es
-	liftIO $ swapMVar mc $ last $ cs
+	liftIO $ void $ swapMVar mc $ last $ cs
 	return $ zip es cs
 
 -- | Process and fetch events.
@@ -274,6 +275,7 @@ data Event
 
 data KeyState = Down | Up deriving (Read, Show, Eq)
 
+ksToBool :: KeyState -> Bool
 ksToBool Down = True
 ksToBool Up = False
 
@@ -288,7 +290,7 @@ eventsOnLocked es = do
 	eventOnLocked e = do
 		m <- getCursorMode
 		case (m, e) of
-			(CursorLocked, EventMouseMove xy@(x1,y1)) -> do
+			(CursorLocked, EventMouseMove (x1,y1)) -> do
 				(x0,y0) <- liftIO . readMVar =<< wsLastCoord <$> windowState
 				return $ EventMouseMoveLocked (x1 - x0, y1 - y0)
 			(CursorLocked, EventMouseKey _ k ks) -> return $ EventMouseKeyLocked k ks
@@ -320,14 +322,10 @@ getMouseKey k = do
 
 -- | Get all keys that are pressed down.
 getKeys :: MonadWindow m => m [W.Key]
-getKeys = do
-	w <- glfwWindow
-	filterM (fmap ksToBool . getKey) [succ minBound..maxBound]
+getKeys = filterM (fmap ksToBool . getKey) [succ minBound..maxBound]
 
 getMouseKeys :: MonadWindow m => m [W.MouseButton]
-getMouseKeys = do
-	w <- glfwWindow
-	filterM (fmap ksToBool . getMouseKey) [minBound..maxBound]
+getMouseKeys = filterM (fmap ksToBool . getMouseKey) [minBound..maxBound]
 
 
 
@@ -350,6 +348,7 @@ getCursorMode = do
 	w <- glfwWindow
 	liftIO $ translate' snd fst cmtable <$> W.getCursorInputMode w
 
+cmtable :: [(CursorMode,W.CursorInputMode)]
 cmtable =
 	[ (CursorNormal, W.CursorInputMode'Normal)
 	, (CursorHidden, W.CursorInputMode'Hidden)
@@ -406,7 +405,7 @@ instance MonadReader r m => MonadReader r (WindowT m) where
 	ask = lift $ ask
 	local f = withw $ mapReaderT (local f)
 		where
-		withw f = WindowT . f . runw
+		withw g = WindowT . g . runw
 
 class MonadIO m => MonadWindow m where
 	windowState :: m WindowState
@@ -446,9 +445,6 @@ instance (MonadWindow m, Monoid w) => MonadWindow (Strict.WriterT w m) where
 	windowState = lift windowState
 
 instance (MonadWindow m, Monoid w) => MonadWindow (Strict.RWST r w s m) where
-	windowState = lift windowState
-
-instance MonadWindow m => MonadWindow (ContT c m) where
 	windowState = lift windowState
 
 instance MonadWindow m => MonadWindow (ExceptT e m) where
@@ -501,7 +497,7 @@ toBeRun :: MonadIO m => IO () -> m (m ())
 toBeRun a = liftIO $ do
 	liftIO $ performGC -- clean up previous stuff
 	s <- newEmptyMVar
-	forkIO $ catchJust isMVarBlock (takeMVar s) (\_ -> a)
+	void $ forkIO $ catchJust isMVarBlock (takeMVar s) (\_ -> a)
 	return $ liftIO $ do
 		a
 		putMVar s ()
@@ -517,18 +513,22 @@ toBeRun a = liftIO $ do
 
 
 -- | Add to MVar list.
+mlAdd :: MonadIO m => MVar [a] -> a -> m ()
 mlAdd m a = liftIO $ modifyMVar_ m (return . (a:))
 
 -- | Remove from MVar list.
+mlRemove :: MonadIO m => MVar [a] -> (a -> Bool) -> m [a]
 mlRemove m p = liftIO $ modifyMVar m (\xs -> return $ (filter (not . p) xs, filter p xs))
 
+mlRemoveAll :: MonadIO m => MVar [a] -> m [a]
 mlRemoveAll m = mlRemove m (const True)
 
--- | Read MVar list.
-mlRead m = liftIO $ readMVar m
+-- ~ -- | Read MVar list.
+-- ~ mlRead :: MonadIO m => MVar a -> m a
+-- ~ mlRead m = liftIO $ readMVar m
 
 
-for = flip map
+-- ~ for = flip map
 
 
 

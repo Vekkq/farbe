@@ -43,7 +43,7 @@ import System.Mem
 
 
 main :: IO ()
-main = runFarbeT "" Fullscreen $ do
+main = traceShow "rip" $ runFarbeT "" (InWindow (1000,800)) $ do
 
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray

@@ -1,6 +1,8 @@
 -- ~ {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 -- tuple convertion and storable tuples
 
@@ -8,7 +10,6 @@ module Graphics.Farbe.Tuple where
 
 import Foreign
 import Control.Monad
-import Data.List
 
 
 #define bottom undefined
@@ -92,7 +93,7 @@ instance Tuple4 (a,b,c,d) d where tth4 (a,b,c,d) = d
 
 
 
-tot1 = (++ "t1")
-tot2 = (++ "t2")
-tot3 = (++ "t3")
-tot4 = (++ "t4")
+-- ~ tot1 = (++ "t1")
+-- ~ tot2 = (++ "t2")
+-- ~ tot3 = (++ "t3")
+-- ~ tot4 = (++ "t4")
