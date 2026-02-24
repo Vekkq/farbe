@@ -16,6 +16,7 @@ import Foreign hiding (void)
 import Graphics.GL.Types
 import Graphics.GL
 
+import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 
@@ -71,23 +72,23 @@ instance Monad m => ShaderEnv m (ShaderEnvT m) where
 
 runShaderEnvT :: (MonadIO m, Farbe m) => ShaderEnvT m a -> m (a, m ())
 runShaderEnvT ms = do
-	(a,sd) <- runShaderEnvT' $ do
-		a <- ms
-		getsShader postShaderM
-		return a
+	(a,sd) <- runShaderEnvT' ms
 	return (a, liftFarbe $ preRenderM sd)
+	where
+		runShaderEnvT' :: (Monad m) => ShaderEnvT m a -> m (a, ShaderData)
+		runShaderEnvT' (ShaderEnvT ms) = runStateT ms emptyShaderData
 
-createShader :: (MonadIO m, Farbe m) => ShaderId -> ShaderEnvT (FarbeT IO) a -> m (a, m ())
+createShader :: (MonadIO m, Farbe m)
+	=> ShaderId -> ShaderEnvT (FarbeT IO) a -> m (a, m ())
 createShader i ms = do
 	s <- getFarbe
 	((a, sd),s') <- liftIO $ runFarbeT' s $ runShaderEnvT $ do
 		setShaderId i
-		ms
+		r <- ms
+		join $ getsShader postShaderM
+		return r
 	putFarbe s'
 	return $ (a, liftFarbe sd)
-
-runShaderEnvT' :: (Monad m) => ShaderEnvT m a -> m (a, ShaderData)
-runShaderEnvT' (ShaderEnvT ms) = runStateT ms emptyShaderData
 
 
 liftFarbe :: (Farbe m, MonadIO m) => FarbeT IO a -> m a

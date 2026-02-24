@@ -86,7 +86,7 @@ import Debug.Trace
 
 -- | Creates a fullscreen window, runs your action and terminates window after.
 runWindowT :: MonadIO m => String -> Display -> WindowT m a -> m a
-runWindowT s d m = traceShow "rip" $ do
+runWindowT s d m = do
 	liftIO $ W.swapInterval 1 -- test rendering times using gl query methods instead
 	ws <- createWindow s d
 	f <- toBeRun $ W.destroyWindow $ wsGlfwWindow ws

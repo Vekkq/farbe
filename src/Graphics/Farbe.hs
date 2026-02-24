@@ -62,8 +62,9 @@ instance (ShaderEnv n m, Monad m) => ShaderEnv n (WindowT m) where
 
 
 runFarbeT :: MonadIO m => String -> Display -> WindowT (S.FarbeT m) a -> m a
-runFarbeT s d = S.runFarbeT . runWindowT s d
-
+runFarbeT s d f = S.runFarbeT . runWindowT s d $ do
+	devDebug "window creation passed."
+	f
 -- ~ nextFrame :: (Farbe m, MonadIO m) => m ()
 -- ~ nextFrame = do
 	-- ~ doDelayedWork

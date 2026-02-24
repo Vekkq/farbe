@@ -71,7 +71,7 @@ compile f = do
 	-- ~ -> m (Maybe ([VArray a] -> n ()))
 -- ~ foo = undefined
 
-addShader :: (MonadIO m, ShaderEnv n m) => GLenum -> BuildShaderT m a -> m a
+addShader :: (MonadIO m, Farbe m, ShaderEnv n m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
 	sp <- getShaderId
 	(a,st) <- runBuildShader shdr
@@ -81,27 +81,27 @@ addShader t shdr = do
 		++ "\n\nvoid main(){\n"
 		++ toCStatements (bexpr st)
 		++ "}"
-	-- ~ liftIO $ putStrLn str
-	liftIO $ bracket (newCAString str) free $ \cs -> do
+	err <- liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
-		checkShaderError str i
+		err <- checkShaderError str i
 		glAttachShader sp i
 		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
+		return err
+	maybe (return ()) (liftIO . putStrLn . (str++)) err
+	devDebug str
 	return a
 
-checkShaderError :: String -> GLuint -> IO ()
+checkShaderError :: String -> GLuint -> IO (Maybe String)
 checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 	bracket malloc free $ \errLength -> do
 		glGetShaderInfoLog shdr (2^10) errLength er
 		peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
 			"" -> do
-				-- ~ putStrLn str
-				return ()
+				return Nothing
 			e -> do
-				putStrLn str
-				putStrLn e
+				return $ Just e
 
 
 toCStatements :: [(String, ExprS)] -> String

@@ -17,6 +17,7 @@ import qualified Data.Map as M
 
 import Control.Concurrent.MVar
 
+import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
@@ -62,8 +63,8 @@ count = stateFarbe (\s -> let c = counter s in (c, s { counter = succ c }))
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
 instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
 instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
 
 SIMPLEFUNCTION_CLASSINSTANCES(stateFarbe,Farbe,.)
 
@@ -93,7 +94,7 @@ emptyFarbeState = do
 	vbo <- initHandVBOState (2^24)
 	tex <- initTexState
 	return $ FarbeState
-		{ config = Config True True (1/80)
+		{ config = Config True False (1/80)
 		, counter = 0
 		, vboState = vbo
 		, texState = tex
@@ -110,6 +111,19 @@ runFarbeT (FarbeT m) = do
 runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT' fs (FarbeT m) = runStateT m fs
 
+getsConfig :: Farbe m => (Config -> s) -> m s
+getsConfig f = getsFarbe (f . config)
+
+printOn :: (Farbe m, MonadIO m) => (Config -> Bool) -> String -> m ()
+printOn f s = do
+	b <- getsConfig f
+	when b $ liftIO $ putStrLn s
+
+debug :: (Farbe m, MonadIO m, Show a) => a -> m ()
+debug = printOn debugMode . show
+
+devDebug :: (Farbe m, MonadIO m) => String -> m ()
+devDebug = printOn devDebugMode
 
 type Hash = Int
 
