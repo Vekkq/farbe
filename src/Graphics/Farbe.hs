@@ -35,6 +35,7 @@ module Graphics.Farbe
 	, makeVarM4
 	, makeVarT
 	, Render (..)
+	, glerrcheck
 	) where
 
 import qualified Graphics.Farbe.State as S
@@ -47,7 +48,9 @@ import Graphics.Farbe.Shader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Vec ()
 import Graphics.Farbe.Expr ()
+import Control.Monad
 import Control.Monad.Trans
+import Control.Monad.IO.Class
 
 import Graphics.GL
 
@@ -65,6 +68,12 @@ runFarbeT :: MonadIO m => String -> Display -> WindowT (S.FarbeT m) a -> m a
 runFarbeT s d f = S.runFarbeT . runWindowT s d $ do
 	devDebug "window creation passed."
 	f
+
+
+glerrcheck :: MonadIO m => m ()
+glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+
+
 -- ~ nextFrame :: (Farbe m, MonadIO m) => m ()
 -- ~ nextFrame = do
 	-- ~ doDelayedWork
