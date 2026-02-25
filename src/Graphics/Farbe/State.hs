@@ -49,6 +49,9 @@ class Farbe m where
 	putFarbe :: FarbeState -> m ()
 	putFarbe s = stateFarbe (\_ -> ((),s))
 
+	modifyFarbe ;; (FarbeState -> FarbeState) -> m ()
+	modifyFarbe f = stateFarbe $ \s -> ((), f s)
+
 instance Monad m => Farbe (FarbeT m) where
 	stateFarbe = FarbeT . state
 
@@ -106,6 +109,15 @@ runFarbeT fs (FarbeT m) = runStateT m fs
 
 getsConfig :: Farbe m => (Config -> s) -> m s
 getsConfig f = getsFarbe (f . config)
+
+
+addShaderToCache m = modifyFarbe $ \s -> s { shaderCache = add m shaderCache }
+	where
+		add ;; FarbeT IO -> CacheState -> CacheState
+		add m = CacheState (insert )
+
+
+
 
 printOn :: (Farbe m, MonadIO m) => (Config -> Bool) -> String -> m ()
 printOn f s = do

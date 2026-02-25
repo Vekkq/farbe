@@ -59,11 +59,19 @@ compile f = do
 				-- splice fs here to add further outputs
 				sequence_ fm
 				return i
+	newMVar $ do
+		glUseProgram sp
+		glBindVertexArray vao
+		exec
 	return $ \varrs -> do
-		glUseProgram sp       -- lines to back up
-		glBindVertexArray vao --
-		exec                  --
+
 		drawArrays varrs
+
+	-- ~ return $ \varrs -> do
+		-- ~ glUseProgram sp       -- lines to back up
+		-- ~ glBindVertexArray vao --
+		-- ~ exec                  --
+		-- ~ drawArrays varrs
 
 
 -- ~ foo :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
