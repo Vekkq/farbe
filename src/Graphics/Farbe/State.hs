@@ -110,14 +110,14 @@ runFarbeT fs (FarbeT m) = runStateT m fs
 getsConfig :: Farbe m => (Config -> s) -> m s
 getsConfig f = getsFarbe (f . config)
 
-
+addShaderToCache :: Farbe m => FarbeT IO -> m ()
 addShaderToCache m = modifyFarbe $ \s -> s { shaderCache = add m shaderCache }
 	where
-		add ;; FarbeT IO -> CacheState -> CacheState
-		add m = CacheState (insert )
+		addShaderCache :: FarbeT IO -> CacheState -> CacheState
+		addShaderCache m = CacheState (insert )
 
-
-
+removeShaderCache :: FarbeT IO -> CacheState
+removeShaderCache = undefined
 
 printOn :: (Farbe m, MonadIO m) => (Config -> Bool) -> String -> m ()
 printOn f s = do
