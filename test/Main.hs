@@ -12,9 +12,6 @@ import Control.Monad
 import Data.Function
 
 
-
-
-
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
 

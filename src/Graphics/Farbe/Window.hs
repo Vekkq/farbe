@@ -81,9 +81,6 @@ import Control.Applicative (Alternative)
 
 import Data.Bits
 
-import Debug.Trace
-
-
 -- | Creates a fullscreen window, runs your action and terminates window after.
 runWindowT :: MonadIO m => String -> Display -> WindowT m a -> m a
 runWindowT s d m = do
@@ -537,6 +534,5 @@ swapBuffers :: MonadWindow m => m ()
 swapBuffers = do
 	w <- glfwWindow
 	liftIO $ W.swapBuffers w
-	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 
 
