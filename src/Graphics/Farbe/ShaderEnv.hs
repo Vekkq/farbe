@@ -82,7 +82,7 @@ createShader :: (MonadIO m, Farbe m)
 	=> ShaderId -> ShaderEnvT (FarbeT IO) a -> m (a, m ())
 createShader i ms = do
 	s <- getFarbe
-	((a, sd),s') <- liftIO $ runFarbeT' s $ runShaderEnvT $ do
+	((a, sd),s') <- liftIO $ runFarbeT s $ runShaderEnvT $ do
 		setShaderId i
 		r <- ms
 		join $ getsShader postShaderM
@@ -94,7 +94,7 @@ createShader i ms = do
 liftFarbe :: (Farbe m, MonadIO m) => FarbeT IO a -> m a
 liftFarbe m = do
 	fd <- getFarbe
-	(a,fd') <- liftIO $ runFarbeT' fd m
+	(a,fd') <- liftIO $ runFarbeT fd m
 	putFarbe fd'
 	return a
 

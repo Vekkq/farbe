@@ -65,9 +65,19 @@ instance (ShaderEnv n m, Monad m) => ShaderEnv n (WindowT m) where
 
 
 runFarbeT :: MonadIO m => String -> Display -> WindowT (S.FarbeT m) a -> m a
-runFarbeT s d f = S.runFarbeT . runWindowT s d $ do
+runFarbeT s d f = fmap fst . S.runFarbeT err . runWindowT s d $ do
+	e <- liftIO emptyFarbeState
+	putFarbe e
 	devDebug "window creation passed."
+	glClearColor 0.1 0.1 0.1 1
+	glEnable GL_DEPTH_TEST
+	glPixelStorei GL_UNPACK_ALIGNMENT 1
 	f
+	where
+	 err = error "Farbe state not initialized yet"
+	-- ~ glStencilOp GL_KEEP GL_KEEP GL_REPLACE
+	-- ~ glEnable GL_CULL_FACE
+
 
 
 glerrcheck :: MonadIO m => m ()
