@@ -24,6 +24,8 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
+import System.CPUTime
+
 
 
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
@@ -76,7 +78,7 @@ data FarbeState = FarbeState
 	, texState :: TexState
 	, delayed :: Seq.Seq (FarbeT IO ())
 	, shaderCache :: DMap ShExec
-	, lastFrameTime :: Double
+	, lastFrameTime :: Integer
 	}
 
 type ShExec = MVar (FarbeT IO ())
@@ -102,7 +104,7 @@ modifyShaderCache f = do
 data Config = Config
 	{ debugMode :: Bool
 	, devDebugMode :: Bool
-	, workTime :: Double
+	, workTime :: Integer
 	}
 
 emptyFarbeState :: MonadIO m => m FarbeState
@@ -110,13 +112,13 @@ emptyFarbeState = do
 	vbo <- initHandVBOState (2^24)
 	tex <- initTexState
 	return $ FarbeState
-		{ config = Config True False (1/80)
+		{ config = Config True False (10^11 `quot` 50)
 		, counter = 0
 		, vboState = vbo
 		, texState = tex
 		, delayed = Seq.empty
 		, shaderCache = empty
-		, lastFrameTime = 1/50
+		, lastFrameTime = 0
 		}
 
 runFarbeT :: FarbeState -> FarbeT m a -> m (a, FarbeState)
@@ -137,6 +139,15 @@ debug = printOn debugMode . show
 
 devDebug :: (Farbe m, MonadIO m) => String -> m ()
 devDebug = printOn devDebugMode
+
+logTime :: (Farbe m, MonadIO m) => m ()
+logTime = do
+	t <- liftIO getCPUTime
+	modifyFarbe $ \s -> s { lastFrameTime = t }
+
+
+delay :: Farbe m => FarbeT IO () -> m ()
+delay m = modifyFarbe $ \s -> s { delayed = delayed s Seq.|> m }
 
 
 instance (MonadIO m, Farbe m) => HandVBO m where

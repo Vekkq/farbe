@@ -46,40 +46,26 @@ instance (Monad m, ShaderEnv n m) => ShaderEnv n (BuildShaderT m) where
 
 type ShaderM = DeferT' Shdr
 
-compile :: (MonadIO m, Farbe m, AttrType a b)
+getExpr :: (MonadIO m, Farbe m, AttrType a b)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-> m ([VArray a] -> m ())
-compile f = do
-	sp <- glCreateProgram
-	(vao,exec) <- createShader sp $
+	-> m (V4 (Expr V Float), V4 (Expr F Float))
+getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
+	(i,e) <- setAttributes (bottom :: a)
+	((vs,fs),fm) <- runDeferT $ f e
+	return (vs,fs)
+
+compileShader :: (Farbe m, MonadIO m, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m (GLuint, ShaderData)
+compileShader f = createShader $ do
 		join $ addShader GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes (bottom :: a)
 			((vs,fs),fm) <- runDeferT $ f e
 			addExpr "gl_Position" $ exprVec vs
 			return $ addShader GL_FRAGMENT_SHADER $ do
 				addExpr "gl_FragColor" $ exprVec $ fs
-			-- splice fs here to add further outputs
-				sequence_ fm
+				-- splice fs here to add further outputs
+				sequence_ fm -- fm are operations for fragment shader part
 				return i
-	return $ \varrs -> do
-		glUseProgram sp
-		glBindVertexArray vao
-		exec
-
-
-		drawArrays varrs
-
-	-- ~ return $ \varrs -> do
-		-- ~ glUseProgram sp       -- lines to back up
-		-- ~ glBindVertexArray vao --
-		-- ~ exec                  --
-		-- ~ drawArrays varrs
-
-
--- ~ foo :: (MonadIO m, MonadIO n, HandTex n, HandTex m, AttrType a b)
-	-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-- ~ -> m (Maybe ([VArray a] -> n ()))
--- ~ foo = undefined
 
 addShader :: (MonadIO m, Farbe m, ShaderEnv n m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
@@ -91,17 +77,55 @@ addShader t shdr = do
 		++ "\n\nvoid main(){\n"
 		++ toCStatements (bexpr st)
 		++ "}"
-	err <- liftIO $ bracket (newCAString str) free $ \cs -> do
-		i <- glCreateShader t
-		with cs $ \p -> glShaderSource i 1 p nullPtr
-		glCompileShader i
-		err <- checkShaderError str i
+	cs <- liftIO $ newCAString str
+	i <- liftIO $ glCreateShader t
+	addSubShader t $ with cs $ \p -> glShaderSource i 1 p nullPtr
+	addSubShader t $ glCompileShader i
+	addSubShader t $ do
 		glAttachShader sp i
 		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
-		return err
-	maybe (return ()) (liftIO . putStrLn . (str++)) err
+		err <- checkShaderError str i
+		maybe (return ()) (putStrLn . (str++)) err
+	liftIO $ free cs
 	devDebug str
 	return a
+
+-- function for making or getting shader from cache
+
+shader :: (MonadIO m, Farbe m, ShaderEnv n m)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m (Maybe (VArray a -> m ()))
+shader = do
+	-- getExpr
+	(vao, sd) <- compileShader
+	mapM_ (delay snd) $ buildSubShader sd
+	return $ Just $ \varrs -> do
+		glUseProgram $ shaderId sd
+		glBindVertexArray vao
+		postShaderM sd
+		drawArrays varrs
+
+-- ~ compile :: (MonadIO m, Farbe m, AttrType a b)
+	-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	-- ~ -> m ([VArray a] -> m ())
+-- ~ compile f = do
+	-- ~ sp <- glCreateProgram
+	-- ~ (vao,exec) <- createShader sp $
+		-- ~ join $ addShader GL_VERTEX_SHADER $ do
+			-- ~ (i,e) <- setAttributes (bottom :: a)
+			-- ~ ((vs,fs),fm) <- runDeferT $ f e
+			-- ~ addExpr "gl_Position" $ exprVec vs
+			-- ~ return $ addShader GL_FRAGMENT_SHADER $ do
+				-- ~ addExpr "gl_FragColor" $ exprVec $ fs
+			-- ~ -- splice fs here to add further outputs
+				-- ~ sequence_ fm
+				-- ~ return i
+	-- ~ return $ \varrs -> do
+		-- ~ glUseProgram sp
+		-- ~ glBindVertexArray vao
+		-- ~ exec
+		-- ~ drawArrays varrs
+
+
 
 checkShaderError :: String -> GLuint -> IO (Maybe String)
 checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->

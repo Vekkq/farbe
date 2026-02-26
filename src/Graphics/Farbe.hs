@@ -14,7 +14,6 @@ module Graphics.Farbe
 	, W.Display (..)
 	, processEvents
 	, newVArray
-	, compile
 	, transfer
 	, makeVar
 	, use
@@ -61,6 +60,9 @@ import Graphics.Farbe.Utility
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.IO.Class
+import qualified Data.Sequence as Seq
+import System.CPUTime
+import Data.Maybe
 
 import Foreign.Ptr
 import Data.Bits
@@ -89,9 +91,10 @@ runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 	where
 	 err = error "Farbe state not initialized yet"
 
-processEvents :: (W.MonadWindow m, MonadIO m)
+processEvents :: (W.MonadWindow m, MonadIO m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
+	delayedWork
 	glerrcheck
 	W.swapBuffers
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
@@ -101,17 +104,29 @@ glerrcheck :: MonadIO m => m ()
 glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
 
 
--- ~ nextFrame :: (Farbe m, MonadIO m) => m ()
--- ~ nextFrame = do
-	-- ~ doDelayedWork
-	-- ~ tl <- frameTimeGet
-	-- ~ t <- getTime
-	-- ~ c <- config
-	-- ~ if t - tl > workTime c
-		-- ~ then doDelayedWork
-		-- ~ else do
-			-- ~ logTime
-			-- ~ swapBuffers
+
+
+delayedWork :: (Farbe m, MonadIO m) => m ()
+delayedWork = do
+	work -- get at least one piece done per frame
+	tl <- getsFarbe lastFrameTime
+	t <- liftIO getCPUTime
+	c <- getsConfig workTime
+	notEmpty <- (not . null) <$> getsFarbe delayed
+	if notEmpty && t - tl > c
+		then delayedWork
+		else do
+			logTime
+	where
+		work :: (Farbe m, MonadIO m) => m ()
+		work = do
+			seq <- getsFarbe delayed
+			let mio = Seq.lookup 0 seq
+			maybe (return ()) liftFarbe mio
+			modifyFarbe $ \s -> s { delayed = Seq.drop 1 seq }
+
+
+
 
 
 drawOver a b = do

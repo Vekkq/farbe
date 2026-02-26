@@ -29,15 +29,17 @@ data ShaderData = ShaderData
 	, shaderId :: ShaderId
 	, postShaderM :: ShaderEnvT (FarbeT IO) ()
 	, preRenderM :: FarbeT IO ()
+	, buildSubShader :: [(GLenum, IO ())]
 	}
 
 emptyShaderData :: ShaderData
 emptyShaderData = ShaderData
 	{ byteCount = 0
 	, byteMax = error "unset byte max"
+	, shaderId = error "unset shader id"
 	, postShaderM = return ()
 	, preRenderM = return ()
-	, shaderId = error "unset shader id"
+	, buildSubShader = []
 	}
 
 
@@ -70,25 +72,24 @@ class (Functor n) => ShaderEnv m n | n -> m where
 instance Monad m => ShaderEnv m (ShaderEnvT m) where
 	stateShader = ShaderEnvT . state
 
-runShaderEnvT :: (MonadIO m, Farbe m) => ShaderEnvT m a -> m (a, m ())
-runShaderEnvT ms = do
-	(a,sd) <- runShaderEnvT' ms
-	return (a, liftFarbe $ preRenderM sd)
-	where
-		runShaderEnvT' :: (Monad m) => ShaderEnvT m a -> m (a, ShaderData)
-		runShaderEnvT' (ShaderEnvT ms) = runStateT ms emptyShaderData
+
+runShaderEnvT :: (Monad m) => ShaderEnvT m a -> m (a, ShaderData)
+runShaderEnvT (ShaderEnvT ms) = runStateT ms emptyShaderData
+
 
 createShader :: (MonadIO m, Farbe m)
-	=> ShaderId -> ShaderEnvT (FarbeT IO) a -> m (a, m ())
-createShader i ms = do
+	=> ShaderEnvT (FarbeT IO) a -> m (a, ShaderData)
+createShader ms = do
+	sp <- glCreateProgram
 	s <- getFarbe
 	((a, sd),s') <- liftIO $ runFarbeT s $ runShaderEnvT $ do
-		setShaderId i
-		r <- ms
-		join $ getsShader postShaderM
-		return r
+		setShaderId sp
+		ms
+		-- ~ r <- ms
+		-- ~ join $ getsShader postShaderM
+		-- ~ return r
 	putFarbe s'
-	return $ (a, liftFarbe sd)
+	return $ (a, sd)
 
 
 liftFarbe :: (Farbe m, MonadIO m) => FarbeT IO a -> m a
@@ -99,14 +100,14 @@ liftFarbe m = do
 	return a
 
 
-liftShaderFarbeIO :: (Farbe m, MonadIO m, ShaderEnv (FarbeT IO) m)
-	=> ShaderEnvT (FarbeT IO) a -> m (a, m ())
-liftShaderFarbeIO ms = do
-	fd <- getFarbe
-	sd <- getShader
-	(a, exec) <- liftFarbe $ runShaderEnvT $ putFarbe fd >> putShader sd >> ms
-	let exec' = liftFarbe exec
-	return $ (a, exec')
+-- ~ liftShaderFarbeIO :: (Farbe m, MonadIO m, ShaderEnv (FarbeT IO) m)
+	-- ~ => ShaderEnvT (FarbeT IO) a -> m (a, m ())
+-- ~ liftShaderFarbeIO ms = do
+	-- ~ fd <- getFarbe
+	-- ~ sd <- getShader
+	-- ~ (a, exec) <- liftFarbe $ runShaderEnvT $ putFarbe fd >> putShader sd >> ms
+	-- ~ let exec' = liftFarbe exec
+	-- ~ return $ (a, exec')
 
 
 postShader :: (ShaderEnv n m) => ShaderEnvT (FarbeT IO) () -> m ()
@@ -136,6 +137,9 @@ setShaderId i = modifyShader (\s -> s { shaderId = i })
 getShaderId :: ShaderEnv n m => m ShaderId
 getShaderId = getsShader shaderId
 
+addSubShader :: ShaderEnv n m => GLenum -> IO () -> m ()
+addSubShader e io = modifyShader $
+	\s -> s { buildSubShader = buildSubShader s ++ [(e,io)] }
 
 
 
