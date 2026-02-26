@@ -17,6 +17,7 @@ import Graphics.Farbe.State
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Name
+import Graphics.Farbe.ShaderCache
 
 import Data.Char
 import Data.List
@@ -29,6 +30,7 @@ import Data.Sequence ((|>))
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
+import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import Control.Monad.Reader

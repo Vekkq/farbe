@@ -10,6 +10,7 @@ module Graphics.Farbe.State where
 import Graphics.Farbe.Window
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
+import Graphics.Farbe.DMap
 -- ~ import Graphics.Farbe.Shader
 
 import qualified Data.Sequence as Seq
@@ -24,7 +25,8 @@ import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
 
-import Debug.Trace
+import Data.Hashable
+
 
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
 	deriving
@@ -49,8 +51,8 @@ class Farbe m where
 	putFarbe :: FarbeState -> m ()
 	putFarbe s = stateFarbe (\_ -> ((),s))
 
-	modifyFarbe ;; (FarbeState -> FarbeState) -> m ()
-	modifyFarbe f = stateFarbe $ \s -> ((), f s)
+	modifyFarbe :: (FarbeState -> FarbeState) -> m ()
+	modifyFarbe f = stateFarbe $ (\s -> ((), f s))
 
 instance Monad m => Farbe (FarbeT m) where
 	stateFarbe = FarbeT . state
@@ -75,14 +77,20 @@ data FarbeState = FarbeState
 	, vboState :: VBOState
 	, texState :: TexState
 	, delayed :: Seq.Seq (FarbeT IO ())
-	, shaderCache :: CacheState (FarbeT IO)
+	, shaderCache :: DMap (FarbeT IO ())
 	, lastFrameTime :: Double
 	}
 
-data CacheState w = CacheState
-	{ cacheMap :: M.Map Hash (MVar (w ())) -- holds items based on StableName
-	, backupMap :: M.Map Hash (MVar (w ())) -- holds items based on partial hashes
-	}
+
+shaderCacheState :: Farbe m =>
+	(DMap (FarbeT IO ()) -> (a, DMap (FarbeT IO ()))) -> m a
+shaderCacheState f = stateFarbe $ \s ->
+	let (a,c) = f $ shaderCache s in (a, s{ shaderCache = c })
+
+shaderCacheGet :: Farbe m => m (DMap (FarbeT IO ()))
+shaderCacheGet = shaderCacheState $ \s -> (s,s)
+
+
 
 data Config = Config
 	{ debugMode :: Bool
@@ -100,7 +108,7 @@ emptyFarbeState = do
 		, vboState = vbo
 		, texState = tex
 		, delayed = Seq.empty
-		, shaderCache = CacheState M.empty M.empty
+		, shaderCache = empty
 		, lastFrameTime = 1/50
 		}
 
@@ -110,14 +118,7 @@ runFarbeT fs (FarbeT m) = runStateT m fs
 getsConfig :: Farbe m => (Config -> s) -> m s
 getsConfig f = getsFarbe (f . config)
 
-addShaderToCache :: Farbe m => FarbeT IO -> m ()
-addShaderToCache m = modifyFarbe $ \s -> s { shaderCache = add m shaderCache }
-	where
-		addShaderCache :: FarbeT IO -> CacheState -> CacheState
-		addShaderCache m = CacheState (insert )
 
-removeShaderCache :: FarbeT IO -> CacheState
-removeShaderCache = undefined
 
 printOn :: (Farbe m, MonadIO m) => (Config -> Bool) -> String -> m ()
 printOn f s = do
@@ -129,8 +130,6 @@ debug = printOn debugMode . show
 
 devDebug :: (Farbe m, MonadIO m) => String -> m ()
 devDebug = printOn devDebugMode
-
-type Hash = Int
 
 
 instance (MonadIO m, Farbe m) => HandVBO m where
