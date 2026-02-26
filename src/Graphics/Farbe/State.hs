@@ -25,8 +25,6 @@ import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
 
-import Data.Hashable
-
 
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
 	deriving
