@@ -77,20 +77,29 @@ data FarbeState = FarbeState
 	, vboState :: VBOState
 	, texState :: TexState
 	, delayed :: Seq.Seq (FarbeT IO ())
-	, shaderCache :: DMap (FarbeT IO ())
+	, shaderCache :: DMap ShExec
 	, lastFrameTime :: Double
 	}
 
+type ShExec = MVar (FarbeT IO ())
 
-shaderCacheState :: Farbe m =>
-	(DMap (FarbeT IO ()) -> (a, DMap (FarbeT IO ()))) -> m a
-shaderCacheState f = stateFarbe $ \s ->
+stateShaderCache :: Farbe m
+	=> (DMap ShExec -> (a, DMap ShExec)) -> m a
+stateShaderCache f = stateFarbe $ \s ->
 	let (a,c) = f $ shaderCache s in (a, s{ shaderCache = c })
 
-shaderCacheGet :: Farbe m => m (DMap (FarbeT IO ()))
-shaderCacheGet = shaderCacheState $ \s -> (s,s)
+getShaderCache :: Farbe m => m (DMap ShExec)
+getShaderCache = stateShaderCache $ \s -> (s,s)
 
+putShaderCache :: Farbe m => (DMap ShExec) -> m ()
+putShaderCache d = stateShaderCache $ \_ -> ((),d)
 
+modifyShaderCache :: (MonadIO m, Farbe m)
+	=> (DMap ShExec -> m (DMap ShExec)) -> m ()
+modifyShaderCache f = do
+	sc <- getShaderCache
+	sc' <- f sc
+	putShaderCache sc'
 
 data Config = Config
 	{ debugMode :: Bool

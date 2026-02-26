@@ -58,14 +58,14 @@ compile f = do
 			addExpr "gl_Position" $ exprVec vs
 			return $ addShader GL_FRAGMENT_SHADER $ do
 				addExpr "gl_FragColor" $ exprVec $ fs
-				-- splice fs here to add further outputs
+			-- splice fs here to add further outputs
 				sequence_ fm
 				return i
-	newMVar $ do
+	return $ \varrs -> do
 		glUseProgram sp
 		glBindVertexArray vao
 		exec
-	return $ \varrs -> do
+
 
 		drawArrays varrs
 
