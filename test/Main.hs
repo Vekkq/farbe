@@ -3,7 +3,7 @@
 module Main (main) where
 
 import Graphics.Farbe
-import Graphics.Farbe.Window
+-- ~ import Graphics.Farbe.Window
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL
 
@@ -27,12 +27,10 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 	-- ~ let g a = DrawShader $ f a
 
 	fix $ \loop -> processEvents $ \es -> do
-		swapBuffers
-		glerrcheck
+
 		case es of
 			[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
 			_ -> return ()
-
 
 
 		f [cube, teapot]

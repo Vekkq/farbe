@@ -11,6 +11,8 @@
 
 module Graphics.Farbe
 	( runFarbeT
+	, W.Display (..)
+	, processEvents
 	, newVArray
 	, compile
 	, transfer
@@ -18,7 +20,14 @@ module Graphics.Farbe
 	, use
 	, swapVar
 	, glerrcheck
+	, W.KeyState (..)
+	, W.Event (..)
+	, W.Key (..)
 	-- * makeVar variants
+	, drawOver
+	, drawTexture
+	, drawDepth
+	, drawInto
 	, makeVarF
 	, makeVarI
 	, makeVarB
@@ -83,6 +92,7 @@ runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 processEvents :: (W.MonadWindow m, MonadIO m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
+	glerrcheck
 	W.swapBuffers
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 	W.processEvents f
