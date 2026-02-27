@@ -18,6 +18,7 @@ import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Name
 import Graphics.Farbe.ShaderCache
+import Graphics.Farbe.DMap as D
 
 import Data.Char
 import Data.List
@@ -26,6 +27,7 @@ import Foreign hiding (void)
 import Foreign.C
 import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
+
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
@@ -40,7 +42,7 @@ import Control.Monad.State.Strict
 
 
 
-instance (Monad m, ShaderEnv n m) => ShaderEnv n (BuildShaderT m) where
+instance (Monad m, ShaderEnv m) => ShaderEnv (BuildShaderT m) where
 	stateShader = lift . stateShader
 
 
@@ -67,7 +69,7 @@ compileShader f = createShader $ do
 				sequence_ fm -- fm are operations for fragment shader part
 				return i
 
-addShader :: (MonadIO m, Farbe m, ShaderEnv n m) => GLenum -> BuildShaderT m a -> m a
+addShader :: (MonadIO m, Farbe m, ShaderEnv m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
 	sp <- getShaderId
 	(a,st) <- runBuildShader shdr
@@ -92,17 +94,37 @@ addShader t shdr = do
 
 -- function for making or getting shader from cache
 
-shader :: (MonadIO m, Farbe m, ShaderEnv n m)
-	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m (Maybe (VArray a -> m ()))
-shader = do
-	-- getExpr
-	(vao, sd) <- compileShader
-	mapM_ (delay snd) $ buildSubShader sd
-	return $ Just $ \varrs -> do
-		glUseProgram $ shaderId sd
-		glBindVertexArray vao
-		postShaderM sd
-		drawArrays varrs
+commissionShader :: (MonadIO m, Farbe m, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	-> m (MVar (FarbeT IO ()))
+commissionShader f = do
+	(vao, sd) <- compileShader f
+	mapM_ (delay . liftIO . snd) $ buildSubShader sd
+	liftIO $ newMVar $ do -- \varrs -> do
+		liftIO $ glUseProgram $ shaderId sd
+		liftIO $ glBindVertexArray vao
+		preRenderM sd
+		--drawArrays varrs
+-- [VArray A]
+
+shader :: (MonadIO m, Farbe m, MonadIO n, Farbe n, AttrType a b)
+	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	-> m (Maybe ([VArray a] -> n ()))
+shader f = do
+	e <- getExpr f
+	sc <- getShaderCache
+	mmio <- D.lookup e sc
+	case mmio of
+		Just mio -> do
+			mio' <- liftIO $ tryReadMVar mio
+			case mio' of
+				Just io -> return $ Just $ \varrs -> liftFarbe $ io >> drawArrays varrs
+				Nothing -> return Nothing
+		Nothing -> do
+			mvario <- commissionShader f
+			D.insert e mvario sc >>= putShaderCache
+			return Nothing
+
 
 -- ~ compile :: (MonadIO m, Farbe m, AttrType a b)
 	-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
@@ -213,7 +235,7 @@ instance MonadTrans (DeferT n) where
 instance (Monad m, BuildShader m) => BuildShader (DeferT' m) where
 	buildShaderState = lift . buildShaderState
 
-instance (Monad m, ShaderEnv n m) => ShaderEnv n (DeferT' m) where
+instance (Monad m, ShaderEnv m) => ShaderEnv (DeferT' m) where
 	stateShader = lift . stateShader
 
 

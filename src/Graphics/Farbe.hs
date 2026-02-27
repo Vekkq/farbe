@@ -13,8 +13,11 @@ module Graphics.Farbe
 	( runFarbeT
 	, W.Display (..)
 	, processEvents
+	, shader
+	, VArray (..)
 	, newVArray
 	, transfer
+	, Var (..)
 	, makeVar
 	, use
 	, swapVar
@@ -22,6 +25,9 @@ module Graphics.Farbe
 	, W.KeyState (..)
 	, W.Event (..)
 	, W.Key (..)
+	, FarbeT
+	, Farbe
+	, AttrType
 	-- * makeVar variants
 	, drawOver
 	, drawTexture
@@ -43,6 +49,7 @@ module Graphics.Farbe
 	, makeVarM3
 	, makeVarM4
 	, makeVarT
+	, MonadIO (..)
 	) where
 
 import qualified Graphics.Farbe.State as S
@@ -50,6 +57,7 @@ import Graphics.Farbe.State hiding (runFarbeT)
 import qualified Graphics.Farbe.Window as W
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Uniform
+import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
@@ -73,7 +81,7 @@ import Graphics.GL
 instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
 	stateFarbe = lift . stateFarbe
 
-instance (ShaderEnv n m, Monad m) => ShaderEnv n (W.WindowT m) where
+instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
 	stateShader = lift . stateShader
 
 
@@ -106,11 +114,11 @@ glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: "
 
 
 
-delayedWork :: (Farbe m, MonadIO m) => m ()
+delayedWork :: (W.MonadWindow m, Farbe m, MonadIO m) => m ()
 delayedWork = do
 	work -- get at least one piece done per frame
 	tl <- getsFarbe lastFrameTime
-	t <- liftIO getCPUTime
+	t <- W.getTime
 	c <- getsConfig workTime
 	notEmpty <- (not . null) <$> getsFarbe delayed
 	if notEmpty && t - tl > c

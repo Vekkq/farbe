@@ -9,7 +9,27 @@ import Graphics.Farbe.STL
 
 import Control.Monad
 
+import Data.Maybe
 import Data.Function
+
+
+
+colorful :: (Farbe m, MonadIO m)
+	=> Var (Mat V3 V3 Float) -> m (Maybe ([VArray (V3 Float, V3 Float)] -> n ()))
+colorful r = shader $ \(n,v) -> do
+	let v' = use r **| v
+	n' <- transfer n
+	return (up 1 v', up 1 n' * 0.5 + 0.2)
+
+
+-- ~ runShader :: m (Maybe ([VArray a] -> m ())) -> m ()
+-- ~ runShader m = do
+	-- ~ a <- m
+	-- ~ let io = fromMaybe (const $ return ()) a
+	-- ~ io
+
+whenMaybe :: Maybe a -> (a -> m ()) -> m ()
+whenMaybe a f = maybe (return ()) f a
 
 
 main :: IO ()
@@ -19,10 +39,7 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
-	f <- compile $ \(n,v) -> do
-		let v' = use r **| v
-		n' <- transfer n
-		return (up 1 v', up 1 n' * 0.5 + 0.2)
+	-- ~ m <- shader colorful
 
 	-- ~ let g a = DrawShader $ f a
 
@@ -33,6 +50,7 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 			_ -> return ()
 
 
+		(Just f) <- shader $ colorful r
 		f [cube, teapot]
 
 

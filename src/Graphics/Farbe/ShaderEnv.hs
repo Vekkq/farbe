@@ -54,22 +54,22 @@ instance MonadState s m => MonadState s (ShaderEnvT m) where
 	state = lift . state
 
 
-class (Functor n) => ShaderEnv m n | n -> m where
-	stateShader :: (ShaderData -> (a, ShaderData)) -> n a
+class (Functor m) => ShaderEnv m where
+	stateShader :: (ShaderData -> (a, ShaderData)) -> m a
 
-	modifyShader :: (ShaderData -> ShaderData) -> n ()
+	modifyShader :: (ShaderData -> ShaderData) -> m ()
 	modifyShader f = stateShader (\s -> ((), f s))
 
-	getsShader :: (ShaderData -> r) -> n r
+	getsShader :: (ShaderData -> r) -> m r
 	getsShader f = f <$> getShader
 
-	getShader :: n (ShaderData)
+	getShader :: m (ShaderData)
 	getShader = stateShader (\s -> (s, s))
 
-	putShader :: ShaderData -> n ()
+	putShader :: ShaderData -> m ()
 	putShader s = stateShader (\_ -> ((),s))
 
-instance Monad m => ShaderEnv m (ShaderEnvT m) where
+instance Monad m => ShaderEnv (ShaderEnvT m) where
 	stateShader = ShaderEnvT . state
 
 
@@ -84,10 +84,9 @@ createShader ms = do
 	s <- getFarbe
 	((a, sd),s') <- liftIO $ runFarbeT s $ runShaderEnvT $ do
 		setShaderId sp
-		ms
-		-- ~ r <- ms
-		-- ~ join $ getsShader postShaderM
-		-- ~ return r
+		r <- ms
+		join $ getsShader postShaderM
+		return r
 	putFarbe s'
 	return $ (a, sd)
 
@@ -110,34 +109,34 @@ liftFarbe m = do
 	-- ~ return $ (a, exec')
 
 
-postShader :: (ShaderEnv n m) => ShaderEnvT (FarbeT IO) () -> m ()
+postShader :: (ShaderEnv m) => ShaderEnvT (FarbeT IO) () -> m ()
 postShader m = modifyShader (\s -> s { postShaderM = postShaderM s >> m } )
 
-preRender :: (ShaderEnv n m) => FarbeT IO () -> m ()
+preRender :: (ShaderEnv m) => FarbeT IO () -> m ()
 preRender m = modifyShader (\s -> s { preRenderM = preRenderM s >> m } )
 
-modifyByteCount :: (ShaderEnv n m) => (Int -> Int) -> m ()
+modifyByteCount :: (ShaderEnv m) => (Int -> Int) -> m ()
 modifyByteCount f = modifyShader (\s -> s { byteCount = f $ byteCount s } )
 
-advanceBy :: (Monad m, ShaderEnv n m, Storable s) => s -> m Int
+advanceBy :: (Monad m, ShaderEnv m, Storable s) => s -> m Int
 advanceBy a = do
 	i <- getsShader byteCount
 	modifyByteCount (sizeOf a +)
 	return i
 
-setByteMax :: (ShaderEnv n m) => Int -> m ()
+setByteMax :: (ShaderEnv m) => Int -> m ()
 setByteMax i = modifyShader (\s -> s { byteMax = i } )
 
-getByteMax :: (ShaderEnv n m) => m Int
+getByteMax :: (ShaderEnv m) => m Int
 getByteMax = getsShader byteMax
 
-setShaderId :: ShaderEnv n m => ShaderId -> m ()
+setShaderId :: ShaderEnv m => ShaderId -> m ()
 setShaderId i = modifyShader (\s -> s { shaderId = i })
 
-getShaderId :: ShaderEnv n m => m ShaderId
+getShaderId :: ShaderEnv m => m ShaderId
 getShaderId = getsShader shaderId
 
-addSubShader :: ShaderEnv n m => GLenum -> IO () -> m ()
+addSubShader :: ShaderEnv m => GLenum -> IO () -> m ()
 addSubShader e io = modifyShader $
 	\s -> s { buildSubShader = buildSubShader s ++ [(e,io)] }
 

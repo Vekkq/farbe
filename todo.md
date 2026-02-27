@@ -58,6 +58,9 @@
 
 * fix cleansing of VArray with Delayed
 
+* remove the maybe bit of shaders. make it simpler. provide a function to test whether a shader is loaded.
+
+
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.
 renderbuffers are for when you do need depth or stencil, but without directly accessing them. rendering color will access depth and depending on settings also stencil.

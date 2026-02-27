@@ -65,7 +65,7 @@ import Debug.Trace
 type Vao = GLuint
 
 -- | Make VAO
-setAttributes :: (MonadIO m, MonadIO n, AttrType a b, Farbe m, ShaderEnv n m) => a -> m (Vao, b)
+setAttributes :: (MonadIO m, AttrType a b, Farbe m, ShaderEnv m) => a -> m (Vao, b)
 setAttributes a = do
 	i <- glGenVertexArray
 	glBindVertexArray i
@@ -75,7 +75,7 @@ setAttributes a = do
 
 
 setupAttribute1
-	:: (Farbe m, ShaderEnv n m, Monad m, GLtype a, Storable a) => a -> m (Expr V a)
+	:: (Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a) => a -> m (Expr V a)
 setupAttribute1 a = do
 	s <- getShaderId
 	n <- name "a" a
@@ -97,7 +97,7 @@ setupAttribute1 a = do
 		return n
 
 class Storable a => AttrType a b | a -> b, b -> a where
-	setAttribute :: (Farbe m, ShaderEnv n m, MonadIO m) => a -> m b
+	setAttribute :: (Farbe m, ShaderEnv m, MonadIO m) => a -> m b
 
 
 instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
@@ -129,7 +129,7 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		(setAttribute (bottom :: d))
 
 attribPartsVec
-	:: ( Farbe m, ShaderEnv n m, Monad m, GLtype a, Storable a
+	:: ( Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a
 		 , GLtype a, GLtype (v a), Storable a, Storable (v a), Vector v
 		 )
 	=> v a -> m (v (Expr V a))
@@ -150,7 +150,7 @@ instance AttrType (V4 Bool)  (V4 (Expr V Bool)) where setAttribute = attribParts
 
 
 attribPartsMat
-	:: ( Farbe m, ShaderEnv n m, Monad m, GLtype a, Storable a
+	:: ( Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a
 		 , GLtype (v (v a)), GLtype (v a), GLtype a, Storable (v (v a)), Vector v
 		 )
 	=> v (v a) -> m (v (v (Expr V a)))

@@ -78,7 +78,7 @@ data FarbeState = FarbeState
 	, texState :: TexState
 	, delayed :: Seq.Seq (FarbeT IO ())
 	, shaderCache :: DMap ShExec
-	, lastFrameTime :: Integer
+	, lastFrameTime :: Double
 	}
 
 type ShExec = MVar (FarbeT IO ())
@@ -104,7 +104,7 @@ modifyShaderCache f = do
 data Config = Config
 	{ debugMode :: Bool
 	, devDebugMode :: Bool
-	, workTime :: Integer
+	, workTime :: Double
 	}
 
 emptyFarbeState :: MonadIO m => m FarbeState
@@ -112,7 +112,7 @@ emptyFarbeState = do
 	vbo <- initHandVBOState (2^24)
 	tex <- initTexState
 	return $ FarbeState
-		{ config = Config True False (10^11 `quot` 50)
+		{ config = Config True False (1/50)
 		, counter = 0
 		, vboState = vbo
 		, texState = tex
@@ -140,9 +140,9 @@ debug = printOn debugMode . show
 devDebug :: (Farbe m, MonadIO m) => String -> m ()
 devDebug = printOn devDebugMode
 
-logTime :: (Farbe m, MonadIO m) => m ()
+logTime :: (MonadWindow m, Farbe m, MonadIO m) => m ()
 logTime = do
-	t <- liftIO getCPUTime
+	t <- getTime
 	modifyFarbe $ \s -> s { lastFrameTime = t }
 
 
