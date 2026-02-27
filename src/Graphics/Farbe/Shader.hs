@@ -107,10 +107,10 @@ commissionShader f = do
 		--drawArrays varrs
 -- [VArray A]
 
-shader :: (MonadIO m, Farbe m, MonadIO n, Farbe n, AttrType a b)
+shader :: (MonadIO m, Farbe m, AttrType a b)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-> m (Maybe ([VArray a] -> n ()))
-shader f = do
+	-> [VArray a] -> m ()
+shader f varrs = do
 	e <- getExpr f
 	sc <- getShaderCache
 	mmio <- D.lookup e sc
@@ -118,12 +118,12 @@ shader f = do
 		Just mio -> do
 			mio' <- liftIO $ tryReadMVar mio
 			case mio' of
-				Just io -> return $ Just $ \varrs -> liftFarbe $ io >> drawArrays varrs
-				Nothing -> return Nothing
+				Just io -> liftFarbe $ io >> drawArrays varrs
+				Nothing -> return ()
 		Nothing -> do
 			mvario <- commissionShader f
 			D.insert e mvario sc >>= putShaderCache
-			return Nothing
+			return ()
 
 
 -- ~ compile :: (MonadIO m, Farbe m, AttrType a b)

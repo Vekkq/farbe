@@ -15,7 +15,7 @@ import Data.Function
 
 
 colorful :: (Farbe m, MonadIO m)
-	=> Var (Mat V3 V3 Float) -> m (Maybe ([VArray (V3 Float, V3 Float)] -> n ()))
+	=> Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
 colorful r = shader $ \(n,v) -> do
 	let v' = use r **| v
 	n' <- transfer n
@@ -27,9 +27,6 @@ colorful r = shader $ \(n,v) -> do
 	-- ~ a <- m
 	-- ~ let io = fromMaybe (const $ return ()) a
 	-- ~ io
-
-whenMaybe :: Maybe a -> (a -> m ()) -> m ()
-whenMaybe a f = maybe (return ()) f a
 
 
 main :: IO ()
@@ -50,8 +47,8 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 			_ -> return ()
 
 
-		(Just f) <- shader $ colorful r
-		f [cube, teapot]
+		colorful r [cube, teapot]
+
 
 
 		-- ~ liftIO $ performGC
