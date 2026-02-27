@@ -103,7 +103,7 @@ processEvents :: (W.MonadWindow m, MonadIO m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
 	delayedWork
-	glerrcheck
+	-- ~ glerrcheck
 	W.swapBuffers
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 	W.processEvents f

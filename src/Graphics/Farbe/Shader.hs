@@ -79,16 +79,17 @@ addShader t shdr = do
 		++ "\n\nvoid main(){\n"
 		++ toCStatements (bexpr st)
 		++ "}"
-	cs <- liftIO $ newCAString str
 	i <- liftIO $ glCreateShader t
-	addSubShader t $ with cs $ \p -> glShaderSource i 1 p nullPtr
+	addSubShader t $ do
+		cs <- liftIO $ newCAString str
+		with cs $ \p -> glShaderSource i 1 p nullPtr
+		liftIO $ free cs
 	addSubShader t $ glCompileShader i
 	addSubShader t $ do
 		glAttachShader sp i
 		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
 		err <- checkShaderError str i
 		maybe (return ()) (putStrLn . (str++)) err
-	liftIO $ free cs
 	devDebug str
 	return a
 
@@ -100,12 +101,12 @@ commissionShader :: (MonadIO m, Farbe m, AttrType a b)
 commissionShader f = do
 	(vao, sd) <- compileShader f
 	mapM_ (delay . liftIO . snd) $ buildSubShader sd
-	liftIO $ newMVar $ do -- \varrs -> do
+	mv <- liftIO $ newEmptyMVar
+	delay $ liftIO $ putMVar mv $ do
 		liftIO $ glUseProgram $ shaderId sd
 		liftIO $ glBindVertexArray vao
 		preRenderM sd
-		--drawArrays varrs
--- [VArray A]
+	return mv
 
 shader :: (MonadIO m, Farbe m, AttrType a b)
 	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
@@ -119,7 +120,7 @@ shader f varrs = do
 			mio' <- liftIO $ tryReadMVar mio
 			case mio' of
 				Just io -> liftFarbe $ io >> drawArrays varrs
-				Nothing -> return ()
+				Nothing -> liftIO $ putStrLn "shader still building"
 		Nothing -> do
 			mvario <- commissionShader f
 			D.insert e mvario sc >>= putShaderCache
