@@ -69,7 +69,8 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.IO.Class
 import qualified Data.Sequence as Seq
-import System.CPUTime
+
+import GHC.Clock
 import Data.Maybe
 
 import Foreign.Ptr

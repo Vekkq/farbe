@@ -80,18 +80,19 @@ addShader t shdr = do
 		++ toCStatements (bexpr st)
 		++ "}"
 	i <- liftIO $ glCreateShader t
-	addSubShader t $ do
-		cs <- liftIO $ newCAString str
-		with cs $ \p -> glShaderSource i 1 p nullPtr
-		liftIO $ free cs
-	addSubShader t $ glCompileShader i
-	addSubShader t $ do
-		glAttachShader sp i
-		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
-		err <- checkShaderError str i
-		maybe (return ()) (putStrLn . (str++)) err
+	-- ~ log <- logItemIO
+	cs <- liftIO $ newCAString str
+	liftIO $ with cs $ \p -> glShaderSource i 1 p nullPtr
+	liftIO $ free cs
+	glCompileShader i
+	glAttachShader sp i
+	when (t == GL_FRAGMENT_SHADER) $ do
+		glLinkProgram sp
+	err <- liftIO $ checkShaderError str i
+	liftIO $ maybe (return ()) (putStrLn . (str++)) err
 	devDebug str
 	return a
+
 
 -- function for making or getting shader from cache
 

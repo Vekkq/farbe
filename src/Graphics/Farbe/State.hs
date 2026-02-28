@@ -24,7 +24,8 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
-import System.CPUTime
+import GHC.Clock
+import Numeric
 
 
 
@@ -39,7 +40,7 @@ instance MonadState s m => MonadState s (FarbeT m) where state = lift . state
 
 instance MonadTrans FarbeT where lift = FarbeT . lift
 
-class Farbe m where
+class MonadIO m => Farbe m where
 	stateFarbe :: (FarbeState -> (a, FarbeState)) -> m a
 
 	getsFarbe :: (FarbeState -> a) -> m a
@@ -54,7 +55,7 @@ class Farbe m where
 	modifyFarbe :: (FarbeState -> FarbeState) -> m ()
 	modifyFarbe f = stateFarbe $ (\s -> ((), f s))
 
-instance Monad m => Farbe (FarbeT m) where
+instance MonadIO m => Farbe (FarbeT m) where
 	stateFarbe = FarbeT . state
 
 
@@ -107,12 +108,18 @@ data Config = Config
 	, workTime :: Double
 	}
 
+defaultConfig = Config
+	{ debugMode = True
+	, devDebugMode = True
+	, workTime = 1/50
+	}
+
 emptyFarbeState :: MonadIO m => m FarbeState
 emptyFarbeState = do
 	vbo <- initHandVBOState (2^24)
 	tex <- initTexState
 	return $ FarbeState
-		{ config = Config True False (1/50)
+		{ config = defaultConfig
 		, counter = 0
 		, vboState = vbo
 		, texState = tex
@@ -144,6 +151,12 @@ logTime :: (MonadWindow m, Farbe m, MonadIO m) => m ()
 logTime = do
 	t <- getTime
 	modifyFarbe $ \s -> s { lastFrameTime = t }
+
+logItemIO :: Farbe m => m (String -> IO ())
+logItemIO = do
+	b <- getsConfig devDebugMode
+	t <- liftIO $ getMonotonicTime
+	return $ \s -> when b $ putStrLn $ "[" ++ showFFloat (Just 3) t [] ++ "] " ++ s
 
 
 delay :: Farbe m => FarbeT IO () -> m ()
