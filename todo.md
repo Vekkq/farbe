@@ -60,6 +60,7 @@
 
 * have DMap fix itself, when the first lookup fails
 
+* looks like stablenames are unusable for functions - will have to do with hashes.
 
 
 info:

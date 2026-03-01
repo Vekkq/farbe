@@ -10,7 +10,6 @@ module Graphics.Farbe.State where
 import Graphics.Farbe.Window
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
-import Graphics.Farbe.DMap
 -- ~ import Graphics.Farbe.Shader
 
 import qualified Data.Sequence as Seq
@@ -34,6 +33,8 @@ import qualified Data.IntMap.Strict as M
 import Control.Monad.State.Strict
 import System.Mem.StableName
 
+
+import Debug.Trace
 
 
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
@@ -178,6 +179,10 @@ instance (MonadIO m, Farbe m) => HandVBO m where
 instance (MonadIO m, Farbe m) => HandTex m where
 	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
 
+
+
+-- DMAP - double map, running a StableName map, plus backup map --------------------------
+
 type Hash = Int
 
 data DMap a = DMap
@@ -217,9 +222,9 @@ pickFirst _ = Nothing
 
 lookupdm :: (Farbe m) => DMapKey k m -> m (Maybe ShExec)
 lookupdm (DMapKey k1 k2) = do
-	d@(DMap m1 m2) <- shaderCache <$> getFarbe
+	(DMap m1 m2) <- shaderCache <$> getFarbe
 	h1 <- snHash k1
-	case M.lookup h1 m1 of
+	case M.lookup (traceShowId h1) m1 of
 		Just r -> return $ Just r
 		Nothing -> do
 			h2 <- hash <$> k2
@@ -227,7 +232,7 @@ lookupdm (DMapKey k1 k2) = do
 				Nothing -> return Nothing
 				Just (h,a) -> do
 					-- todo, add m2' to Farbe
-					let m2' = M.insert h2 (h1,a) m2
+					let m2' = trace "backup lookup" $ M.insert h2 (h1,a) m2
 					modifyFarbe $ \fd -> fd { shaderCache = DMap m1 m2' }
 					return $ Just a
 

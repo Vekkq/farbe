@@ -19,7 +19,6 @@ import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Name
 import Graphics.Farbe.Utility
 import Graphics.Farbe.ShaderCache
-import Graphics.Farbe.DMap as D
 
 import Data.Char
 import Data.List
@@ -54,8 +53,8 @@ type ShaderM = DeferT' Shdr
 type ShaderDef = ShaderM (V4 (Expr V Float), V4 (Expr F Float))
 
 makeDMapKey :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef) -> DMapKey (b -> ShaderDef) m
-makeDMapKey f = DMapKey f (fmap hash $ getExpr f)
+	=> (b -> ShaderDef) -> DMapKey (ShaderDef) m
+makeDMapKey f = DMapKey (f undefined) (fmap hash $ getExpr f)
 
 getExpr :: (Farbe m, AttrType a b)
 	=> (b -> ShaderDef)

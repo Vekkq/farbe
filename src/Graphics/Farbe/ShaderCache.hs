@@ -5,7 +5,6 @@ module Graphics.Farbe.ShaderCache where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.State
 import Graphics.Farbe.BuildShader
-import qualified Graphics.Farbe.DMap as D
 
 import Data.Hashable
 import Control.Monad.IO.Class
