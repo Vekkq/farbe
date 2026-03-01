@@ -21,7 +21,6 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 
 
-type ShaderId = GLuint
 
 data ShaderData = ShaderData
 	{ byteCount :: Int

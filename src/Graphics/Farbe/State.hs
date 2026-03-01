@@ -15,6 +15,7 @@ import Graphics.Farbe.DMap
 
 import qualified Data.Sequence as Seq
 import qualified Data.Map as M
+import Graphics.GL.Types
 
 import Control.Concurrent.MVar
 
@@ -82,7 +83,9 @@ data FarbeState = FarbeState
 	, lastFrameTime :: Double
 	}
 
-type ShExec = MVar (FarbeT IO ())
+type ShaderId = GLuint
+
+type ShExec = (ShaderId, FarbeT IO ())
 
 stateShaderCache :: Farbe m
 	=> (DMap ShExec -> (a, DMap ShExec)) -> m a
@@ -104,13 +107,13 @@ modifyShaderCache f = do
 
 data Config = Config
 	{ debugMode :: Bool
-	, devDebugMode :: Bool
+	, printShaderPrograms :: Bool
 	, workTime :: Double
 	}
 
 defaultConfig = Config
 	{ debugMode = True
-	, devDebugMode = True
+	, printShaderPrograms = True
 	, workTime = 1/50
 	}
 
@@ -145,18 +148,18 @@ debug :: (Farbe m, MonadIO m, Show a) => a -> m ()
 debug = printOn debugMode . show
 
 devDebug :: (Farbe m, MonadIO m) => String -> m ()
-devDebug = printOn devDebugMode
+devDebug = printOn printShaderPrograms
 
 logTime :: (MonadWindow m, Farbe m, MonadIO m) => m ()
 logTime = do
 	t <- getTime
 	modifyFarbe $ \s -> s { lastFrameTime = t }
 
-logItemIO :: Farbe m => m (String -> IO ())
-logItemIO = do
-	b <- getsConfig devDebugMode
-	t <- liftIO $ getMonotonicTime
-	return $ \s -> when b $ putStrLn $ "[" ++ showFFloat (Just 3) t [] ++ "] " ++ s
+-- ~ logItemIO :: Farbe m => m (String -> IO ())
+-- ~ logItemIO = do
+	-- ~ b <- getsConfig printShaderPrograms
+	-- ~ t <- liftIO $ getMonotonicTime
+	-- ~ return $ \s -> when b $ putStrLn $ "[" ++ showFFloat (Just 3) t [] ++ "] " ++ s
 
 
 delay :: Farbe m => FarbeT IO () -> m ()

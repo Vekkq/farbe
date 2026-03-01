@@ -7,13 +7,16 @@ import qualified Data.IntMap.Strict as M
 import Control.Monad.State.Strict
 import System.Mem.StableName
 
+import Debug.Trace
 
 
 
+
+type Hash = Int
 
 data DMap a = DMap
 	{ stableNameMap :: M.IntMap a
-	, hashMap :: M.IntMap a
+	, hashMap :: M.IntMap a -- (Hash, a)
 	}
 
 empty = DMap M.empty M.empty
@@ -22,7 +25,6 @@ empty = DMap M.empty M.empty
 snHash :: MonadIO m => a -> m Hash
 snHash a = liftIO $ hashStableName <$> makeStableName a
 
-type Hash = Int
 
 hashs :: (MonadIO m, Hashable a) => a -> m (Hash, Hash)
 hashs a = do

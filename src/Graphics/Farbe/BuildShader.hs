@@ -95,8 +95,6 @@ arrV = liftE2 "[]"
 
 -- Shader building monad -----------------------------------------------------------------
 
-type ShaderId = GLuint
-
 data BuildShaderState = BuildShaderState
 	{ header :: S.Set String
 	, bexpr :: [(String, ExprS)]

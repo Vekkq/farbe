@@ -14,19 +14,11 @@ import Data.Function
 
 
 
-colorful :: (Farbe m, MonadIO m)
-	=> Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
+colorful :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
 colorful r = shader $ \(n,v) -> do
 	let v' = use r **| v
 	n' <- transfer n
 	return (up 1 v', up 1 n' * 0.5 + 0.2)
-
-
--- ~ runShader :: m (Maybe ([VArray a] -> m ())) -> m ()
--- ~ runShader m = do
-	-- ~ a <- m
-	-- ~ let io = fromMaybe (const $ return ()) a
-	-- ~ io
 
 
 main :: IO ()

@@ -58,14 +58,15 @@
 
 * fix cleansing of VArray with Delayed
 
-* remove the maybe bit of shaders. make it simpler. provide a function to test whether a shader is loaded.
+* have DMap fix itself, when the first lookup fails
+
 
 
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.
 renderbuffers are for when you do need depth or stencil, but without directly accessing them. rendering color will access depth and depending on settings also stencil.
 stencil settings need to be reset, directly after use or it messes up the following frames. glStencilOp says how stencil is written. glStencilFunc says how stencil is used. if GL_REPLACE, glStencilFunc also writes.
-
+shaders are compiled entirely concurrently and a get gives its status.
 
 question:
 I have a big stack of mostly StateT transformers, each StateT wrapped in their respective newtype, next to functions that operate on it. I ran into the issue that I have to write a lot of boilerplate instances and increasingly long deriving lists. are there any shortcuts to it, that dont involve flattening the transformers?
