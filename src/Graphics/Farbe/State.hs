@@ -14,7 +14,7 @@ import Graphics.Farbe.DMap
 -- ~ import Graphics.Farbe.Shader
 
 import qualified Data.Sequence as Seq
-import qualified Data.Map as M
+-- ~ import qualified Data.Map as M
 import Graphics.GL.Types
 
 import Control.Concurrent.MVar
@@ -27,6 +27,12 @@ import Control.Monad.Except
 import Control.Monad.RWS
 import GHC.Clock
 import Numeric
+
+
+import Data.Hashable
+import qualified Data.IntMap.Strict as M
+import Control.Monad.State.Strict
+import System.Mem.StableName
 
 
 
@@ -171,4 +177,64 @@ instance (MonadIO m, Farbe m) => HandVBO m where
 
 instance (MonadIO m, Farbe m) => HandTex m where
 	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
+
+type Hash = Int
+
+data DMap a = DMap
+	{ stableNameMap :: M.IntMap a
+	, backupMap :: M.IntMap (Hash, a)
+	}
+
+empty = DMap M.empty M.empty
+
+-- this tuple holds the unchanged key for stablenaming
+-- and a computation producing a hash from a for hashing
+data DMapKey a m = DMapKey a (m Hash)
+
+snHash :: MonadIO m => a -> m Hash
+snHash a = liftIO $ hashStableName <$> makeStableName a
+
+
+hashs :: (MonadIO m, Hashable a) => a -> m (Hash, Hash)
+hashs a = do
+	h1 <- snHash a
+	let h2 = hash a
+	return (h1,h2)
+
+
+insertdm :: (MonadIO m, Hashable k) => k -> a -> DMap a -> m (DMap a)
+insertdm k e (DMap m1 m2) = do
+	h1 <- snHash k
+	let h2 = hash k
+	return $ DMap (M.insert h1 e m1) (M.insert h2 (h1,e) m2)
+
+
+pickFirst :: [Maybe a] -> Maybe a
+pickFirst (Just x:xs) = Just x
+pickFirst (_:xs) = pickFirst xs
+pickFirst _ = Nothing
+
+
+lookupdm :: (Farbe m) => DMapKey k m -> m (Maybe ShExec)
+lookupdm (DMapKey k1 k2) = do
+	d@(DMap m1 m2) <- shaderCache <$> getFarbe
+	h1 <- snHash k1
+	case M.lookup h1 m1 of
+		Just r -> return $ Just r
+		Nothing -> do
+			h2 <- hash <$> k2
+			case M.lookup h2 m2 of
+				Nothing -> return Nothing
+				Just (h,a) -> do
+					-- todo, add m2' to Farbe
+					let m2' = M.insert h2 (h1,a) m2
+					modifyFarbe $ \fd -> fd { shaderCache = DMap m1 m2' }
+					return $ Just a
+
+
+delete :: (MonadIO m, Hashable k) => k -> DMap a -> m (DMap a)
+delete k (DMap m1 m2) = do
+	(h1,h2) <- hashs k
+	return $ DMap (M.delete h1 m1) (M.delete h2 m2)
+
 

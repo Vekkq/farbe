@@ -38,7 +38,6 @@ library
                  , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Name
                  , Graphics.Farbe.ShaderCache
-                 , Graphics.Farbe.DMap
 
 
     build-depends: base ^>=4.21

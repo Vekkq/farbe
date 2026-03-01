@@ -24,10 +24,12 @@ import Graphics.Farbe.DMap as D
 import Data.Char
 import Data.List
 import Data.Foldable
+import Data.Hashable
 import Foreign hiding (void)
 import Foreign.C
 import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
+
 
 
 import Graphics.GL.Embedded20
@@ -49,8 +51,14 @@ instance (Monad m, ShaderEnv m) => ShaderEnv (BuildShaderT m) where
 
 type ShaderM = DeferT' Shdr
 
+type ShaderDef = ShaderM (V4 (Expr V Float), V4 (Expr F Float))
+
+makeDMapKey :: (Farbe m, AttrType a b)
+	=> (b -> ShaderDef) -> DMapKey (b -> ShaderDef) m
+makeDMapKey f = DMapKey f (fmap hash $ getExpr f)
+
 getExpr :: (Farbe m, AttrType a b)
-	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+	=> (b -> ShaderDef)
 	-> m (V4 (Expr V Float), V4 (Expr F Float))
 getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
 	(i,e) <- setAttributes (bottom :: a)
@@ -58,8 +66,9 @@ getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
 	return (vs,fs)
 
 compileShader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m (GLuint, ShaderData)
-compileShader f = createShader $ do
+	=> (b -> ShaderDef) -> m ShExec
+compileShader f = do
+	(vao, sd) <- createShader $ do
 		join $ addShader GL_VERTEX_SHADER $ do
 			(i,e) <- setAttributes (bottom :: a)
 			((vs,fs),fm) <- runDeferT $ f e
@@ -67,9 +76,15 @@ compileShader f = createShader $ do
 			return $ addShader GL_FRAGMENT_SHADER $ do
 				addExpr "gl_FragColor" $ exprVec $ fs
 				sequence_ fm -- fm are operations for fragment shader part
-
 				-- splice fs here to add further outputs
 				return i
+	let	completeShader = do
+			liftIO $ glUseProgram $ shaderId sd
+			liftIO $ glBindVertexArray vao
+			preRenderM sd
+	return (shaderId sd, completeShader)
+
+
 
 addShader :: (Farbe m, ShaderEnv m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
@@ -92,54 +107,6 @@ addShader t shdr = do
 	devDebug str
 	return a
 
-
--- function for making or getting shader from cache
-
-commissionShader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-> m ShExec
-commissionShader f = do
-	(vao, sd) <- compileShader f
-	let	completeShader = do
-			liftIO $ glUseProgram $ shaderId sd
-			liftIO $ glBindVertexArray vao
-			preRenderM sd
-	return (shaderId sd, completeShader)
-
-lookupShader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m (Maybe ShExec)
-lookupShader f = do
-	e <- getExpr f
-	sc <- getShaderCache
-	D.lookup e sc
-
-isCompiled :: (Farbe m, AttrType a b)
-	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float))) -> m Bool
-isCompiled f = do
-	msh <- lookupShader f
-	maybe (return False) (isShaderCompiled . fst) msh
-
-
-isShaderCompiled :: MonadIO m => ShaderId -> m Bool
-isShaderCompiled id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
-
-shader :: (MonadIO m, Farbe m, AttrType a b)
-	=> (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-> [VArray a] -> m ()
-shader f varrs = do
-	mio <- lookupShader f
-	case mio of
-		Just (_, io) -> do
-			liftFarbe $ io >> drawArrays varrs
-		Nothing -> do
-			shExec <- commissionShader f
-			e <- getExpr f
-			sc <- getShaderCache
-			D.insert e shExec sc >>= putShaderCache
-			return ()
-
-
-
 checkShaderError :: String -> GLuint -> IO (Maybe String)
 checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 	bracket malloc free $ \errLength -> do
@@ -150,6 +117,39 @@ checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
 			e -> do
 				return $ Just e
 
+
+
+isCompiled :: (Farbe m, AttrType a b)
+	=> (b -> ShaderDef) -> m Bool
+isCompiled f = do
+	msh <- lookupShader f
+	maybe (return False) (isShaderCompiled . fst) msh
+
+
+isShaderCompiled :: MonadIO m => ShaderId -> m Bool
+isShaderCompiled id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
+
+shader :: (MonadIO m, Farbe m, AttrType a b)
+	=> (b -> ShaderDef)
+	-> [VArray a] -> m ()
+shader f varrs = do
+	mio <- lookupShader f
+	case mio of
+		Just (_, io) -> do
+			liftFarbe $ io >> drawArrays varrs
+		Nothing -> do
+			shExec <- compileShader f
+			e <- getExpr f
+			sc <- getShaderCache
+			insertdm e shExec sc >>= putShaderCache
+			return ()
+
+lookupShader :: (Farbe m, AttrType a b)
+	=> (b -> ShaderDef) -> m (Maybe ShExec)
+lookupShader f = do
+	let e = makeDMapKey f
+	sc <- getShaderCache
+	lookupdm e
 
 toCStatements :: [(String, ExprS)] -> String
 toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"

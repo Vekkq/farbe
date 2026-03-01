@@ -85,6 +85,8 @@ createShader ms = do
 		setShaderId sp
 		r <- ms
 		join $ getsShader postShaderM
+		sd <- getShader
+		putShader $ sd { postShaderM = return () }
 		return r
 	putFarbe s'
 	return $ (a, sd)

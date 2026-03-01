@@ -32,14 +32,7 @@ instance (Hashable a) => Hashable (V4 a) where
 
 -- ~ type Hash = Int
 
-addToCache :: (Farbe m, MonadIO m) => ExprI -> ShExec -> m ()
-addToCache e v = modifyShaderCache (D.insert e v)
-
-removeFromCache :: (Farbe m, MonadIO m) => ExprI -> m ()
-removeFromCache e = modifyShaderCache (D.delete e)
-
-
-lookupCache :: (Farbe m, MonadIO m) => ExprI -> m (Maybe ShExec)
-lookupCache e = do
-	d <- getShaderCache
-	D.lookup e d
+-- ~ lookupCache :: (Farbe m, MonadIO m) => ExprI -> m (Maybe ShExec)
+-- ~ lookupCache e = do
+	-- ~ d <- getShaderCache
+	-- ~ D.lookup e d
