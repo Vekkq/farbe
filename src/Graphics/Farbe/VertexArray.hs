@@ -70,7 +70,7 @@ vboAlloc a i = do
 			return p
 		Nothing -> do
 			liftIO $ putStrLn $
-				"The vboMan exceeded its allocated size. Recovering."
+				"The VBO manager exceeded its allocated size. Recovering."
 				++ "Consider to increase its default. "
 			vboRecover
 			vboAlloc a i

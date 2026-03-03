@@ -21,7 +21,6 @@ module Graphics.Farbe
 	, makeVar
 	, use
 	, swapVar
-	, glerrcheck
 	, W.KeyState (..)
 	, W.Event (..)
 	, W.Key (..)
@@ -50,6 +49,7 @@ module Graphics.Farbe
 	, makeVarM4
 	, makeVarT
 	, MonadIO (..)
+	, glErr
 	) where
 
 import qualified Graphics.Farbe.State as S
@@ -90,7 +90,7 @@ instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
 
 runFarbeT :: MonadIO m => String -> W.Display -> W.WindowT (S.FarbeT m) a -> m a
 runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
-	e <- liftIO emptyFarbeState
+	e <- emptyFarbeState
 	putFarbe e
 	devDebug "window creation passed."
 	glClearColor 0.1 0.1 0.1 1
@@ -100,18 +100,20 @@ runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 	where
 	 err = error "Farbe state not initialized yet"
 
-processEvents :: (W.MonadWindow m, MonadIO m, Farbe m)
+processEvents :: (W.MonadWindow m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
-	delayedWork
+	-- ~ delayedWork
 	-- ~ glerrcheck
 	W.swapBuffers
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 	W.processEvents f
 
-glerrcheck :: MonadIO m => m ()
-glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
+-- ~ glerrcheck :: MonadIO m => m ()
+-- ~ glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
 
+glerrcheck :: Farbe m => m ()
+glerrcheck = (liftIO $ glGetError) >>= \e -> when (e/=0) $ debug $ "gl error: " ++ show e
 
 
 

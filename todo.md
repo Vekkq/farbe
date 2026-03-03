@@ -62,6 +62,7 @@
 
 * looks like stablenames are unusable for functions - will have to do with hashes.
 
+* maybe use HasCallStack for tracking shader definitions
 
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.

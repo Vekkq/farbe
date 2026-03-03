@@ -28,7 +28,7 @@ import Foreign hiding (void)
 import Foreign.C
 import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
-
+import qualified Data.IntMap as M
 
 
 import Graphics.GL.Embedded20
@@ -42,6 +42,9 @@ import Control.Monad.State.Strict
 
 #define bottom undefined
 
+-- ~ import GHC.Stack
+-- ~ import Debug.Trace
+
 
 
 instance (Monad m, ShaderEnv m) => ShaderEnv (BuildShaderT m) where
@@ -52,17 +55,6 @@ type ShaderM = DeferT' Shdr
 
 type ShaderDef = ShaderM (V4 (Expr V Float), V4 (Expr F Float))
 
-makeDMapKey :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef) -> DMapKey (ShaderDef) m
-makeDMapKey f = DMapKey (f undefined) (fmap hash $ getExpr f)
-
-getExpr :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef)
-	-> m (V4 (Expr V Float), V4 (Expr F Float))
-getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
-	(i,e) <- setAttributes (bottom :: a)
-	((vs,fs),fm) <- runDeferT $ f e
-	return (vs,fs)
 
 compileShader :: (Farbe m, AttrType a b)
 	=> (b -> ShaderDef) -> m ShExec
@@ -82,8 +74,6 @@ compileShader f = do
 			liftIO $ glBindVertexArray vao
 			preRenderM sd
 	return (shaderId sd, completeShader)
-
-
 
 addShader :: (Farbe m, ShaderEnv m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
@@ -105,50 +95,92 @@ addShader t shdr = do
 		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
 	devDebug str
 	return a
-
-checkShaderError :: String -> GLuint -> IO (Maybe String)
-checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
-	bracket malloc free $ \errLength -> do
-		glGetShaderInfoLog shdr (2^10) errLength er
-		peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
-			"" -> do
-				return Nothing
-			e -> do
-				return $ Just e
+	where
+		checkShaderError :: String -> GLuint -> IO (Maybe String)
+		checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
+			bracket malloc free $ \errLength -> do
+				glGetShaderInfoLog shdr (2^10) errLength er
+				peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
+					"" -> return Nothing
+					e -> return $ Just e
 
 
-
-isCompiled :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef) -> m Bool
-isCompiled f = do
+isShaderCompiled :: (Farbe m, AttrType a b) => (b -> ShaderDef) -> m Bool
+isShaderCompiled f = do
 	msh <- lookupShader f
-	maybe (return False) (isShaderCompiled . fst) msh
+	case msh of
+		Just (id,_) -> isShaderCompiled' id
+		Nothing -> return False
+	where
+		isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
+		isShaderCompiled' id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
+
+getExpr :: (Farbe m, AttrType a b)
+	=> (b -> ShaderDef)
+	-> m (V4 (Expr V Float), V4 (Expr F Float))
+getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
+	(i,e) <- setAttributes (bottom :: a)
+	((vs,fs),fm) <- runDeferT $ f e
+	modifyShader $ \s -> s { postShaderM = return () } -- stops it from writing GL commands
+	return (vs,fs)
+
+lookupShader :: (Farbe m, AttrType a b) => (b -> ShaderDef) -> m (Maybe ShExec)
+lookupShader f = do
+	e <- hash <$> getExpr f
+	sc <- getShaderCache
+	return $ M.lookup e sc
 
 
-isShaderCompiled :: MonadIO m => ShaderId -> m Bool
-isShaderCompiled id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
-
-shader :: (MonadIO m, Farbe m, AttrType a b)
+shader :: (Farbe m, AttrType a b)
 	=> (b -> ShaderDef)
 	-> [VArray a] -> m ()
 shader f varrs = do
-	mio <- lookupShader f
-	case mio of
-		Just (_, io) -> do
-			liftFarbe $ io >> drawArrays varrs
+	msh <- lookupShader f
+	case msh of
+		Just (_,sh) -> do
+			liftFarbe sh >> drawArrays varrs
 		Nothing -> do
-			shExec <- compileShader f
-			e <- getExpr f
-			sc <- getShaderCache
-			insertdm e shExec sc >>= putShaderCache
-			return ()
+			sh <- compileShader f
+			e <- hash <$> getExpr f
+			modifyShaderCache $ M.insert e sh
 
-lookupShader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef) -> m (Maybe ShExec)
-lookupShader f = do
-	let e = makeDMapKey f
-	sc <- getShaderCache
-	lookupdm e
+-- ~ shader :: (MonadIO m, Farbe m, AttrType a b)
+	-- ~ => (b -> ShaderDef)
+	-- ~ -> [VArray a] -> m ()
+-- ~ shader f varrs = do
+	-- ~ mio <- lookupShader f
+	-- ~ case mio of
+		-- ~ Just (_, io) -> do
+			-- ~ liftFarbe $ io >> drawArrays varrs
+		-- ~ Nothing -> do
+			-- ~ shExec <- compileShader f
+			-- ~ e <- getExpr f
+			-- ~ sc <- getShaderCache
+			-- ~ insertdm e shExec sc >>= putShaderCache
+			-- ~ return ()
+
+-- ~ lookupShader :: (Farbe m, AttrType a b) => Int -> (b -> ShaderDef) -> m (Maybe ShExec)
+-- ~ lookupShader l f = do
+	-- ~ sc <- getShaderCache
+	-- ~ case M.lookup l sc of
+		-- ~ Just s -> return $ Just s
+		-- ~ Nothing -> do
+			-- ~ e <- hash <$> getExpr f
+			-- ~ return $ M.lookup e sc
+
+-- ~ toHead :: Foldable f => f a -> Maybe a
+-- ~ toHead f = case toList f of
+	-- ~ (x:_) -> Just x
+	-- ~ _ -> Nothing
+
+-- ~ isCompiled :: (Farbe m, AttrType a b)
+	-- ~ => (b -> ShaderDef) -> m Bool
+-- ~ isCompiled f = do
+	-- ~ let i = traceShowId getThisLine
+	-- ~ msh <- lookupShader i f
+	-- ~ maybe (return False) (isShaderCompiled . fst) msh
+
+
 
 toCStatements :: [(String, ExprS)] -> String
 toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"

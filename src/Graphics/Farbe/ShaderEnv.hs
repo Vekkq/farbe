@@ -28,7 +28,7 @@ data ShaderData = ShaderData
 	, shaderId :: ShaderId
 	, postShaderM :: ShaderEnvT (FarbeT IO) ()
 	, preRenderM :: FarbeT IO ()
-	, buildSubShader :: [(GLenum, IO ())]
+	, buildSubShader :: [IO ()]
 	}
 
 emptyShaderData :: ShaderData
@@ -76,8 +76,7 @@ runShaderEnvT :: (Monad m) => ShaderEnvT m a -> m (a, ShaderData)
 runShaderEnvT (ShaderEnvT ms) = runStateT ms emptyShaderData
 
 
-createShader :: (MonadIO m, Farbe m)
-	=> ShaderEnvT (FarbeT IO) a -> m (a, ShaderData)
+createShader :: Farbe m => ShaderEnvT (FarbeT IO) a -> m (a, ShaderData)
 createShader ms = do
 	sp <- glCreateProgram
 	s <- getFarbe
@@ -139,7 +138,7 @@ getShaderId = getsShader shaderId
 
 addSubShader :: ShaderEnv m => GLenum -> IO () -> m ()
 addSubShader e io = modifyShader $
-	\s -> s { buildSubShader = buildSubShader s ++ [(e,io)] }
+	\s -> s { buildSubShader = buildSubShader s ++ [io] }
 
 
 

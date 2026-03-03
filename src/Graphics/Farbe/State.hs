@@ -25,14 +25,15 @@ import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
 import GHC.Clock
+import GHC.Stack
 import Numeric
 
 
 import Data.Hashable
 import qualified Data.IntMap.Strict as M
-import Control.Monad.State.Strict
 import System.Mem.StableName
 
+import Graphics.GL
 
 import Debug.Trace
 
@@ -86,41 +87,19 @@ data FarbeState = FarbeState
 	, vboState :: VBOState
 	, texState :: TexState
 	, delayed :: Seq.Seq (FarbeT IO ())
-	, shaderCache :: DMap ShExec
+	, shaderCache :: M.IntMap ShExec
 	, lastFrameTime :: Double
 	}
 
-type ShaderId = GLuint
-
-type ShExec = (ShaderId, FarbeT IO ())
-
-stateShaderCache :: Farbe m
-	=> (DMap ShExec -> (a, DMap ShExec)) -> m a
-stateShaderCache f = stateFarbe $ \s ->
-	let (a,c) = f $ shaderCache s in (a, s{ shaderCache = c })
-
-getShaderCache :: Farbe m => m (DMap ShExec)
-getShaderCache = stateShaderCache $ \s -> (s,s)
-
-putShaderCache :: Farbe m => (DMap ShExec) -> m ()
-putShaderCache d = stateShaderCache $ \_ -> ((),d)
-
-modifyShaderCache :: (MonadIO m, Farbe m)
-	=> (DMap ShExec -> m (DMap ShExec)) -> m ()
-modifyShaderCache f = do
-	sc <- getShaderCache
-	sc' <- f sc
-	putShaderCache sc'
-
 data Config = Config
 	{ debugMode :: Bool
-	, printShaderPrograms :: Bool
+	, devDebugMode :: Bool
 	, workTime :: Double
 	}
 
 defaultConfig = Config
-	{ debugMode = True
-	, printShaderPrograms = True
+	{ debugMode = False
+	, devDebugMode = False
 	, workTime = 1/50
 	}
 
@@ -134,9 +113,14 @@ emptyFarbeState = do
 		, vboState = vbo
 		, texState = tex
 		, delayed = Seq.empty
-		, shaderCache = empty
+		, shaderCache = M.empty
 		, lastFrameTime = 0
 		}
+
+type ShaderId = GLuint
+
+type ShExec = (ShaderId, FarbeT IO ())
+-- ~ type ShExecs = M.IntMap ShExec
 
 runFarbeT :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT fs (FarbeT m) = runStateT m fs
@@ -145,28 +129,40 @@ getsConfig :: Farbe m => (Config -> s) -> m s
 getsConfig f = getsFarbe (f . config)
 
 
+stateShaderCache :: Farbe m
+	=> (M.IntMap ShExec -> (a, M.IntMap ShExec)) -> m a
+stateShaderCache f = stateFarbe $ \s ->
+	let (a,c) = f $ shaderCache s in (a, s{ shaderCache = c })
+
+getShaderCache :: Farbe m => m (M.IntMap ShExec)
+getShaderCache = stateShaderCache $ \s -> (s,s)
+
+putShaderCache :: Farbe m => (M.IntMap ShExec) -> m ()
+putShaderCache d = stateShaderCache $ \_ -> ((),d)
+
+modifyShaderCache :: (Farbe m)
+	=> (M.IntMap ShExec -> M.IntMap ShExec) -> m ()
+modifyShaderCache f = do
+	sc <- getShaderCache
+	let sc' = f sc
+	putShaderCache sc'
+
 
 printOn :: (Farbe m, MonadIO m) => (Config -> Bool) -> String -> m ()
 printOn f s = do
 	b <- getsConfig f
 	when b $ liftIO $ putStrLn s
 
-debug :: (Farbe m, MonadIO m, Show a) => a -> m ()
-debug = printOn debugMode . show
+debug :: (Farbe m, MonadIO m) => String -> m ()
+debug = printOn debugMode
 
 devDebug :: (Farbe m, MonadIO m) => String -> m ()
-devDebug = printOn printShaderPrograms
+devDebug = printOn devDebugMode
 
 logTime :: (MonadWindow m, Farbe m, MonadIO m) => m ()
 logTime = do
 	t <- getTime
 	modifyFarbe $ \s -> s { lastFrameTime = t }
-
--- ~ logItemIO :: Farbe m => m (String -> IO ())
--- ~ logItemIO = do
-	-- ~ b <- getsConfig printShaderPrograms
-	-- ~ t <- liftIO $ getMonotonicTime
-	-- ~ return $ \s -> when b $ putStrLn $ "[" ++ showFFloat (Just 3) t [] ++ "] " ++ s
 
 
 delay :: Farbe m => FarbeT IO () -> m ()
@@ -180,66 +176,11 @@ instance (MonadIO m, Farbe m) => HandTex m where
 	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
 
 
+getThisLine :: HasCallStack => Int
+getThisLine = case reverse $ getCallStack callStack of
+	(_,cs):_ -> srcLocStartLine cs
+	_ -> 0
 
--- DMAP - double map, running a StableName map, plus backup map --------------------------
-
-type Hash = Int
-
-data DMap a = DMap
-	{ stableNameMap :: M.IntMap a
-	, backupMap :: M.IntMap (Hash, a)
-	}
-
-empty = DMap M.empty M.empty
-
--- this tuple holds the unchanged key for stablenaming
--- and a computation producing a hash from a for hashing
-data DMapKey a m = DMapKey a (m Hash)
-
-snHash :: MonadIO m => a -> m Hash
-snHash a = liftIO $ hashStableName <$> makeStableName a
-
-
-hashs :: (MonadIO m, Hashable a) => a -> m (Hash, Hash)
-hashs a = do
-	h1 <- snHash a
-	let h2 = hash a
-	return (h1,h2)
-
-
-insertdm :: (MonadIO m, Hashable k) => k -> a -> DMap a -> m (DMap a)
-insertdm k e (DMap m1 m2) = do
-	h1 <- snHash k
-	let h2 = hash k
-	return $ DMap (M.insert h1 e m1) (M.insert h2 (h1,e) m2)
-
-
-pickFirst :: [Maybe a] -> Maybe a
-pickFirst (Just x:xs) = Just x
-pickFirst (_:xs) = pickFirst xs
-pickFirst _ = Nothing
-
-
-lookupdm :: (Farbe m) => DMapKey k m -> m (Maybe ShExec)
-lookupdm (DMapKey k1 k2) = do
-	(DMap m1 m2) <- shaderCache <$> getFarbe
-	h1 <- snHash k1
-	case M.lookup (traceShowId h1) m1 of
-		Just r -> return $ Just r
-		Nothing -> do
-			h2 <- hash <$> k2
-			case M.lookup h2 m2 of
-				Nothing -> return Nothing
-				Just (h,a) -> do
-					-- todo, add m2' to Farbe
-					let m2' = trace "backup lookup" $ M.insert h2 (h1,a) m2
-					modifyFarbe $ \fd -> fd { shaderCache = DMap m1 m2' }
-					return $ Just a
-
-
-delete :: (MonadIO m, Hashable k) => k -> DMap a -> m (DMap a)
-delete k (DMap m1 m2) = do
-	(h1,h2) <- hashs k
-	return $ DMap (M.delete h1 m1) (M.delete h2 m2)
-
+glErr :: MonadIO m => m ()
+glErr = liftIO $ glGetError >>= \e -> putStrLn $ "gl error: " ++ show e
 
