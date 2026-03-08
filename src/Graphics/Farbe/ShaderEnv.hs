@@ -140,5 +140,3 @@ addSubShader :: ShaderEnv m => GLenum -> IO () -> m ()
 addSubShader e io = modifyShader $
 	\s -> s { buildSubShader = buildSubShader s ++ [io] }
 
-
-

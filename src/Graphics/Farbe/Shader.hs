@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- ~ {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
@@ -19,6 +20,8 @@ import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Name
 import Graphics.Farbe.Utility
 import Graphics.Farbe.ShaderCache
+import Graphics.Farbe.Uniform
+
 
 import Data.Char
 import Data.List
@@ -47,17 +50,53 @@ import Control.Monad.State.Strict
 
 
 
-instance (Monad m, ShaderEnv m) => ShaderEnv (BuildShaderT m) where
-	stateShader = lift . stateShader
-
 
 type ShaderM = DeferT' Shdr
 
-type ShaderDef = ShaderM (V4 (Expr V Float), V4 (Expr F Float))
+type ShaderDefi = ShaderM (V4 (Expr V Float), V4 (Expr F Float))
+
+
+class ShaderDefinition f g where
+	shade :: f -> FarbeT IO g
+
+instance (AttrType a b, Farbe m) =>
+	ShaderDefinition
+		(b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
+		([VArray a] -> m ())
+	where
+	shade f = return $ shader f
+
+instance (ShaderDefinition f g, UploadDefault a, Use (Var a) V r, Has (FarbeT IO) g) =>
+	ShaderDefinition (r -> f) (a -> g) where
+	--shade :: (Expr e r -> f) -> m (a -> g)
+	shade f = do
+		v <- makeVarEmpty
+		g <- shade $ f $ use v
+		return $ \a -> liftF (swapVar v a) g
+
+
+-- ~ colorful :: Farbe m => Mat V3 V3 Float -> [VArray (V3 Float, V3 Float)] -> m ()
+-- ~ colorful = shade $ \r (n,v) -> do
+	-- ~ let v' = use r **| v
+	-- ~ n' <- transfer n
+	-- ~ return (up 1 v', up 1 n' * 0.5 + 0.2)
+
+
+
+class Has m f | f -> m where
+	liftF :: m a -> f -> f
+
+instance {-# INCOHERENT #-} Has m b => Has m (a -> b) where
+	liftF m f = \p -> liftF m (f p)
+
+instance Applicative m => Has m (m a) where
+	liftF m f = m *> f
+
+
 
 
 compileShader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef) -> m ShExec
+	=> (b -> ShaderDefi) -> m ShExec
 compileShader f = do
 	(vao, sd) <- createShader $ do
 		join $ addShader GL_VERTEX_SHADER $ do
@@ -105,7 +144,7 @@ addShader t shdr = do
 					e -> return $ Just e
 
 
-isShaderCompiled :: (Farbe m, AttrType a b) => (b -> ShaderDef) -> m Bool
+isShaderCompiled :: (Farbe m, AttrType a b) => (b -> ShaderDefi) -> m Bool
 isShaderCompiled f = do
 	msh <- lookupShader f
 	case msh of
@@ -116,7 +155,7 @@ isShaderCompiled f = do
 		isShaderCompiled' id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
 
 getExpr :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef)
+	=> (b -> ShaderDefi)
 	-> m (V4 (Expr V Float), V4 (Expr F Float))
 getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
 	(i,e) <- setAttributes (bottom :: a)
@@ -124,7 +163,7 @@ getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
 	modifyShader $ \s -> s { postShaderM = return () } -- stops it from writing GL commands
 	return (vs,fs)
 
-lookupShader :: (Farbe m, AttrType a b) => (b -> ShaderDef) -> m (Maybe ShExec)
+lookupShader :: (Farbe m, AttrType a b) => (b -> ShaderDefi) -> m (Maybe ShExec)
 lookupShader f = do
 	e <- hash <$> getExpr f
 	sc <- getShaderCache
@@ -132,7 +171,7 @@ lookupShader f = do
 
 
 shader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDef)
+	=> (b -> ShaderDefi)
 	-> [VArray a] -> m ()
 shader f varrs = do
 	msh <- lookupShader f
@@ -143,43 +182,6 @@ shader f varrs = do
 			sh <- compileShader f
 			e <- hash <$> getExpr f
 			modifyShaderCache $ M.insert e sh
-
--- ~ shader :: (MonadIO m, Farbe m, AttrType a b)
-	-- ~ => (b -> ShaderDef)
-	-- ~ -> [VArray a] -> m ()
--- ~ shader f varrs = do
-	-- ~ mio <- lookupShader f
-	-- ~ case mio of
-		-- ~ Just (_, io) -> do
-			-- ~ liftFarbe $ io >> drawArrays varrs
-		-- ~ Nothing -> do
-			-- ~ shExec <- compileShader f
-			-- ~ e <- getExpr f
-			-- ~ sc <- getShaderCache
-			-- ~ insertdm e shExec sc >>= putShaderCache
-			-- ~ return ()
-
--- ~ lookupShader :: (Farbe m, AttrType a b) => Int -> (b -> ShaderDef) -> m (Maybe ShExec)
--- ~ lookupShader l f = do
-	-- ~ sc <- getShaderCache
-	-- ~ case M.lookup l sc of
-		-- ~ Just s -> return $ Just s
-		-- ~ Nothing -> do
-			-- ~ e <- hash <$> getExpr f
-			-- ~ return $ M.lookup e sc
-
--- ~ toHead :: Foldable f => f a -> Maybe a
--- ~ toHead f = case toList f of
-	-- ~ (x:_) -> Just x
-	-- ~ _ -> Nothing
-
--- ~ isCompiled :: (Farbe m, AttrType a b)
-	-- ~ => (b -> ShaderDef) -> m Bool
--- ~ isCompiled f = do
-	-- ~ let i = traceShowId getThisLine
-	-- ~ msh <- lookupShader i f
-	-- ~ maybe (return False) (isShaderCompiled . fst) msh
-
 
 
 toCStatements :: [(String, ExprS)] -> String

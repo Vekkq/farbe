@@ -148,3 +148,8 @@ data F -- | Fragment/pixel shader signifier.
 class ShaderType a
 instance ShaderType V
 instance ShaderType F
+
+
+instance (Monad m, ShaderEnv m) => ShaderEnv (BuildShaderT m) where
+	stateShader = lift . stateShader
+

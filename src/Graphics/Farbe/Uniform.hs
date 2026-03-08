@@ -17,7 +17,7 @@ import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 import Graphics.Farbe.State
-import Graphics.Farbe.Shader
+-- ~ import Graphics.Farbe.Shader
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.Name
 import Graphics.Farbe.ShaderEnv
@@ -54,8 +54,6 @@ import Control.Applicative (Alternative)
 import Control.Monad.RWS (RWST)
 
 import GHC.TypeNats
-
-import Debug.Trace
 
 #define bottom undefined
 
@@ -207,6 +205,28 @@ makeVarM4  = makeVar
 makeVarT   = makeVar
 
 -- add expr texture shader access functions
+
+makeVarEmpty :: (Farbe m, UploadDefault a) => m (Var a)
+makeVarEmpty = makeVar upDefault
+
+class Upload a => UploadDefault a where upDefault :: a
+
+instance UploadDefault Bool where upDefault = False
+instance UploadDefault Int32 where upDefault = 0
+instance UploadDefault Float where upDefault = 0
+instance UploadDefault (V2 Float) where upDefault = 0
+instance UploadDefault (V3 Float) where upDefault = 0
+instance UploadDefault (V4 Float) where upDefault = 0
+
+instance UploadDefault (V2 Int32) where upDefault = 0
+instance UploadDefault (V3 Int32) where upDefault = 0
+instance UploadDefault (V4 Int32) where upDefault = 0
+instance UploadDefault (V2 Bool) where upDefault = pure False
+instance UploadDefault (V3 Bool) where upDefault = pure False
+instance UploadDefault (V4 Bool) where upDefault = pure False
+instance UploadDefault (Mat V2 V2 Float) where upDefault = 0
+instance UploadDefault (Mat V3 V3 Float) where upDefault = 0
+instance UploadDefault (Mat V4 V4 Float) where upDefault = 0
 
 -- Access uniform variables --------------------------------------------------------------
 
