@@ -64,6 +64,13 @@
 
 * maybe use HasCallStack for tracking shader definitions
 
+* easy direct texture access in shaders using paths
+
+* varray file access using paths
+
+
+
+
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.
 renderbuffers are for when you do need depth or stencil, but without directly accessing them. rendering color will access depth and depending on settings also stencil.
