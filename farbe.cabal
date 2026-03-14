@@ -59,7 +59,7 @@ library
 test-suite farbe-test
 --    import:           warnings
     default-language: GHC2021
-    other-modules: STL
+    other-modules:
 
     -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0

@@ -5,6 +5,7 @@
 
 module Graphics.Farbe.STL where
 
+import qualified Data.ByteString.Lazy as B
 import Data.Binary
 import Data.Binary.Get
 import Graphics.Farbe.Vec
@@ -18,23 +19,23 @@ import Data.Maybe
 
 data STL = STL { triangles :: [Triangle] } deriving Show
 
-instance Binary STL where
-	get = do
-		replicateM 80 $ getWord8
-		i <- getWord32le
-		fmap STL $ replicateM (itoi i) $ do
-			tri <- get
-			_ :: Word16 <- get
-			return $ tri
-	put = undefined
+getSTL = do
+	replicateM 80 $ getWord8
+	i <- getWord32le
+	fmap STL $ replicateM (itoi i) $ do
+		tri <- getTriangle
+		_ :: Word16 <- get
+		return $ tri
 
+getTriangle :: Get Triangle
+getTriangle = do
+	[n,v1,v2,v3] <- replicateM 4 getSTLV3
+	return $ Triangle n v1 v2 v3
 
-instance Binary (V3 Float) where
-	get = do
-		(x:y:z:[]) <- replicateM 3 getFloatle
-		return $ V3 x y z
-	put = undefined
-
+getSTLV3 :: Get (V3 Float)
+getSTLV3 = do
+	(x:y:z:[]) <- replicateM 3 getFloatle
+	return $ V3 x y z
 
 data Triangle = Triangle
 	{ tn  :: V3 Float
@@ -44,15 +45,10 @@ data Triangle = Triangle
 	}
 	deriving (Eq, Ord, Read, Show, Generic)
 
-instance Binary Triangle where
-	get = do
-		(n,v1,v2,v3) <- get
-		return $ Triangle n v1 v2 v3
-	put = undefined
 
 readFileBinSTL :: MonadIO m => FilePath -> m [(V3 Float, V3 Float)]
 readFileBinSTL p = do
-	STL tri <- liftIO $ decodeFile p
+	STL tri <- fmap (runGet getSTL) $ liftIO $ B.readFile p
 	return $ concatMap (\(Triangle n a b c) -> [(n,a),(n,b),(n,c)]) tri
 
 
