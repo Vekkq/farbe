@@ -55,8 +55,8 @@ type ShaderDefi = ShaderM (V4 (Expr V Float), V4 (Expr F Float))
 
 
 
-compileShader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDefi) -> m ShExec
+compileShader :: (Farbe m, Farbe f, AttrType a b)
+	=> (b -> ShaderDefi) -> m (f Bool)
 compileShader f = do
 	(vao, sd) <- createShader $ do
 		join $ addShader GL_VERTEX_SHADER $ do
@@ -68,11 +68,13 @@ compileShader f = do
 				sequence_ fm -- fm are operations for fragment shader part
 				-- splice fs here to add further outputs
 				return i
-	let	completeShader = do
+	let	completeShader = liftFarbe $ do
 			liftIO $ glUseProgram $ shaderId sd
 			liftIO $ glBindVertexArray vao
-			preRenderM sd
-	return (shaderId sd, completeShader)
+			b <- isShaderCompiled' $ shaderId sd
+			fmap and $ sequence $ reverse $ preRenderM sd
+
+	return completeShader
 
 addShader :: (Farbe m, ShaderEnv m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
@@ -108,11 +110,11 @@ isShaderCompiled :: (Farbe m, AttrType a b) => (b -> ShaderDefi) -> m Bool
 isShaderCompiled f = do
 	msh <- lookupShader f
 	case msh of
-		Just (id,_) -> isShaderCompiled' id
+		Just sh -> sh
 		Nothing -> return False
-	where
-		isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
-		isShaderCompiled' id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
+
+isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
+isShaderCompiled' id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
 
 getExpr :: (Farbe m, AttrType a b)
 	=> (b -> ShaderDefi)
@@ -123,11 +125,11 @@ getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
 	modifyShader $ \s -> s { postShaderM = return () } -- stops it from writing GL commands
 	return (vs,fs)
 
-lookupShader :: (Farbe m, AttrType a b) => (b -> ShaderDefi) -> m (Maybe ShExec)
+lookupShader :: (Farbe m, Farbe f, AttrType a b) => (b -> ShaderDefi) -> m (Maybe (f Bool))
 lookupShader f = do
 	e <- hash <$> getExpr f
 	sc <- getShaderCache
-	return $ M.lookup e sc
+	return $ liftFarbe <$> M.lookup e sc
 
 
 shader :: (Farbe m, AttrType a b)
@@ -136,8 +138,9 @@ shader :: (Farbe m, AttrType a b)
 shader f varrs = do
 	msh <- lookupShader f
 	case msh of
-		Just (_,sh) -> do
-			liftFarbe sh >> drawArrays varrs
+		Just sh -> do
+			b <- sh
+			when b $ drawArrays varrs
 		Nothing -> do
 			sh <- compileShader f
 			e <- hash <$> getExpr f

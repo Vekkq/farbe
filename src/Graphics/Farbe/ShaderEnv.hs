@@ -27,7 +27,7 @@ data ShaderData = ShaderData
 	, byteMax :: Int
 	, shaderId :: ShaderId
 	, postShaderM :: ShaderEnvT (FarbeT IO) ()
-	, preRenderM :: FarbeT IO ()
+	, preRenderM :: [FarbeT IO Bool]
 	, buildSubShader :: [IO ()]
 	}
 
@@ -37,7 +37,7 @@ emptyShaderData = ShaderData
 	, byteMax = error "unset byte max"
 	, shaderId = error "unset shader id"
 	, postShaderM = return ()
-	, preRenderM = return ()
+	, preRenderM = []
 	, buildSubShader = []
 	}
 
@@ -112,8 +112,8 @@ liftFarbe m = do
 postShader :: (ShaderEnv m) => ShaderEnvT (FarbeT IO) () -> m ()
 postShader m = modifyShader (\s -> s { postShaderM = postShaderM s >> m } )
 
-preRender :: (ShaderEnv m) => FarbeT IO () -> m ()
-preRender m = modifyShader (\s -> s { preRenderM = preRenderM s >> m } )
+preRender :: (ShaderEnv m) => FarbeT IO Bool -> m ()
+preRender m = modifyShader (\s -> s { preRenderM = m : preRenderM s } )
 
 modifyByteCount :: (ShaderEnv m) => (Int -> Int) -> m ()
 modifyByteCount f = modifyShader (\s -> s { byteCount = f $ byteCount s } )

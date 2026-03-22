@@ -80,7 +80,9 @@ makeVar a = do
 			l <- withString vname $ glGetUniformLocation s
 			wc <- makeRunWhenChanged $ upload l
 			-- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
-			preRender $ (liftIO $ readMVar m) >>= runwc wc
+			preRender $ do
+				(liftIO $ readMVar m) >>= runwc wc
+				return True
 		return vname
 	return $ Var (ExprI r (toTypeS (bottom :: a)) []) m
 

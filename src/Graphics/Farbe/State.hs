@@ -119,8 +119,7 @@ emptyFarbeState = do
 
 type ShaderId = GLuint
 
-type ShExec = (ShaderId, FarbeT IO ())
--- ~ type ShExecs = M.IntMap ShExec
+type ShExec = FarbeT IO Bool
 
 runFarbeT :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT fs (FarbeT m) = runStateT m fs
