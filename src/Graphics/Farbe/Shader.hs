@@ -69,12 +69,16 @@ compileShader f = do
 				-- splice fs here to add further outputs
 				return i
 	let	completeShader = liftFarbe $ do
-			liftIO $ glUseProgram $ shaderId sd
-			liftIO $ glBindVertexArray vao
 			b <- isShaderCompiled' $ shaderId sd
-			fmap and $ sequence $ reverse $ preRenderM sd
+			if b then return False else do
+				liftIO $ glUseProgram $ shaderId sd
+				liftIO $ glBindVertexArray vao
+				fmap and $ sequence $ reverse $ preRenderM sd
 
 	return completeShader
+
+isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
+isShaderCompiled' id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
 
 addShader :: (Farbe m, ShaderEnv m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
@@ -112,9 +116,6 @@ isShaderCompiled f = do
 	case msh of
 		Just sh -> sh
 		Nothing -> return False
-
-isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
-isShaderCompiled' id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
 
 getExpr :: (Farbe m, AttrType a b)
 	=> (b -> ShaderDefi)
