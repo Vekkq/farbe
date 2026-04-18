@@ -38,6 +38,7 @@ library
                  , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Name
                  , Graphics.Farbe.ShaderCache
+                 , Graphics.Farbe.TextureExpr
 
 
     build-depends: base ^>=4.21

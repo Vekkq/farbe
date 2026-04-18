@@ -27,7 +27,7 @@ import Graphics.GL
 
 data TexState = TexState
 	{ lastUsed :: Word32
-	, texArr :: (IOUArray Word32 GLuint)
+	, texArr :: (IOUArray Word32 GLuint) -- Map Word32 (GLuint, String)
 	}
 
 initTexState :: MonadIO m => m TexState
@@ -64,6 +64,7 @@ data Texture f = Texture
 	, changeTokenT :: Int
 	, width :: GLsizei
 	, height :: GLsizei
+	, path :: String
 	} deriving Eq
 
 
@@ -109,7 +110,8 @@ instance TextureFormat D where
 	glTexType _ = GL_UNSIGNED_SHORT --GL_UNSIGNED_INT
 	glMipMap _ = False
 
--- @loadTexture2Base@ requires an image with width and height at base of 2 .
+-- @loadTexture2Base@ requires an image with width and height at base of 2,
+-- if "glPixelStorei GL_UNPACK_ALIGNMENT 1" is not set.
 loadTexture2Base :: forall m t a . (MonadIO m, HandTex m, TextureFormat t)
 	=> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
 loadTexture2Base (w,h) p = do
@@ -124,8 +126,9 @@ loadTexture2Base (w,h) p = do
 
 	liftIO $ void $ mkWeakMVar m (with tex $ glDeleteTextures 1)
 	-- TODO wait for bufferswap before deleting
+	-- also ensure its send to the main thread
 
-	return $ Texture tex m 0 w h
+	return $ Texture tex m 0 w h ""
 
 
 assignTexUnit' :: (MonadIO m, HandTex m, Num n) => GLuint -> GLenum -> m n
@@ -147,7 +150,7 @@ assignTexUnit' i u = do
 		return $ if x' >= b then a else x'
 
 assignTexUnit :: (MonadIO m, HandTex m) => Texture f -> m ()
-assignTexUnit (Texture i mu _ _ _) = do
+assignTexUnit (Texture i mu _ _ _ _) = do
 	u <- liftIO $ takeMVar mu
 	u' <- assignTexUnit' i u
 	liftIO $ putMVar mu u'

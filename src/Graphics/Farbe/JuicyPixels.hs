@@ -25,16 +25,17 @@ loadImage :: forall m t f
   => String -> m (Either String (Texture t))
 loadImage s = do
   ei <- liftIO $ readImage s
-  right ei $ \i -> do
+  mapRight ei $ \i -> do
     let (Image w h v) = (toTexture i :: Image f)
     let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
-    loadTexture2Base (itoi w, itoi h) p
+    t :: Texture t <- loadTexture2Base (itoi w, itoi h) p
+    return $ t { path = s }
     -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
 
 
-right :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
-right (Right b) f = Right <$> f b
-right (Left a) _ = pure (Left a)
+mapRight :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
+mapRight (Right b) f = Right <$> f b
+mapRight (Left a) _ = pure (Left a)
 
 
 loadImage'

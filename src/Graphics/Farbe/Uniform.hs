@@ -129,7 +129,7 @@ instance Upload (Mat V4 V4 Float) where
 	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
 
 instance Upload (Texture f) where
-	upload l (Texture i mu _ _ _) = do
+	upload l (Texture i mu _ _ _ _) = do
 		TexState u' ts <- getTex
 		u <- liftIO $ readMVar mu
 		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
