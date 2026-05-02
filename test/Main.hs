@@ -4,8 +4,10 @@ module Main (main) where
 
 import Graphics.Farbe
 -- ~ import Graphics.Farbe.Window
+-- ~ import Graphics.Farbe.Vec (V3, Mat, (**|))
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL
+import Graphics.Farbe.TextureExpr
 
 import Control.Monad
 
@@ -14,12 +16,13 @@ import Data.Function
 
 
 
+
 colorful :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
 colorful r = shader $ \(n,v) -> do
 	let v' = use r **| v
-	-- ~ n' <- transfer nwu
 	n' <- transfer n
-	return (up 1 v', up 1 n' * 0.5 + 0.2)
+	return (up 1 v', up 1 (n' * 0.5))
+	-- ~ return (up 1 v', up 1 (n' * 0.5 + textureIO (down n') "test-resources/KorDrTtaa4.png"))
 
 
 main :: IO ()

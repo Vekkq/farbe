@@ -235,10 +235,15 @@ fromList = fromListFill 0
 
 
 
-class SizeUp x a b | a -> x, b -> x where up :: (x -> a -> b)
+class SizeUp x a b | a -> x, b -> x where up :: x -> a -> b
 instance SizeUp a (V2 a) (V3 a) where up i (V2 x y) = V3 x y i
 instance SizeUp a (V2 a) (V4 a) where up i (V2 x y) = V4 x y i i
 instance SizeUp a (V3 a) (V4 a) where up i (V3 x y z) = V4 x y z i
+
+class SizeDown a b where down :: a -> b
+instance SizeDown (V3 a) (V2 a) where down (V3 x y _)   = (V2 x y)
+instance SizeDown (V4 a) (V2 a) where down (V4 x y _ _) = (V2 x y)
+instance SizeDown (V4 a) (V3 a) where down (V4 x y z _) = (V3 x y z)
 
 
 

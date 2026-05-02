@@ -110,7 +110,7 @@ instance TextureFormat D where
 	glTexType _ = GL_UNSIGNED_SHORT --GL_UNSIGNED_INT
 	glMipMap _ = False
 
--- @loadTexture2Base@ requires an image with width and height at base of 2,
+-- @loadTexture2Base@ requires an image with lengths on 4 byte alignment,
 -- if "glPixelStorei GL_UNPACK_ALIGNMENT 1" is not set.
 loadTexture2Base :: forall m t a . (MonadIO m, HandTex m, TextureFormat t)
 	=> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)

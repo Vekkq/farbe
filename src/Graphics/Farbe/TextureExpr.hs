@@ -3,6 +3,8 @@
 
 module Graphics.Farbe.TextureExpr where
 
+import Graphics.Farbe.Vec
+import Graphics.Farbe.Expr
 import Graphics.Farbe.Texture
 import Graphics.Farbe.JuicyPixels
 import Graphics.Farbe.BuildShader
@@ -21,8 +23,8 @@ import Graphics.GL.Types
 
 #define bottom undefined
 
-textureIO :: String -> Expr e (Texture RGB)
-textureIO s = Expr $ ExprI shdr TTex []
+textureIO :: V2 (Expr e Float) -> String -> V4 (Expr e Float)
+textureIO p s = flip texture p $ Expr $ ExprI shdr TTex []
 	where
 		vname = sani s
 		a = bottom :: Texture RGB

@@ -22,6 +22,7 @@ library
                    , Graphics.Farbe.Window
                    , Graphics.Farbe.JuicyPixels
                    , Graphics.Farbe.STL
+                   , Graphics.Farbe.TextureExpr
 
     other-modules: Graphics.Farbe.Tuple
                  , Graphics.Farbe.Texture
@@ -38,7 +39,6 @@ library
                  , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Name
                  , Graphics.Farbe.ShaderCache
-                 , Graphics.Farbe.TextureExpr
 
 
     build-depends: base ^>=4.21
