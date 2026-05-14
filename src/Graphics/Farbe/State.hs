@@ -16,7 +16,7 @@ import qualified Data.Sequence as Seq
 -- ~ import qualified Data.Map as M
 import Graphics.GL.Types
 
-import Control.Concurrent.MVar
+import Control.Concurrent
 
 import Control.Monad
 import Control.Monad.Reader
@@ -86,7 +86,7 @@ data FarbeState = FarbeState
 	, counter :: Int
 	, vboState :: VBOState
 	, texState :: TexState
-	, delayed :: Seq.Seq (FarbeT IO ())
+	, delayed :: MVar (FarbeT IO ())
 	, shaderCache :: M.IntMap ShExec
 	, lastFrameTime :: Double
 	}
@@ -107,12 +107,13 @@ emptyFarbeState :: MonadIO m => m FarbeState
 emptyFarbeState = do
 	vbo <- initHandVBOState (2^24)
 	tex <- initTexState
+	del <- liftIO $ newEmptyMVar
 	return $ FarbeState
 		{ config = defaultConfig
 		, counter = 0
 		, vboState = vbo
 		, texState = tex
-		, delayed = Seq.empty
+		, delayed = del
 		, shaderCache = M.empty
 		, lastFrameTime = 0
 		}
@@ -165,7 +166,14 @@ logTime = do
 
 
 delay :: Farbe m => FarbeT IO () -> m ()
-delay m = modifyFarbe $ \s -> s { delayed = delayed s Seq.|> m }
+delay m = do --modifyFarbe $ \s -> s { delayed = delayed s Seq.|> m }
+		d <- getsFarbe delayed
+		liftIO $ putMVar d m
+
+delayFun :: Farbe m => m (IO () -> IO ())
+delayFun = do
+	d <- getsFarbe delayed
+	return $ putMVar d . lift
 
 
 instance (MonadIO m, Farbe m) => HandVBO m where
@@ -175,7 +183,7 @@ instance (MonadIO m, Farbe m) => HandTex m where
 	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
 
 	getDelayFun :: MonadIO m => m (IO () -> IO ())
-	getDelayFun = return $
+	getDelayFun = delayFun
 
 getThisLine :: HasCallStack => Int
 getThisLine = case reverse $ getCallStack callStack of

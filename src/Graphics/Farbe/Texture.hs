@@ -41,7 +41,6 @@ initTexState = liftIO $ do
 
 class HandTex m where
 	stateTex :: (TexState -> (a, TexState)) -> m a
-
 	getDelayFun :: MonadIO m => m (IO () -> IO ())
 
 getTex :: HandTex m => m TexState

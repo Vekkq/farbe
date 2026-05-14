@@ -72,6 +72,7 @@ import qualified Data.Sequence as Seq
 
 import GHC.Clock
 import Data.Maybe
+import System.Mem
 
 import Foreign.Ptr
 import Data.Bits
@@ -118,25 +119,24 @@ glerrcheck = (liftIO $ glGetError) >>= \e -> when (e/=0) $ debug $ "gl error: " 
 
 
 
-delayedWork :: (W.MonadWindow m, Farbe m, MonadIO m) => m ()
-delayedWork = do
+
+runDelayed :: (W.MonadWindow m, Farbe m, MonadIO m) => m ()
+runDelayed = do
+	liftIO $ performGC
 	work -- get at least one piece done per frame
+	isEmpty <- join $ (liftIO . isEmptyMVar) <$> getsFarbe delayed
 	tl <- getsFarbe lastFrameTime
 	t <- W.getTime
 	c <- getsConfig workTime
-	notEmpty <- (not . null) <$> getsFarbe delayed
-	if notEmpty && t - tl > c
-		then delayedWork
+	if isEmpty && t - tl > c
+		then runDelayed
 		else do
 			logTime
 	where
 		work :: (Farbe m, MonadIO m) => m ()
 		work = do
-			seq <- getsFarbe delayed
-			let mio = Seq.lookup 0 seq
-			maybe (return ()) liftFarbe mio
-			modifyFarbe $ \s -> s { delayed = Seq.drop 1 seq }
-
+			d <- getsFarbe delayed
+			join $ fmap (liftFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
 
 
 
@@ -170,7 +170,7 @@ drawInto a b = do
 
 
 
-drawTexture :: (Monad m, HandTex m, W.MonadWindow m) => m (m () -> m Texture)
+drawTexture :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
 drawTexture = do
 	(w',h') <- W.windowSize
 	let (w,h) = (itoi w', itoi h')
@@ -198,7 +198,7 @@ drawTexture = do
 
 
 
-drawDepth :: (Monad m, HandTex m, W.MonadWindow m) => m (m () -> m Texture)
+drawDepth :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
 drawDepth = do
 	(w',h') <- W.windowSize
 	let (w,h) = (itoi w', itoi h')
