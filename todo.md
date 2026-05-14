@@ -1,5 +1,4 @@
 
-* remove binary and bytestring for template haskell dependency?
 * make juicypixels and module optional
 * add other glsl functions (e.g. matrix ops, boolean)
 * add variadic var/expr parameters to compile
@@ -33,20 +32,18 @@
 
 * see what the stencil render looks like on a printed out texture via juicypixels
 
-* fix juicypixels module - get some order in there
-
 * enable split sections for ghc in cabal
 
 * ease `compile` to not depend on Defer for making prerender and have the returned monads be separate
 
 * make eglMakeCurrent available through the outside - this function is for drawing without display
 
-* skip the multithreads. make it work for one thread, have heavy gl work when swapbuffers is running.
+* skip the multithreads. make it work for one thread, have heavy gl work when swapbuffers is running. - done
 * compile function is entirely run in gl backlog.
 	* this makes it possible that expr monads on shaders can take all their time needed for loading external data.
 	* alternative is to extend the shader monad for access to the backlogger. with heavy work it is the preferred method
 	* give the work monad a ReaderT (m Double) for time left for processing
-	* done - gl api is nonblocking
+	*** done - gl api is nonblocking
 * add function for filtering for pressed keys in events
 
 * make it so, Farbe can be derived once and provide all functionality
@@ -58,6 +55,7 @@
 * free up the definition for textures, such that more types can be created
 	* e.g. with options to have yes/no mipmaps
 	* repeating layouts or no
+	*** done
 
 * fix cleansing of VArray with Delayed
 
@@ -84,5 +82,27 @@ shaders are compiled entirely concurrently and a get gives its status.
 question:
 I have a big stack of mostly StateT transformers, each StateT wrapped in their respective newtype, next to functions that operate on it. I ran into the issue that I have to write a lot of boilerplate instances and increasingly long deriving lists. are there any shortcuts to it, that dont involve flattening the transformers?
 I particular see an issue when building ontop of the stack, when the next top has to derive a huge list of classes to keep the below working. arguably one could write a dedicated class to abstract all that is to be pushed out.
+
+
+
+## Restructuring
+
+Outermost: Uniform, Use/Upload, Expr, Vec, Window,
+
+
+## Pr to-dos
+
+Load Tex in background - done
+Write TextureExpr
+Load STL in background
+rewrite loading of shader to recognize loading state of required textures
+Write HandShdr
+Write debugs
+Write window to start invisible
+write code optimization for shaders
+
+add rdelay again, with handtex instead of farbe constraint
+remove mvar from texture function. it has to be used by the time-confusing juice function
+
 
 
