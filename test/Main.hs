@@ -8,6 +8,10 @@ import Graphics.Farbe
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL
 import Graphics.Farbe.TextureExpr
+import Graphics.Farbe.JuicyPixels
+import Graphics.Farbe.Texture
+import Graphics.Farbe.Expr
+import Graphics.Farbe.BuildShader
 
 import Control.Monad
 
@@ -17,11 +21,14 @@ import Data.Function
 
 
 
-colorful :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
-colorful r = shader $ \(n,v) -> do
+colorful :: Farbe m => Var Texture -> Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
+colorful t r = shader $ \(n,v) -> do
 	let v' = use r **| v
 	n' <- transfer n
-	return (up 1 v', up 1 (n' * 0.5))
+	-- ~ let n'' = down n'
+	let c = down fragCoord
+	return (up 1 v', up 1 n' * 0.5 + texture (use t) (c / 256))
+	--
 	-- ~ return (up 1 v', up 1 (n' * 0.5 + textureIO (down n') "test-resources/KorDrTtaa4.png"))
 
 
@@ -32,6 +39,8 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
+	t <- makeVarT =<< loadImage "test-resources/KorDrTtaa42.png"
+
 
 	fix $ \loop -> processEvents $ \es -> do
 
@@ -39,7 +48,7 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 			[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
 			_ -> return ()
 
-		colorful r [cube, teapot]
+		colorful t r [cube, teapot]
 
 		-- ~ liftIO $ performGC
 		case es of

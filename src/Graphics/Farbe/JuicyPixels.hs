@@ -19,20 +19,36 @@ import Control.Monad.IO.Class
 
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
+import Control.Concurrent
+import Graphics.GL.Embedded20
+import Graphics.GL.Types
+
+import Data.Either
+import Control.Monad
 
 
+loadImage :: (MonadIO m, HandTex m) => String -> m Texture
+loadImage s = do
+	m <- liftIO newEmptyMVar
+	liftIO $ forkIO $ do
+		ei <- readImage s
+		let (format, (dim,ptr)) = toGLImage $ fromRight (ImageRGB8 errorTexture) ei
+		liftIO $ either print (void . return) ei -- add debug command
+		id <- loadTexture' format dim ptr
+		putMVar m $ TextureBase id 0 format s
 
--- ~ loadImage :: (MonadIO m, HandTex m)
-  -- ~ => String -> m (Either String Texture)
--- ~ loadImage s = do
-  -- ~ ei <- liftIO $ readImage s
-  -- ~ mapRight ei $ \i -> do
-    -- ~ let (Image w h v) = (toTexture i :: Image f)
+
+	return $ Texture m
+	 -- ~ let (Image w h v) = (toTexture i :: Image f)
     -- ~ let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
     -- ~ t :: Texture t <- loadTexture2Base (itoi w, itoi h) p
     -- ~ return $ t { path = s }
-    -- -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
+    -- ~ -- -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
 
+errorTexture :: Image PixelRGB8
+errorTexture = generateImage f 8 8
+	where
+	f x y | x' <- itoi x, y' <- itoi y = if odd $ x + y then PixelRGB8 255 100 200 else PixelRGB8 255 255 0
 
 mapRight :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
 mapRight (Right b) f = Right <$> f b
@@ -45,14 +61,14 @@ mapRight (Left a) _ = pure (Left a)
 -- ~ loadImage' t s = loadImage s >>= either error return
 
 
-toGLImage :: DynamicImage -> (TextureFormat, (V2 Int, Ptr ()))
+toGLImage :: DynamicImage -> (TextureFormat, (V2 GLsizei, Ptr ()))
 toGLImage i = case convertToGLImage i of
 	ImageY8 i -> (L, unpackImage i)
 	ImageYA8 i -> (LA, unpackImage i)
 	ImageRGB8 i -> (RGB, unpackImage i)
 	ImageRGBA8 i -> (RGBA, unpackImage i)
 	where
-		unpackImage (Image w h v) = (V2 w h, castPtr $ vecToPtr v)
+		unpackImage (Image w h v) = (itoi <$> V2 w h, castPtr $ vecToPtr v)
 		vecToPtr = unsafeForeignPtrToPtr . tfst . unsafeToForeignPtr
 
 

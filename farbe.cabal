@@ -23,20 +23,20 @@ library
                    , Graphics.Farbe.JuicyPixels
                    , Graphics.Farbe.STL
                    , Graphics.Farbe.TextureExpr
+                   , Graphics.Farbe.BuildShader
+                   , Graphics.Farbe.Texture
+                   , Graphics.Farbe.Expr
 
     other-modules: Graphics.Farbe.Tuple
-                 , Graphics.Farbe.Texture
                  , Graphics.Farbe.VertexArray
                  , Graphics.Farbe.Array
                  , Graphics.Farbe.Shader
                  , Graphics.Farbe.GL
-                 , Graphics.Farbe.Expr
                  , Graphics.Farbe.Utility
                  , Graphics.Farbe.State
                  , Graphics.Farbe.Attribute
                  , Graphics.Farbe.Uniform
                  , Graphics.Farbe.ShaderEnv
-                 , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Name
                  , Graphics.Farbe.ShaderCache
 

@@ -177,14 +177,14 @@ drawTexture = do
 	fb <- genFramebuffer
 	bindfb fb
 	texRGB <- loadTexture RGB (V2 w h) nullPtr
-	idRGB <- liftIO $ readMVar $ texId texRGB
+	idRGB <- getTexId texRGB
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D idRGB 0
 	-- replace texture with renderbuffer in this function
 	texD <- loadTexture D (V2 w h) nullPtr
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
-	idD <- liftIO $ readMVar $ texId texD
+	idD <- getTexId texD
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D idD 0
 
 	bindfb $ Framebuffer 0
@@ -208,7 +208,7 @@ drawDepth = do
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
-	idD <- liftIO $ readMVar $ texId texD
+	idD <- getTexId texD
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D idD 0
 	bindfb $ Framebuffer 0
 	return $ \r -> do

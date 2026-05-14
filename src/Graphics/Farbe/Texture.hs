@@ -25,8 +25,6 @@ import Control.Monad.RWS
 import Graphics.Farbe.Vec
 import Graphics.GL
 
-import Data.IORef
-
 
 
 data TexState = TexState
@@ -44,10 +42,12 @@ initTexState = liftIO $ do
 class HandTex m where
 	stateTex :: (TexState -> (a, TexState)) -> m a
 
-	getTex :: m TexState
-	getTex = stateTex (\s -> (s, s))
-	setTex :: TexState -> m ()
-	setTex s = stateTex (\_ -> ((), s))
+	delayedTex :: (MonadIO m, MonadIO n) => n () -> m ()
+
+getTex :: m TexState
+getTex = stateTex (\s -> (s, s))
+setTex :: TexState -> m ()
+setTex s = stateTex (\_ -> ((), s))
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
@@ -60,14 +60,18 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 
 SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
 
+newtype Texture = Texture { tbase :: MVar TextureBase } deriving Eq
+
+getTexId :: MonadIO m => Texture -> m GLuint
+getTexId (Texture tb) = liftIO $ texId <$> readMVar tb
+
 
 -- readonly Texture format
-data Texture = Texture
-	{ texId :: MVar GLuint
-	, texLastUnit :: MVar GLenum
+data TextureBase = TextureBase
+	{ texId :: GLuint
+	, texLastUnit :: GLenum
 	-- ~ , changeTokenT :: Int
 	, format :: TextureFormat
-	, dimension :: V2 GLsizei -- remove - can be asked from GL api
 	, path :: String
 	} deriving Eq
 
@@ -99,14 +103,16 @@ texSetup D = return ()
 texSetup _ = glGenerateMipmap GL_TEXTURE_2D
 
 -- returns texture id and assigned texture unit
-loadTexture' :: forall m t a . (MonadIO m, HandTex m)
-	=> TextureFormat -> V2 GLsizei -> Ptr a -> m (GLuint, GLuint)
+loadTexture' :: forall m t a . (MonadIO m)
+	=> TextureFormat -> V2 GLsizei -> Ptr a -> m GLuint
 loadTexture' t (V2 w h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	m <- assignTexUnit' tex 0
+	-- ~ m <- assignTexUnit' tex 0
+	glActiveTexture GL_TEXTURE0
+	glBindTexture GL_TEXTURE_2D tex
 	glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
 	texSetup t
-	return (tex, m)
+	return tex
 	-- ~ liftIO $ void $ mkWeakMVar m (with tex $ glDeleteTextures 1)
 	-- TODO wait for bufferswap before deleting
 	-- also ensure its send to the main thread
@@ -115,10 +121,8 @@ loadTexture' t (V2 w h) p = do
 loadTexture :: forall m t a . (MonadIO m, HandTex m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m Texture
 loadTexture t p ptr = do
-	(i,u) <- loadTexture' t p ptr
-	mi <- liftIO $ newMVar i
-	mu <- liftIO $ newMVar u
-	return $ Texture mi mu t p ""
+	i <- loadTexture' t p ptr
+	liftIO $ Texture <$> newMVar (TextureBase i 0 t "")
 
 	-- ~ return $ Texture tex m w h ""
 
@@ -142,11 +146,10 @@ assignTexUnit' i u = do
 		return $ if x' >= b then a else x'
 
 assignTexUnit :: (MonadIO m, HandTex m) => Texture -> m ()
-assignTexUnit (Texture mi mu _ _ _) = do
-	u <- liftIO $ readMVar mu
-	i <- liftIO $ readMVar mi
+assignTexUnit (Texture mtb) = do
+	tb@(TextureBase i u _ _) <- liftIO $ takeMVar mtb
 	u' <- assignTexUnit' i u
-	liftIO $ putMVar mu u'
+	liftIO $ putMVar mtb $ tb { texLastUnit = u' }
 
 
 
