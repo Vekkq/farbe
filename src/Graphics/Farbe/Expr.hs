@@ -67,7 +67,7 @@ emod = liftE2 "mod"
 fragCoord :: V4 (Expr F Float)
 fragCoord = vecParts $ liftE0 "gl_FragCoord"
 
-texture :: Expr e (Texture f) -> V2 (Expr e Float) -> V4 (Expr e Float)
+texture :: Expr e Texture -> V2 (Expr e Float) -> V4 (Expr e Float)
 texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)
 
 arr :: GLtype a => Expr e (Arr s a) -> Int32 -> Expr e a

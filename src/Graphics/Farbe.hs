@@ -76,6 +76,7 @@ import Data.Maybe
 import Foreign.Ptr
 import Data.Bits
 import Graphics.GL
+import Control.Concurrent.MVar
 
 
 
@@ -169,20 +170,22 @@ drawInto a b = do
 
 
 
-drawTexture :: (Monad m, HandTex m, W.MonadWindow m) => m (m () -> m (Texture RGB))
+drawTexture :: (Monad m, HandTex m, W.MonadWindow m) => m (m () -> m Texture)
 drawTexture = do
 	(w',h') <- W.windowSize
 	let (w,h) = (itoi w', itoi h')
 	fb <- genFramebuffer
 	bindfb fb
-	texRGB :: Texture RGB <- loadTexture2Base (w,h) nullPtr
-	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D (texId texRGB) 0
+	texRGB <- loadTexture RGB (V2 w h) nullPtr
+	idRGB <- liftIO $ readMVar $ texId texRGB
+	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D idRGB 0
 	-- replace texture with renderbuffer in this function
-	texD :: Texture D <- loadTexture2Base (w,h) nullPtr
+	texD <- loadTexture D (V2 w h) nullPtr
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
-	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D (texId texD) 0
+	idD <- liftIO $ readMVar $ texId texD
+	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D idD 0
 
 	bindfb $ Framebuffer 0
 	return $ \r -> do
@@ -195,17 +198,18 @@ drawTexture = do
 
 
 
-drawDepth :: (Monad m, HandTex m, W.MonadWindow m) => m (m () -> m (Texture D))
+drawDepth :: (Monad m, HandTex m, W.MonadWindow m) => m (m () -> m Texture)
 drawDepth = do
 	(w',h') <- W.windowSize
 	let (w,h) = (itoi w', itoi h')
 	fb <- genFramebuffer
 	bindfb fb
-	texD :: Texture D <- loadTexture2Base (w,h) nullPtr
+	texD <- loadTexture D (V2 w h) nullPtr
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
-	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D (texId texD) 0
+	idD <- liftIO $ readMVar $ texId texD
+	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D idD 0
 	bindfb $ Framebuffer 0
 	return $ \r -> do
 		bindfb fb

@@ -25,6 +25,10 @@ import Control.Monad.RWS
 import Graphics.Farbe.Vec
 import Graphics.GL
 
+import Data.IORef
+
+
+
 data TexState = TexState
 	{ lastUsed :: Word32
 	, texArr :: (IOUArray Word32 GLuint) -- Map Word32 (GLuint, String)
@@ -57,20 +61,15 @@ instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn 
 SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
 
 
-
-data Texture f = Texture
-	{ texId :: GLuint
+-- readonly Texture format
+data Texture = Texture
+	{ texId :: MVar GLuint
 	, texLastUnit :: MVar GLenum
-	, changeTokenT :: Int
-	, width :: GLsizei
-	, height :: GLsizei
+	-- ~ , changeTokenT :: Int
+	, format :: TextureFormat
+	, dimension :: V2 GLsizei -- remove - can be asked from GL api
 	, path :: String
 	} deriving Eq
-
-
-instance Show (Texture f) where
-	show = show . texId
-
 
 data L
 data LA
@@ -78,57 +77,50 @@ data RGB
 data RGBA
 data D
 
-class TextureFormat a where
-	glTex :: (Eq n, Num n) => a -> n
-	glInTex :: (Eq n, Num n) => a -> n
-	glTexType :: (Eq n, Num n) => a -> n
-	glTexType _ = GL_UNSIGNED_BYTE
-	glMipMap :: a -> Bool
-	glMipMap _ = True
+data TextureFormat = L | LA | RGB | RGBA | D deriving (Eq,Show,Read)
 
--- ~ instance TextureFormat D where glTex _ = GL_DEPTH_COMPONENT24
--- ~ instance TextureFormat S where glTex _ = GL_LUMINANCE
-instance TextureFormat L where
-	glTex _ = GL_LUMINANCE --GL_RED
-	glInTex _ = GL_ALPHA --GL_R8
+glTex L = GL_LUMINANCE
+glTex LA = GL_LUMINANCE_ALPHA
+glTex RGB = GL_RGB
+glTex RGBA = GL_RGBA
+glTex D = GL_DEPTH_COMPONENT
 
-instance TextureFormat LA where
-	glTex _ = GL_LUMINANCE_ALPHA --GL_RG
-	glInTex _ = GL_LUMINANCE_ALPHA --GL_RG8
+glInTex L = GL_ALPHA
+glInTex LA = GL_LUMINANCE_ALPHA
+glInTex RGB = GL_RGB
+glInTex RGBA = GL_RGBA
+glInTex D = GL_DEPTH_COMPONENT
 
-instance TextureFormat RGB where
-	glTex _ = GL_RGB
-	glInTex _ = GL_RGB --GL_RGB8
+-- ~ texType D = GL_UNSIGNED_SHORT -- only supports Byte according to dev.gl
+texType _ = GL_UNSIGNED_BYTE
 
-instance TextureFormat RGBA where
-	glTex _ = GL_RGBA
-	glInTex _ = GL_RGBA --GL_RGBA8
+texSetup :: MonadIO m => TextureFormat -> m ()
+texSetup D = return ()
+texSetup _ = glGenerateMipmap GL_TEXTURE_2D
 
-instance TextureFormat D where
-	glTex _ = GL_DEPTH_COMPONENT
-	glInTex _ = GL_DEPTH_COMPONENT
-	glTexType _ = GL_UNSIGNED_SHORT --GL_UNSIGNED_INT
-	glMipMap _ = False
-
--- @loadTexture2Base@ requires an image with lengths on 4 byte alignment,
--- if "glPixelStorei GL_UNPACK_ALIGNMENT 1" is not set.
-loadTexture2Base :: forall m t a . (MonadIO m, HandTex m, TextureFormat t)
-	=> (GLsizei, GLsizei) -> Ptr a -> m (Texture t)
-loadTexture2Base (w,h) p = do
-	let t = (error "" :: t)
-	liftIO $ print (w,h)
-	-- ~ let int = glInTex (error "" :: t)
+-- returns texture id and assigned texture unit
+loadTexture' :: forall m t a . (MonadIO m, HandTex m)
+	=> TextureFormat -> V2 GLsizei -> Ptr a -> m (GLuint, GLuint)
+loadTexture' t (V2 w h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	m <- assignTexUnit' tex 0 >>= (liftIO . newMVar)
-	glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (glTexType t) (castPtr p)
-	when (glMipMap t) $ glGenerateMipmap GL_TEXTURE_2D
-	-- ~ when (p /= nullptr) $ glGenerateMipmap GL_TEXTURE_2D
-
-	liftIO $ void $ mkWeakMVar m (with tex $ glDeleteTextures 1)
+	m <- assignTexUnit' tex 0
+	glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
+	texSetup t
+	return (tex, m)
+	-- ~ liftIO $ void $ mkWeakMVar m (with tex $ glDeleteTextures 1)
 	-- TODO wait for bufferswap before deleting
 	-- also ensure its send to the main thread
 
-	return $ Texture tex m 0 w h ""
+
+loadTexture :: forall m t a . (MonadIO m, HandTex m)
+	=> TextureFormat -> V2 GLsizei -> Ptr a -> m Texture
+loadTexture t p ptr = do
+	(i,u) <- loadTexture' t p ptr
+	mi <- liftIO $ newMVar i
+	mu <- liftIO $ newMVar u
+	return $ Texture mi mu t p ""
+
+	-- ~ return $ Texture tex m w h ""
 
 
 assignTexUnit' :: (MonadIO m, HandTex m, Num n) => GLuint -> GLenum -> m n
@@ -149,16 +141,17 @@ assignTexUnit' i u = do
 		(a,b) <- liftIO $ getBounds ts
 		return $ if x' >= b then a else x'
 
-assignTexUnit :: (MonadIO m, HandTex m) => Texture f -> m ()
-assignTexUnit (Texture i mu _ _ _ _) = do
-	u <- liftIO $ takeMVar mu
+assignTexUnit :: (MonadIO m, HandTex m) => Texture -> m ()
+assignTexUnit (Texture mi mu _ _ _) = do
+	u <- liftIO $ readMVar mu
+	i <- liftIO $ readMVar mi
 	u' <- assignTexUnit' i u
 	liftIO $ putMVar mu u'
 
 
 
 
-instance GLtype (Texture f) where
+instance GLtype Texture where
 	slName _ = "sampler2D"
 	toTypeS _ = TTex
 	glType _ = GL_INT

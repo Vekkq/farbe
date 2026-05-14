@@ -1,6 +1,7 @@
 
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# OPTIONS_GHC -fno-warn-tabs #-}
 
 module Graphics.Farbe.JuicyPixels where
 
@@ -17,20 +18,20 @@ import Data.Vector.Storable (unsafeToForeignPtr)
 import Control.Monad.IO.Class
 
 import Foreign.ForeignPtr.Unsafe
+import Foreign.Ptr
 
 
 
-loadImage :: forall m t f
-  . (MonadIO m, HandTex m, TextureFormat t, ToTexture f, JuiceTextureFormat t f)
-  => String -> m (Either String (Texture t))
-loadImage s = do
-  ei <- liftIO $ readImage s
-  mapRight ei $ \i -> do
-    let (Image w h v) = (toTexture i :: Image f)
-    let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
-    t :: Texture t <- loadTexture2Base (itoi w, itoi h) p
-    return $ t { path = s }
-    -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
+-- ~ loadImage :: (MonadIO m, HandTex m)
+  -- ~ => String -> m (Either String Texture)
+-- ~ loadImage s = do
+  -- ~ ei <- liftIO $ readImage s
+  -- ~ mapRight ei $ \i -> do
+    -- ~ let (Image w h v) = (toTexture i :: Image f)
+    -- ~ let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
+    -- ~ t :: Texture t <- loadTexture2Base (itoi w, itoi h) p
+    -- ~ return $ t { path = s }
+    -- -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
 
 
 mapRight :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
@@ -38,90 +39,38 @@ mapRight (Right b) f = Right <$> f b
 mapRight (Left a) _ = pure (Left a)
 
 
-loadImage'
-  :: (MonadIO m, HandTex m, TextureFormat t, ToTexture f, JuiceTextureFormat t f)
-  => String -> m (Texture t)
-loadImage' s = loadImage s >>= either error return
+-- ~ loadImage'
+  -- ~ :: (MonadIO m, HandTex m, ToTexture f, JuiceTextureFormat t f)
+  -- ~ => String -> m Texture
+-- ~ loadImage' t s = loadImage s >>= either error return
 
 
-class ToTexture r where
-  toTexture :: DynamicImage -> Image r
-
-instance ToTexture Pixel8 where
-  toTexture = toY
-
-instance ToTexture Pixel32 where
-  toTexture = pixelMap (\y -> (itoi y)*2^24) . toY
-
-instance ToTexture PixelRGB8 where
-  toTexture = toRGB
-
-instance ToTexture PixelRGBA8 where
-  toTexture = toRGBA
+toGLImage :: DynamicImage -> (TextureFormat, (V2 Int, Ptr ()))
+toGLImage i = case convertToGLImage i of
+	ImageY8 i -> (L, unpackImage i)
+	ImageYA8 i -> (LA, unpackImage i)
+	ImageRGB8 i -> (RGB, unpackImage i)
+	ImageRGBA8 i -> (RGBA, unpackImage i)
+	where
+		unpackImage (Image w h v) = (V2 w h, castPtr $ vecToPtr v)
+		vecToPtr = unsafeForeignPtrToPtr . tfst . unsafeToForeignPtr
 
 
-class TextureFormat t => JuiceTextureFormat t j | t -> j, j -> t
-instance JuiceTextureFormat L Pixel8
-instance JuiceTextureFormat D Pixel32
-instance JuiceTextureFormat RGB PixelRGB8
-instance JuiceTextureFormat RGBA PixelRGBA8
-
-toRGB :: DynamicImage -> Image PixelRGB8
-toRGB (ImageY8 i) = promoteImage i
-toRGB (ImageY16 i) = promoteImage $ trimImage i
-toRGB (ImageY32 i) = promoteImage $ trimImage i
-toRGB (ImageYF i) = promoteImage $ intImage i
-toRGB (ImageYA8 i) = promoteImage i
-toRGB (ImageYA16 i) = promoteImage $ trimImage i
-toRGB (ImageRGB8 i) = i
-toRGB (ImageRGB16 i) = trimImage i
-toRGB (ImageRGBF i) = intImage i
-toRGB (ImageRGBA8 i) = collapseImage i
-toRGB (ImageRGBA16 i) = collapseImage $ trimImage i
-toRGB (ImageYCbCr8 i) = convertImage i
-toRGB (ImageCMYK8 i) = convertImage i
-toRGB (ImageCMYK16 i) = convertImage $ trimImage i
-
-
-toRGBA :: DynamicImage -> Image PixelRGBA8
-toRGBA (ImageY8 i) = promoteImage i
-toRGBA (ImageY16 i) = promoteImage $ trimImage i
-toRGBA (ImageY32 i) = promoteImage $ trimImage i
-toRGBA (ImageYF i) = promoteImage $ intImage i
-toRGBA (ImageYA8 i) = promoteImage i
-toRGBA (ImageYA16 i) = promoteImage $ trimImage i
-toRGBA (ImageRGB8 i) = promoteImage i
-toRGBA (ImageRGB16 i) = promoteImage $ trimImage i
-toRGBA (ImageRGBF i) = promoteImage $ intImage i
-toRGBA (ImageRGBA8 i) = i
-toRGBA (ImageRGBA16 i) = trimImage i
-toRGBA (ImageYCbCr8 i) = promoteImageRGBA $ convertImage i
-toRGBA (ImageCMYK8 i) = promoteImageRGBA $ convertImage i
-toRGBA (ImageCMYK16 i) = promoteImageRGBA $ convertImage $ trimImage i
-
-promoteImageRGBA :: Image PixelRGB8 -> Image PixelRGBA8
-promoteImageRGBA = promoteImage
-
-
-toY :: DynamicImage -> Image Pixel8
-toY (ImageY8 i) = i
-toY (ImageY16 i) = trimImage i
-toY (ImageY32 i) = trimImage i
-toY (ImageYF i) = intImage i
-toY (ImageYA8 i) = collapseImage i
-toY (ImageYA16 i) = collapseImage $ trimImage i
-toY (ImageRGB8 i) = collapseImage i
-toY (ImageRGB16 i) = collapseImage $ trimImage i
-toY (ImageRGBF i) = collapseImage $ intImage i
-toY (ImageRGBA8 i) = collapseImage i
-toY (ImageRGBA16 i) = collapseImage $ trimImage i
-toY (ImageYCbCr8 i) =
-  collapseImage $ (convertImage :: Image PixelYCbCr8 -> Image PixelRGB8) i
-toY (ImageCMYK8 i) =
-  collapseImage $ (convertImage :: Image PixelCMYK8 -> Image PixelRGB8) i
-toY (ImageCMYK16 i) =
-  collapseImage $ (convertImage :: Image PixelCMYK8 -> Image PixelRGB8) $ trimImage i
-
+convertToGLImage :: DynamicImage -> DynamicImage
+convertToGLImage (ImageY8 i) = ImageY8 i
+convertToGLImage (ImageY16 i) = ImageY8 $ trimImage i
+convertToGLImage (ImageY32 i) = ImageY8 $ trimImage i
+convertToGLImage (ImageYF i) = ImageY8 $ intImage i
+convertToGLImage (ImageYA8 i) = ImageYA8 i
+convertToGLImage (ImageYA16 i) = ImageYA8 $ trimImage i
+convertToGLImage (ImageRGB8 i) = ImageRGB8 i
+convertToGLImage (ImageRGB16 i) = ImageRGB8 $ trimImage i
+convertToGLImage (ImageRGBF i) = ImageRGB8 $ intImage i
+convertToGLImage (ImageRGBA8 i) = ImageRGBA8 i
+convertToGLImage (ImageRGBA16 i) = ImageRGBA8 $ trimImage i
+convertToGLImage (ImageYCbCr8 i) = ImageRGB8 $ convertImage i
+convertToGLImage (ImageCMYK8 i) = ImageRGB8 $ convertImage i
+convertToGLImage (ImageCMYK16 i) = ImageRGB8 $ convertImage $ trimImage i
 
 
 class (Pixel a, Pixel r) => TrimPixel a r | a -> r where
@@ -129,7 +78,6 @@ class (Pixel a, Pixel r) => TrimPixel a r | a -> r where
 
 instance TrimPixel Pixel16 Pixel8 where trimPixel = itoi . (`quot` 2^8)
 instance TrimPixel Pixel32 Pixel8 where trimPixel = itoi . (`quot` 2^16)
--- ~ instance TrimPixel Pixel32 Pixel16 where trimPixel = itoi . (`quot` 2^8)
 
 instance TrimPixel PixelYA16 PixelYA8 where
   trimPixel (PixelYA16 a b) = PixelYA8 (trimPixel a) (trimPixel b)
@@ -148,28 +96,6 @@ instance TrimPixel PixelCMYK16 PixelCMYK8 where
 trimImage :: TrimPixel a b => Image a -> Image b
 trimImage = pixelMap trimPixel
 
-
-
-averageInt :: (Integral a, Num b) => [a] -> b
-averageInt xs = itoi $ sum (map itoi xs) `quot` length xs
-
-class (Pixel a, Pixel r) => CollapsePixel a r where
-  collapsePixel :: a -> r
-
-instance CollapsePixel PixelYA8 Pixel8 where
-  collapsePixel (PixelYA8 y a) = itoi $ averageInt [y,a]
-
-instance CollapsePixel PixelRGB8 Pixel8 where
-  collapsePixel (PixelRGB8 r g b) = itoi $ averageInt [r,g,b]
-
-instance CollapsePixel PixelRGBA8 PixelRGB8 where
-  collapsePixel (PixelRGBA8 r g b _) = PixelRGB8 r g b
-
-instance CollapsePixel PixelRGBA8 Pixel8 where
-  collapsePixel = (collapsePixel :: (PixelRGB8 -> Pixel8)) . collapsePixel
-
-collapseImage :: CollapsePixel a b => Image a -> Image b
-collapseImage = pixelMap collapsePixel
 
 
 class (Pixel a, Pixel r) => IntPixel a r | a -> r, r -> a where

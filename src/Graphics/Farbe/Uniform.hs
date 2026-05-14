@@ -128,10 +128,11 @@ instance Upload (Mat V3 V3 Float) where
 instance Upload (Mat V4 V4 Float) where
 	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
 
-instance Upload (Texture f) where
-	upload l (Texture i mu _ _ _ _) = do
+instance Upload Texture where
+	upload l (Texture mi mu _ _ _) = do
 		TexState u' ts <- getTex
 		u <- liftIO $ readMVar mu
+		i <- liftIO $ readMVar mi
 		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
 		if (i /= i') then do
 			glActiveTexture $ GL_TEXTURE0 + u'
@@ -187,7 +188,7 @@ makeVarV4B :: (Farbe m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
 makeVarM2 :: (Farbe m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
 makeVarM3 :: (Farbe m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
 makeVarM4 :: (Farbe m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
-makeVarT :: (Farbe m, MonadIO m) => Texture t -> m (Var (Texture t))
+makeVarT :: (Farbe m, MonadIO m) => Texture -> m (Var Texture)
 
 makeVarF   = makeVar
 makeVarI   = makeVar
@@ -264,6 +265,6 @@ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) wher
 
 
 
-instance Use (Var (Texture f)) e (Expr e (Texture f)) where
+instance Use (Var Texture) e (Expr e Texture) where
   use = Expr . varExpr
 
