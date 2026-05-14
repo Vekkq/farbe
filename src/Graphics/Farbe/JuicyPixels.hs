@@ -25,17 +25,20 @@ import Graphics.GL.Types
 
 import Data.Either
 import Control.Monad
+import Foreign hiding (void)
 
 
 loadImage :: (MonadIO m, HandTex m) => String -> m Texture
 loadImage s = do
 	m <- liftIO newEmptyMVar
+	delay <- getDelayFun
 	liftIO $ forkIO $ do
 		ei <- readImage s
 		let (format, (dim,ptr)) = toGLImage $ fromRight (ImageRGB8 errorTexture) ei
-		liftIO $ either print (void . return) ei -- add debug command
+		either print (void . return) ei -- add debug command
 		id <- loadTexture' format dim ptr
 		putMVar m $ TextureBase id 0 format s
+		void $ mkWeakMVar m (delay $ print "tex del" >> (with id $ glDeleteTextures 1))
 	return $ Texture m
 	 -- ~ let (Image w h v) = (toTexture i :: Image f)
     -- ~ let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
