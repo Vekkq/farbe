@@ -36,8 +36,6 @@ loadImage s = do
 		liftIO $ either print (void . return) ei -- add debug command
 		id <- loadTexture' format dim ptr
 		putMVar m $ TextureBase id 0 format s
-
-
 	return $ Texture m
 	 -- ~ let (Image w h v) = (toTexture i :: Image f)
     -- ~ let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v

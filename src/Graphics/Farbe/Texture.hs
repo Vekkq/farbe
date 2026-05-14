@@ -42,23 +42,13 @@ initTexState = liftIO $ do
 class HandTex m where
 	stateTex :: (TexState -> (a, TexState)) -> m a
 
-	delayedTex :: (MonadIO m, MonadIO n) => n () -> m ()
+	getDelayFun :: MonadIO m => m (IO () -> IO ())
 
-getTex :: m TexState
+getTex :: HandTex m => m TexState
 getTex = stateTex (\s -> (s, s))
-setTex :: TexState -> m ()
+setTex :: HandTex m => TexState -> m ()
 setTex s = stateTex (\_ -> ((), s))
 
-
-#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
-instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
-
-SIMPLEFUNCTION_CLASSINSTANCES(stateTex,HandTex,.)
 
 newtype Texture = Texture { tbase :: MVar TextureBase } deriving Eq
 
@@ -122,7 +112,10 @@ loadTexture :: forall m t a . (MonadIO m, HandTex m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m Texture
 loadTexture t p ptr = do
 	i <- loadTexture' t p ptr
-	liftIO $ Texture <$> newMVar (TextureBase i 0 t "")
+	m <- liftIO $ newMVar (TextureBase i 0 t "")
+	delay <- getDelayFun
+	liftIO $ mkWeakMVar m (delay $ with i $ glDeleteTextures 1)
+	return $ Texture m
 
 	-- ~ return $ Texture tex m w h ""
 

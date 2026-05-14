@@ -174,6 +174,8 @@ instance (MonadIO m, Farbe m) => HandVBO m where
 instance (MonadIO m, Farbe m) => HandTex m where
 	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
 
+	getDelayFun :: MonadIO m => m (IO () -> IO ())
+	getDelayFun = return $
 
 getThisLine :: HasCallStack => Int
 getThisLine = case reverse $ getCallStack callStack of
