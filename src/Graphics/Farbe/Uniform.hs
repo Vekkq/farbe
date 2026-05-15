@@ -132,6 +132,23 @@ instance Upload Texture where
 	upload = texUpload
 
 
+makeVarT :: forall a m . (Farbe m, MonadIO m) => Texture -> m (Var Texture)
+makeVarT t = do
+	m <- liftIO $ newMVar t
+	vname <- (name "u" t)
+	let r = do
+		b <- addHeader "uniform" t vname
+		s <- getShaderId
+		when b $ postShader $ do
+			l <- withString vname $ glGetUniformLocation s
+			preRender $ do
+				t <- liftIO $ readMVar m
+				b <- liftIO $ isEmptyMVar $ tbase t
+				texUpload l t
+				return $ not b -- TODO check if this correc
+		return vname
+	return $ Var (ExprI r (toTypeS t) []) m
+
 -- makeVars ------------------------------------------------------------------------------
 
 makeVarF :: (Farbe m, MonadIO m) => Float -> m (Var Float)
@@ -149,7 +166,7 @@ makeVarV4B :: (Farbe m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
 makeVarM2 :: (Farbe m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
 makeVarM3 :: (Farbe m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
 makeVarM4 :: (Farbe m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
-makeVarT :: (Farbe m, MonadIO m) => Texture -> m (Var Texture)
+-- ~ makeVarT :: (Farbe m, MonadIO m) => Texture -> m (Var Texture)
 
 makeVarF   = makeVar
 makeVarI   = makeVar
@@ -166,7 +183,7 @@ makeVarV4B = makeVar
 makeVarM2  = makeVar
 makeVarM3  = makeVar
 makeVarM4  = makeVar
-makeVarT   = makeVar
+-- ~ makeVarT   = makeVar
 
 -- add expr texture shader access functions
 

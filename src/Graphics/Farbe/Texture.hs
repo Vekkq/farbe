@@ -132,34 +132,34 @@ newTexture t p ptr = do
 	-- ~ return $ Texture tex m w h ""
 
 
-assignTexUnit' :: (MonadIO m, HandTex m, Num n) => GLuint -> GLenum -> m n
-assignTexUnit' i u = do
-	TexState l ts <- getTex
-	i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-	if (i /= i') then do
-		glActiveTexture $ GL_TEXTURE0 + l
-		glBindTexture GL_TEXTURE_2D i
-		liftIO $ writeArray ts l i
-		l' <- succU ts l
-		setTex $ TexState l' ts
-		return $ itoi l
-	else return $ itoi u
-	where
-	succU ts x = do
-		let x' = succ x
-		(a,b) <- liftIO $ getBounds ts
-		return $ if x' >= b then a else x'
+-- ~ assignTexUnit' :: (MonadIO m, HandTex m, Num n) => GLuint -> GLenum -> m n
+-- ~ assignTexUnit' i u = do
+	-- ~ TexState l ts <- getTex
+	-- ~ i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+	-- ~ if (i /= i') then do
+		-- ~ glActiveTexture $ GL_TEXTURE0 + l
+		-- ~ glBindTexture GL_TEXTURE_2D i
+		-- ~ liftIO $ writeArray ts l i
+		-- ~ l' <- succU ts l
+		-- ~ setTex $ TexState l' ts
+		-- ~ return $ itoi l
+	-- ~ else return $ itoi u
+	-- ~ where
+	-- ~ succU ts x = do
+		-- ~ let x' = succ x
+		-- ~ (a,b) <- liftIO $ getBounds ts
+		-- ~ return $ if x' >= b then a else x'
 
-assignTexUnit :: (MonadIO m, HandTex m) => Texture -> m ()
-assignTexUnit (Texture mtb) = do
-	tb@(TextureBase i u _ _) <- liftIO $ takeMVar mtb
-	u' <- assignTexUnit' i u
-	liftIO $ putMVar mtb $ tb { texLastUnit = u' }
+-- ~ assignTexUnit :: (MonadIO m, HandTex m) => Texture -> m ()
+-- ~ assignTexUnit (Texture mtb) = do
+	-- ~ tb@(TextureBase i u _ _) <- liftIO $ takeMVar mtb
+	-- ~ u' <- assignTexUnit' i u
+	-- ~ liftIO $ putMVar mtb $ tb { texLastUnit = u' }
 
 
 texUpload :: (MonadIO m, HandTex m) => GLint -> Texture -> m ()
 texUpload l (Texture t) = do
-		tb@(TextureBase i u _ _) <- liftIO $ takeMVar t
+		tb@(TextureBase i u _ _) <- liftIO $ readMVar t
 		-- ~ (TextureBase _ i mu _ _ _) <- liftIO $ readIORef ioreftb
 		TexState u' ts <- getTex
 		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
@@ -167,14 +167,14 @@ texUpload l (Texture t) = do
 			glActiveTexture $ GL_TEXTURE0 + u'
 			glBindTexture GL_TEXTURE_2D i
 			glUniform1i l $ itoi u'
-			liftIO $ putMVar t $ tb { texLastUnit = u'}
+			liftIO $ swapMVar t $ tb { texLastUnit = u'}
 			liftIO $ writeArray ts u' i
 			u'' <- succU ts u'
 			setTex $ TexState u'' ts
 		else glUniform1i l $ itoi u
 		where
 		succU ts x = do
-			let x' = succ x
+			let x' = succ x -- TODO replace with modulo?
 			(a,b) <- liftIO $ getBounds ts
 			return $ if x' >= b then a else x'
 

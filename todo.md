@@ -92,8 +92,6 @@ Outermost: Uniform, Use/Upload, Expr, Vec, Window,
 
 ## Pr to-dos
 
-move forkio stuff from juice to texture
-Load Tex in background - done
 Write TextureExpr
 Load STL in background
 rewrite loading of shader to recognize loading state of required textures
