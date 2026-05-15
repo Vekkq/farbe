@@ -9,11 +9,17 @@ module Graphics.Farbe.JuicyPixels where
 import Codec.Picture
 import Codec.Picture.Types
 
+import Graphics.Farbe
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
--- ~ import Graphics.Farbe.Utils
--- ~ import Graphics.Farbe.GL
+import Graphics.Farbe.BuildShader
+import Graphics.Farbe.ShaderEnv
+import Graphics.Farbe.Expr
+import Graphics.Farbe.Utility
+import Graphics.Farbe.Name
+import Graphics.Farbe.Uniform
+import Graphics.Farbe.GL
 import Data.Vector.Storable (unsafeToForeignPtr)
 import Control.Monad.IO.Class
 
@@ -28,23 +34,12 @@ import Control.Monad
 import Foreign hiding (void)
 
 
-loadImage :: (MonadIO m, HandTex m) => String -> m Texture
-loadImage s = do
-	m <- liftIO newEmptyMVar
-	delay <- getDelayFun
-	liftIO $ forkIO $ do
+loadImage :: (MonadIO m, Farbe m) => String -> m Texture
+loadImage s = loadTexture $ do
 		ei <- readImage s
 		let (format, (dim,ptr)) = toGLImage $ fromRight (ImageRGB8 errorTexture) ei
 		either print (void . return) ei -- add debug command
-		id <- loadTexture' format dim ptr
-		putMVar m $ TextureBase id 0 format s
-		void $ mkWeakMVar m (delay $ print "tex del" >> (with id $ glDeleteTextures 1))
-	return $ Texture m
-	 -- ~ let (Image w h v) = (toTexture i :: Image f)
-    -- ~ let p = unsafeForeignPtrToPtr $ tfst $ unsafeToForeignPtr v
-    -- ~ t :: Texture t <- loadTexture2Base (itoi w, itoi h) p
-    -- ~ return $ t { path = s }
-    -- ~ -- -- ~ liftIO $ unsafeWith v $ \p -> loadTexture2Base (itoi w, itoi h) p
+		return (format, dim, ptr)
 
 errorTexture :: Image PixelRGB8
 errorTexture = generateImage f 8 8
@@ -56,11 +51,26 @@ mapRight (Right b) f = Right <$> f b
 mapRight (Left a) _ = pure (Left a)
 
 
--- ~ loadImage'
-  -- ~ :: (MonadIO m, HandTex m, ToTexture f, JuiceTextureFormat t f)
-  -- ~ => String -> m Texture
--- ~ loadImage' t s = loadImage s >>= either error return
 
+-- ~ textureIO :: V2 (Expr e Float) -> String -> V4 (Expr e Float)
+-- ~ textureIO p s = flip texture p $ Expr $ ExprI shdr TTex []
+	-- ~ where
+		-- ~ vname = sani s
+		-- ~ shdr = do
+			-- ~ t <- loadImage s
+			-- ~ b <- addHeader "uniform" a $ vname
+			-- ~ s <- getShaderId
+			-- ~ m <- liftIO $ newMVar a
+			-- ~ when b $ postShader $ do
+				-- ~ l <- withString vname $ glGetUniformLocation s
+				-- ~ wc <- makeRunWhenChanged $ upload l
+				-- ~ -- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
+				-- ~ preRender $ do
+					-- ~ (liftIO $ readMVar m) >>= runwc wc
+					-- ~ return True
+			-- ~ return vname
+
+sani = filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
 
 toGLImage :: DynamicImage -> (TextureFormat, (V2 GLsizei, Ptr ()))
 toGLImage i = case convertToGLImage i of

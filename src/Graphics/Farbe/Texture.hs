@@ -14,7 +14,7 @@ import Data.Array.IO
 import Data.Array.MArray as MA
 import Foreign hiding (void)
 
-import Control.Concurrent.MVar
+import Control.Concurrent
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
@@ -91,26 +91,39 @@ texSetup :: MonadIO m => TextureFormat -> m ()
 texSetup D = return ()
 texSetup _ = glGenerateMipmap GL_TEXTURE_2D
 
--- returns texture id and assigned texture unit
-loadTexture' :: forall m t a . (MonadIO m)
+loadTexture :: forall m t a . (MonadIO m, HandTex m)
+	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
+loadTexture io = do
+	delay <- getDelayFun
+	m <- liftIO newEmptyMVar
+	liftIO $ forkIO $ do
+		(t, V2 w h, p) <- io
+		tex <- liftIO $ withPtr_ $ glGenTextures 1
+		glActiveTexture GL_TEXTURE0
+		glBindTexture GL_TEXTURE_2D tex
+		glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
+		texSetup t
+		putMVar m $ TextureBase tex 0 t ""
+		void $ mkWeakMVar m (delay $ print "tex del" >> (with tex $ glDeleteTextures 1))
+	return $ Texture m
+
+
+-- returns texture id
+newTexture' :: forall m t a . (MonadIO m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m GLuint
-loadTexture' t (V2 w h) p = do
+newTexture' t (V2 w h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
-	-- ~ m <- assignTexUnit' tex 0
 	glActiveTexture GL_TEXTURE0
 	glBindTexture GL_TEXTURE_2D tex
 	glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
 	texSetup t
 	return tex
-	-- ~ liftIO $ void $ mkWeakMVar m (with tex $ glDeleteTextures 1)
-	-- TODO wait for bufferswap before deleting
-	-- also ensure its send to the main thread
 
 
-loadTexture :: forall m t a . (MonadIO m, HandTex m)
+newTexture :: forall m t a . (MonadIO m, HandTex m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m Texture
-loadTexture t p ptr = do
-	i <- loadTexture' t p ptr
+newTexture t p ptr = do
+	i <- newTexture' t p ptr
 	m <- liftIO $ newMVar (TextureBase i 0 t "")
 	delay <- getDelayFun
 	liftIO $ mkWeakMVar m (delay $ with i $ glDeleteTextures 1)
@@ -143,6 +156,27 @@ assignTexUnit (Texture mtb) = do
 	u' <- assignTexUnit' i u
 	liftIO $ putMVar mtb $ tb { texLastUnit = u' }
 
+
+texUpload :: (MonadIO m, HandTex m) => GLint -> Texture -> m ()
+texUpload l (Texture t) = do
+		tb@(TextureBase i u _ _) <- liftIO $ takeMVar t
+		-- ~ (TextureBase _ i mu _ _ _) <- liftIO $ readIORef ioreftb
+		TexState u' ts <- getTex
+		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+		if (i /= i') then do
+			glActiveTexture $ GL_TEXTURE0 + u'
+			glBindTexture GL_TEXTURE_2D i
+			glUniform1i l $ itoi u'
+			liftIO $ putMVar t $ tb { texLastUnit = u'}
+			liftIO $ writeArray ts u' i
+			u'' <- succU ts u'
+			setTex $ TexState u'' ts
+		else glUniform1i l $ itoi u
+		where
+		succU ts x = do
+			let x' = succ x
+			(a,b) <- liftIO $ getBounds ts
+			return $ if x' >= b then a else x'
 
 
 

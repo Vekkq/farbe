@@ -129,47 +129,8 @@ instance Upload (Mat V4 V4 Float) where
 	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
 
 instance Upload Texture where
-	upload l (Texture tb) = do
-		tb'@(TextureBase i u _ _) <- liftIO $ takeMVar tb
-		TexState u' ts <- getTex
-		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-		if (i /= i') then do
-			glActiveTexture $ GL_TEXTURE0 + u'
-			glBindTexture GL_TEXTURE_2D i
-			glUniform1i l $ itoi u'
-			-- ~ liftIO $ swapMVar mu u'
-			liftIO $ putMVar tb $ tb' { texLastUnit = u' }
-			liftIO $ writeArray ts u' i
-			u'' <- succU ts u'
-			setTex $ TexState u'' ts
-		else glUniform1i l $ itoi u
-		where
-		succU ts x = do
-			let x' = succ x
-			(a,b) <- liftIO $ getBounds ts
-			return $ if x' >= b then a else x'
+	upload = texUpload
 
-{-
-instance Upload (Texture f) where
-	upload l (Texture i mu _ _ _) = do
-		TexState u' ts <- getTex
-		u <- liftIO $ readMVar mu
-		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-		if (i /= i') then do
-			glActiveTexture $ GL_TEXTURE0 + u'
-			glBindTexture GL_TEXTURE_2D i
-			glUniform1i l $ itoi u'
-			liftIO $ swapMVar mu u'
-			liftIO $ writeArray ts u' i
-			u'' <- succU ts u'
-			setTex $ TexState u'' ts
-		else glUniform1i l $ itoi u
-		where
-		succU ts x = do
-			let x' = succ x
-			(a,b) <- liftIO $ getBounds ts
-			return $ if x' >= b then a else x'
--}
 
 -- makeVars ------------------------------------------------------------------------------
 

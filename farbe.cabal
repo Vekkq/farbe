@@ -22,7 +22,6 @@ library
                    , Graphics.Farbe.Window
                    , Graphics.Farbe.JuicyPixels
                    , Graphics.Farbe.STL
-                   , Graphics.Farbe.TextureExpr
                    , Graphics.Farbe.BuildShader
                    , Graphics.Farbe.Texture
                    , Graphics.Farbe.Expr

@@ -7,7 +7,6 @@ import Graphics.Farbe
 -- ~ import Graphics.Farbe.Vec (V3, Mat, (**|))
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL
-import Graphics.Farbe.TextureExpr
 import Graphics.Farbe.JuicyPixels
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Expr
