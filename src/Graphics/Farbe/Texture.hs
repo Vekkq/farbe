@@ -164,6 +164,7 @@ texUpload l (Texture t) = do
 		TexState u' ts <- getTex
 		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
 		if (i /= i') then do
+			-- ~ liftIO $ putStrLn $ "assigned to unit " ++ show u'
 			glActiveTexture $ GL_TEXTURE0 + u'
 			glBindTexture GL_TEXTURE_2D i
 			glUniform1i l $ itoi u'

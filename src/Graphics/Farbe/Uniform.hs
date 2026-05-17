@@ -145,7 +145,7 @@ makeVarT t = do
 				t <- liftIO $ readMVar m
 				b <- liftIO $ isEmptyMVar $ tbase t
 				texUpload l t
-				return $ not b -- TODO check if this correc
+				return $ not b -- TODO check if this correct
 		return vname
 	return $ Var (ExprI r (toTypeS t) []) m
 

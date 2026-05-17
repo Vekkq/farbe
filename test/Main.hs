@@ -26,6 +26,7 @@ colorful t r = shader $ \(n,v) -> do
 	n' <- transfer n
 	-- ~ let n'' = down n'
 	let c = down fragCoord
+	-- ~ return (up 1 v', up 1 n' * 0.5 + textureIO "test-resources/KorDrTtaa42.png" (c / 256))
 	return (up 1 v', up 1 n' * 0.5 + texture (use t) (c / 256))
 	--
 	-- ~ return (up 1 v', up 1 (n' * 0.5 + textureIO (down n') "test-resources/KorDrTtaa4.png"))
@@ -33,6 +34,7 @@ colorful t r = shader $ \(n,v) -> do
 
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
+	modifyConfig $ \f -> f { devDebugMode = True }
 
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray

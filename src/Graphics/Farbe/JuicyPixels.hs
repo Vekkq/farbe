@@ -32,6 +32,7 @@ import Graphics.GL.Types
 import Data.Either
 import Control.Monad
 import Foreign hiding (void)
+import Data.Set (notMember)
 
 
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
@@ -51,26 +52,27 @@ mapRight (Right b) f = Right <$> f b
 mapRight (Left a) _ = pure (Left a)
 
 
+textureIO :: String -> V2 (Expr e Float) -> V4 (Expr e Float)
+textureIO s p = flip texture p $ Expr $ ExprI shdr TTex []
+	where
+		vname = sani s
+		shdr = do
+			t <- loadImage s
+			b <- addHeader "uniform" (undefined :: Texture) vname
+			s <- getShaderId
+			when b $ postShader $ do
+				l <- withString vname $ glGetUniformLocation s
+				preRender $ do
+					texUpload l t
+					return $ not b -- TODO check if this correct
+			return vname
 
--- ~ textureIO :: V2 (Expr e Float) -> String -> V4 (Expr e Float)
--- ~ textureIO p s = flip texture p $ Expr $ ExprI shdr TTex []
-	-- ~ where
-		-- ~ vname = sani s
-		-- ~ shdr = do
-			-- ~ t <- loadImage s
-			-- ~ b <- addHeader "uniform" a $ vname
-			-- ~ s <- getShaderId
-			-- ~ m <- liftIO $ newMVar a
-			-- ~ when b $ postShader $ do
-				-- ~ l <- withString vname $ glGetUniformLocation s
-				-- ~ wc <- makeRunWhenChanged $ upload l
-				-- ~ -- RunWhenChanged will bork for textures, since they need to be always checked for assigned tex unit
-				-- ~ preRender $ do
-					-- ~ (liftIO $ readMVar m) >>= runwc wc
-					-- ~ return True
-			-- ~ return vname
+sani = filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])
+     . replace (\a -> if elem a "\\/.-" then '_' else a)
 
-sani = filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
+replace :: (a -> b) -> [a] -> [b]
+replace f [] = []
+replace f xs = foldr (\a ys -> f a : ys) [] xs
 
 toGLImage :: DynamicImage -> (TextureFormat, (V2 GLsizei, Ptr ()))
 toGLImage i = case convertToGLImage i of

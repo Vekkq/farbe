@@ -128,6 +128,9 @@ runFarbeT fs (FarbeT m) = runStateT m fs
 getsConfig :: Farbe m => (Config -> s) -> m s
 getsConfig f = getsFarbe (f . config)
 
+modifyConfig :: Farbe m => (Config -> Config) -> m ()
+modifyConfig f = modifyFarbe (\farb -> farb { config = f $ config farb })
+
 
 stateShaderCache :: Farbe m
 	=> (M.IntMap ShExec -> (a, M.IntMap ShExec)) -> m a

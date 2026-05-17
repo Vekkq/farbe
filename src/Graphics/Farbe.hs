@@ -50,6 +50,8 @@ module Graphics.Farbe
 	, makeVarT
 	, MonadIO (..)
 	, glErr
+	, modifyConfig
+	, Config (..)
 	) where
 
 import qualified Graphics.Farbe.State as S

@@ -103,5 +103,8 @@ write code optimization for shaders
 add rdelay again, with handtex instead of farbe constraint
 remove mvar from texture function. it has to be used by the time-confusing juice function
 
+rewrite shaders to record Shdr by name, to run it separately and only once
+
+
 
 
