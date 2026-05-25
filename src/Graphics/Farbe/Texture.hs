@@ -12,6 +12,7 @@ import Graphics.Farbe.Utility
 
 import Data.Array.IO
 import Data.Array.MArray as MA
+import Graphics.Farbe.Vec
 import Foreign hiding (void)
 
 import Control.Concurrent
@@ -22,8 +23,7 @@ import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.Cont
 import Control.Monad.RWS
-import Graphics.Farbe.Vec
-import Graphics.GL
+-- ~ import Graphics.GL
 
 
 
@@ -87,7 +87,7 @@ glInTex D = GL_DEPTH_COMPONENT
 -- ~ texType D = GL_UNSIGNED_SHORT -- only supports Byte according to dev.gl
 texType _ = GL_UNSIGNED_BYTE
 
-texSetup :: MonadIO m => TextureFormat -> m ()
+texSetup :: GL m => TextureFormat -> m ()
 texSetup D = return ()
 texSetup _ = glGenerateMipmap GL_TEXTURE_2D
 
@@ -109,7 +109,7 @@ loadTexture io = do
 
 
 -- returns texture id
-newTexture' :: forall m t a . (MonadIO m)
+newTexture' :: forall m t a . (GL m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m GLuint
 newTexture' t (V2 w h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
@@ -120,7 +120,7 @@ newTexture' t (V2 w h) p = do
 	return tex
 
 
-newTexture :: forall m t a . (MonadIO m, HandTex m)
+newTexture :: forall m t a . (GL m, HandTex m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m Texture
 newTexture t p ptr = do
 	i <- newTexture' t p ptr
@@ -157,7 +157,7 @@ newTexture t p ptr = do
 	-- ~ liftIO $ putMVar mtb $ tb { texLastUnit = u' }
 
 
-texUpload :: (MonadIO m, HandTex m) => GLint -> Texture -> m ()
+texUpload :: (GL m, HandTex m) => GLint -> Texture -> m ()
 texUpload l (Texture t) = do
 		tb@(TextureBase i u _ _) <- liftIO $ readMVar t
 		-- ~ (TextureBase _ i mu _ _ _) <- liftIO $ readIORef ioreftb
@@ -181,11 +181,11 @@ texUpload l (Texture t) = do
 
 
 
-instance GLtype Texture where
-	slName _ = "sampler2D"
-	toTypeS _ = TTex
-	glType _ = GL_INT
-	glPrecision _ = ""
-	glShortName _ = "t"
+-- ~ instance GLtype Texture where
+	-- ~ slName _ = "sampler2D"
+	-- ~ toTypeS _ = TTex
+	-- ~ glType _ = GL_INT
+	-- ~ glPrecision _ = ""
+	-- ~ glShortName _ = "t"
 
 
