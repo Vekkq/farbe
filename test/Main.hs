@@ -6,6 +6,7 @@ import Graphics.Farbe
 -- ~ import Graphics.Farbe.Window
 -- ~ import Graphics.Farbe.Vec (V3, Mat, (**|))
 import Graphics.Farbe.Vec
+-- ~ import Graphics.Farbe.GL
 import Graphics.Farbe.STL
 import Graphics.Farbe.JuicyPixels
 import Graphics.Farbe.Texture
@@ -32,9 +33,10 @@ colorful t r = shader $ \(n,v) -> do
 	-- ~ return (up 1 v', up 1 (n' * 0.5 + textureIO (down n') "test-resources/KorDrTtaa4.png"))
 
 
+
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
-	modifyConfig $ \f -> f { devDebugMode = True }
+	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
 
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray

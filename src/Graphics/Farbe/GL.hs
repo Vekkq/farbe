@@ -9,8 +9,10 @@ module Graphics.Farbe.GL
 	( module Graphics.GL.Types
 	, Hashable
 	, GL (..)
+	-- ~ , GLDebug (..)
 	, TypeS (..)
 	, GLtype (..)
+	, Normalized (..)
 	, pattern GL.GL_FALSE
 	, pattern GL.GL_TRUE
 	, pattern GL.GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS
@@ -24,8 +26,34 @@ module Graphics.Farbe.GL
 	, pattern GL.GL_TEXTURE_2D
 	, pattern GL.GL_TEXTURE0
 	, pattern GL.GL_INT
+	, pattern GL.GL_VERTEX_SHADER
+	, pattern GL.GL_FRAGMENT_SHADER
+	, pattern GL.GL_COMPILE_STATUS
+	, pattern GL.GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT
+	, pattern GL.GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS
+	, pattern GL.GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT
+	, pattern GL.GL_FRAMEBUFFER_UNSUPPORTED
+	, pattern GL.GL_DEPTH_TEST
+	, pattern GL.GL_UNPACK_ALIGNMENT
+	, pattern GL.GL_DEPTH_ATTACHMENT
+	, pattern GL.GL_COLOR_BUFFER_BIT
+	, pattern GL.GL_DEPTH_BUFFER_BIT
+	, pattern GL.GL_STENCIL_TEST
+	, pattern GL.GL_NEAREST
+	, pattern GL.GL_LESS
+	, pattern GL.GL_GREATER
+	, pattern GL.GL_ALWAYS
+	, pattern GL.GL_KEEP
+	, pattern GL.GL_DECR_WRAP
+	, pattern GL.GL_FRAMEBUFFER
+	, pattern GL.GL_COLOR_ATTACHMENT0
+	, pattern GL.GL_TEXTURE_MIN_FILTER
+	, pattern GL.GL_TEXTURE_MAG_FILTER
+	, pattern GL.GL_STENCIL_BUFFER_BIT
 	, boolToInt
 	) where
+
+
 
 
 import Graphics.Farbe.Vec
@@ -34,7 +62,9 @@ import Graphics.Farbe.Vec
 import GHC.Generics (Generic)
 import Data.Hashable
 
+import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans
 import Foreign hiding (void)
 
 import Graphics.GL.Embedded20
@@ -50,79 +80,134 @@ import Graphics.GL.Types
 
 
 
-
 class MonadIO m => GL m where
-	glGenBuffers :: GLsizei -> Ptr GLuint -> m ()
-	glBindBuffer :: GLenum -> GLuint -> m ()
-	glBufferData :: GLenum -> GLsizeiptr -> Ptr () -> GLenum -> m ()
-	glBufferSubData :: GLenum -> GLintptr -> GLsizeiptr -> Ptr () -> m ()
-	glGenVertexArraysOES :: GLsizei -> Ptr GLuint -> m ()
-	glBindVertexArrayOES :: GLuint -> m ()
-	glGetBufferPointervOES :: MonadIO m => GLenum -> GLenum -> Ptr (Ptr ()) -> m ()
-	glDeleteBuffers :: MonadIO m => GLsizei -> Ptr GLuint -> m ()
-	glDrawArrays :: MonadIO m => GLenum -> GLint -> GLsizei -> m ()
-	glCreateProgram :: MonadIO m => m GLuint
-	glBindAttribLocation :: MonadIO m => GLuint -> GLuint -> Ptr GLchar -> m ()
-	glLinkProgram :: MonadIO m => GLuint -> m ()
-	glGetUniformLocation :: MonadIO m => GLuint -> Ptr GLchar -> m GLint
-	glUniform1f :: MonadIO m => GLint -> GLfloat -> m ()
-	glUniform2f :: MonadIO m => GLint -> GLfloat -> GLfloat -> m ()
-	glUniform3f :: MonadIO m => GLint -> GLfloat -> GLfloat -> GLfloat -> m ()
-	glUniform4f :: MonadIO m => GLint -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> m ()
-	glUniformMatrix3fv :: MonadIO m => GLint -> GLsizei -> GLboolean -> Ptr GLfloat -> m ()
-	glUniformMatrix4fv :: MonadIO m => GLint -> GLsizei -> GLboolean -> Ptr GLfloat -> m ()
-	glUniform1i :: MonadIO m => GLint -> GLint -> m ()
-	glUniform2i :: MonadIO m => GLint -> GLint -> GLint -> m ()
-	glUniform3i :: MonadIO m => GLint -> GLint -> GLint -> GLint -> m ()
-	glUniform4i :: MonadIO m => GLint -> GLint -> GLint -> GLint -> GLint -> m ()
-	glGetIntegerv :: MonadIO m => GLenum -> Ptr GLint -> m ()
-	glGenTextures :: MonadIO m => GLsizei -> Ptr GLuint -> m ()
-	glActiveTexture :: MonadIO m => GLenum -> m ()
-	glBindTexture :: MonadIO m => GLenum -> GLuint -> m ()
-	glTexImage2D :: MonadIO m => GLenum -> GLint -> GLint -> GLsizei -> GLsizei -> GLint -> GLenum -> GLenum -> Ptr () -> m ()
-	glGenerateMipmap :: MonadIO m => GLenum -> m ()
-	glDeleteTextures :: MonadIO m => GLsizei -> Ptr GLuint -> m ()
+	glDebug :: m Bool
+	glDebug = return True
 
-instance GL IO where
+	whenGLDebug :: m () -> m ()
+	whenGLDebug m = do
+		b <- glDebug
+		when b m
+
+	whenGLDebug' :: IO () -> m ()
+	whenGLDebug' m = whenGLDebug (liftIO m)
+
+	glGenBuffers :: GL m => GLsizei -> Ptr GLuint -> m ()
 	glGenBuffers = GL.glGenBuffers
+	glBindBuffer :: GL m => GLenum -> GLuint -> m ()
 	glBindBuffer = GL.glBindBuffer
+	glBufferData :: GL m => GLenum -> GLsizeiptr -> Ptr () -> GLenum -> m ()
 	glBufferData = GL.glBufferData
+	glBufferSubData :: GL m => GLenum -> GLintptr -> GLsizeiptr -> Ptr () -> m ()
 	glBufferSubData = GL.glBufferSubData
+	glGenVertexArraysOES :: GL m => GLsizei -> Ptr GLuint -> m ()
 	glGenVertexArraysOES = GLEXT.glGenVertexArraysOES
+	glBindVertexArrayOES :: GL m => GLuint -> m ()
 	glBindVertexArrayOES = GLEXT.glBindVertexArrayOES
+	glGetBufferPointervOES :: GL m => GLenum -> GLenum -> Ptr (Ptr ()) -> m ()
 	glGetBufferPointervOES = GLEXT.glGetBufferPointervOES
+	glDeleteBuffers :: GL m => GLsizei -> Ptr GLuint -> m ()
 	glDeleteBuffers = GL.glDeleteBuffers
+	glDrawArrays :: GL m => GLenum -> GLint -> GLsizei -> m ()
 	glDrawArrays = GL.glDrawArrays
+	glCreateShader :: GL m => GLenum -> m GLuint
+	glCreateShader = GL.glCreateShader
+	glCompileShader :: GL m => GLuint -> m ()
+	glCompileShader = GL.glCompileShader
+	glAttachShader :: GL m => GLuint -> GLuint -> m ()
+	glAttachShader = GL.glAttachShader
+	glShaderSource :: GL m => GLuint -> GLsizei -> Ptr (Ptr GLchar) -> Ptr GLint -> m ()
+	glShaderSource = GL.glShaderSource
+	glUseProgram :: GL m => GLuint -> m ()
+	glUseProgram = GL.glUseProgram
+	glGetShaderInfoLog :: GL m => GLuint -> GLsizei -> Ptr GLsizei -> Ptr GLchar -> m ()
+	glGetShaderInfoLog = GL.glGetShaderInfoLog
+	glGetShaderiv :: GL m => GLuint -> GLenum -> Ptr GLint -> m ()
+	glGetShaderiv = GL.glGetShaderiv
+	glCreateProgram :: GL m => m GLuint
 	glCreateProgram = GL.glCreateProgram
+	glBindAttribLocation :: GL m => GLuint -> GLuint -> Ptr GLchar -> m ()
 	glBindAttribLocation = GL.glBindAttribLocation
+	glLinkProgram :: GL m => GLuint -> m ()
 	glLinkProgram = GL.glLinkProgram
+	glGetUniformLocation :: GL m => GLuint -> Ptr GLchar -> m GLint
 	glGetUniformLocation = GL.glGetUniformLocation
+	glUniform1f :: GL m => GLint -> GLfloat -> m ()
 	glUniform1f = GL.glUniform1f
+	glUniform2f :: GL m => GLint -> GLfloat -> GLfloat -> m ()
 	glUniform2f = GL.glUniform2f
+	glUniform3f :: GL m => GLint -> GLfloat -> GLfloat -> GLfloat -> m ()
 	glUniform3f = GL.glUniform3f
+	glUniform4f :: GL m => GLint -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> m ()
 	glUniform4f = GL.glUniform4f
-	glUniformMatrix3fv = GL.glUniformMatrix3fv
-	glUniformMatrix4fv = GL.glUniformMatrix4fv
+	glUniform1i :: GL m => GLint -> GLint -> m ()
 	glUniform1i = GL.glUniform1i
+	glUniform2i :: GL m => GLint -> GLint -> GLint -> m ()
 	glUniform2i = GL.glUniform2i
+	glUniform3i :: GL m => GLint -> GLint -> GLint -> GLint -> m ()
 	glUniform3i = GL.glUniform3i
+	glUniform4i :: GL m => GLint -> GLint -> GLint -> GLint -> GLint -> m ()
 	glUniform4i = GL.glUniform4i
+	glUniformMatrix3fv :: GL m => GLint -> GLsizei -> GLboolean -> Ptr GLfloat -> m ()
+	glUniformMatrix3fv = GL.glUniformMatrix3fv
+	glUniformMatrix4fv :: GL m => GLint -> GLsizei -> GLboolean -> Ptr GLfloat -> m ()
+	glUniformMatrix4fv = GL.glUniformMatrix4fv
+	glGetIntegerv :: GL m => GLenum -> Ptr GLint -> m ()
 	glGetIntegerv = GL.glGetIntegerv
+	glGenTextures :: GL m => GLsizei -> Ptr GLuint -> m ()
 	glGenTextures = GL.glGenTextures
-	glActiveTexture = GL.glActiveTexture
-	glBindTexture = GL.glBindTexture
+	glActiveTexture :: GL m => GLenum -> m ()
+	glActiveTexture e = do
+		GL.glActiveTexture e
+		whenGLDebug' $ putStrLn $ "glActiveTexture " ++ show e
+	glBindTexture :: GL m => GLenum -> GLuint -> m ()
+	glBindTexture e i = do
+		GL.glBindTexture e i
+		whenGLDebug' $ putStrLn $ "glBindTexture " ++ show i
+	glTexImage2D :: GL m => GLenum -> GLint -> GLint -> GLsizei -> GLsizei -> GLint -> GLenum -> GLenum -> Ptr () -> m ()
 	glTexImage2D = GL.glTexImage2D
+	glGenerateMipmap :: GL m => GLenum -> m ()
 	glGenerateMipmap = GL.glGenerateMipmap
+	glDeleteTextures :: GL m => GLsizei -> Ptr GLuint -> m ()
 	glDeleteTextures = GL.glDeleteTextures
+	glClearColor :: MonadIO m => GLfloat -> GLfloat -> GLfloat -> GLfloat -> m ()
+	glClearColor = GL.glClearColor
+	glEnable :: MonadIO m => GLenum -> m ()
+	glEnable = GL.glEnable
+	glDisable :: MonadIO m => GLenum -> m ()
+	glDisable = GL.glDisable
+	glPixelStorei :: MonadIO m => GLenum -> GLint -> m ()
+	glPixelStorei = GL.glPixelStorei
+	glGetError :: MonadIO m => m GLenum
+	glGetError = GL.glGetError
+	glStencilFunc :: MonadIO m => GLenum -> GLint -> GLuint -> m ()
+	glStencilFunc = GL.glStencilFunc
+	glClear :: MonadIO m => GLbitfield -> m ()
+	glClear = GL.glClear
+	glColorMask :: MonadIO m => GLboolean -> GLboolean -> GLboolean -> GLboolean -> m ()
+	glColorMask = GL.glColorMask
+	glStencilOp :: MonadIO m => GLenum -> GLenum -> GLenum -> m ()
+	glStencilOp = GL.glStencilOp
+	glFramebufferTexture2D :: MonadIO m => GLenum -> GLenum -> GLenum -> GLuint -> GLint -> m ()
+	glFramebufferTexture2D = GL.glFramebufferTexture2D
+	glTexParameteri :: MonadIO m => GLenum -> GLenum -> GLint -> m ()
+	glTexParameteri = GL.glTexParameteri
+	glGenFramebuffers :: MonadIO m => GLsizei -> Ptr GLuint -> m ()
+	glGenFramebuffers = GL.glGenFramebuffers
+	glBindFramebuffer :: MonadIO m => GLenum -> GLuint -> m ()
+	glBindFramebuffer = GL.glBindFramebuffer
+	glCheckFramebufferStatus :: MonadIO m => GLenum -> m GLenum
+	glCheckFramebufferStatus = GL.glCheckFramebufferStatus
 
 
-
-newtype GLDebug a = GLDebug { glDebug :: IO a }
-	deriving (Functor, Applicative, Monad, MonadIO)
+instance GL IO
 
 
+-- ~ class ShowFn f where
+	-- ~ showFn :: MonadIO m => f -> m String
 
-
+-- ~ instance Show a => ShowFn (a -> r) where
+	-- ~ showFn f = \a -> fmap (show a++) $ showFn (f a)
 
 
 -- GL type information -------------------------------------------------------------------

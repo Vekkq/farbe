@@ -52,6 +52,7 @@ module Graphics.Farbe
 	, glErr
 	, modifyConfig
 	, Config (..)
+	-- ~ , runFarbeTDebug
 	) where
 
 import qualified Graphics.Farbe.State as S
@@ -67,6 +68,7 @@ import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Vec ()
 import Graphics.Farbe.Expr ()
 import Graphics.Farbe.Utility
+import Graphics.Farbe.GL
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.IO.Class
@@ -78,7 +80,7 @@ import System.Mem
 
 import Foreign.Ptr
 import Data.Bits
-import Graphics.GL
+-- ~ import Graphics.GL
 import Control.Concurrent.MVar
 
 
@@ -89,6 +91,7 @@ instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
 instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
 	stateShader = lift . stateShader
 
+instance MonadIO m => GL (W.WindowT m)
 
 -- | The environment to do draw operations.
 
@@ -104,7 +107,20 @@ runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 	where
 	 err = error "Farbe state not initialized yet"
 
-processEvents :: (W.MonadWindow m, Farbe m)
+
+-- ~ instance (Farbe m, Monad m) => Farbe (GLDebug m) where
+	-- ~ stateFarbe = lift . stateFarbe
+
+-- ~ deriving instance W.MonadWindow m => W.MonadWindow (GLDebug m)
+
+-- ~ instance W.MonadWindow m => W.MonadWindow (GLDebug m) where
+	-- ~ windowState = lift . W.windowState
+
+-- ~ runFarbeTDebug :: MonadIO m => String -> W.Display -> GLDebug (W.WindowT (S.FarbeT m)) a -> m a
+-- ~ runFarbeTDebug s d = runFarbeT s d . glDebug
+
+
+processEvents :: (W.MonadWindow m, Farbe m, GL m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
 	-- ~ delayedWork
@@ -172,7 +188,7 @@ drawInto a b = do
 
 
 
-drawTexture :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
+drawTexture :: (Monad m, Farbe m, GL m, W.MonadWindow m) => m (m () -> m Texture)
 drawTexture = do
 	(w',h') <- W.windowSize
 	let (w,h) = (itoi w', itoi h')
@@ -200,7 +216,7 @@ drawTexture = do
 
 
 
-drawDepth :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
+drawDepth :: (Monad m, Farbe m, GL m, W.MonadWindow m) => m (m () -> m Texture)
 drawDepth = do
 	(w',h') <- W.windowSize
 	let (w,h) = (itoi w', itoi h')
@@ -246,10 +262,10 @@ newtype Framebuffer = Framebuffer GLuint
 genFramebuffer :: MonadIO m => m Framebuffer
 genFramebuffer = liftIO $ fmap Framebuffer $ withPtr_ $ glGenFramebuffers 1
 
-bindfb :: MonadIO m => Framebuffer -> m ()
+bindfb :: (MonadIO m, GL m) => Framebuffer -> m ()
 bindfb (Framebuffer n) = glBindFramebuffer GL_FRAMEBUFFER n
 
-framebufferStatus :: MonadIO m => m ()
+framebufferStatus :: (MonadIO m, GL m) => m ()
 framebufferStatus = do
 	s <- glCheckFramebufferStatus GL_FRAMEBUFFER
 	case s of
@@ -258,4 +274,5 @@ framebufferStatus = do
 		GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT -> error "missing attachments"
 		GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
 		_ -> return ()
+
 

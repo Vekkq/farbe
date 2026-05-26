@@ -38,8 +38,8 @@ import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
 
 
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
+-- ~ import Graphics.GL.Embedded20
+-- ~ import Graphics.GL.Types
 
 import Control.Exception
 import Control.Concurrent.MVar
@@ -68,7 +68,7 @@ readVar :: MonadIO m => Var a -> m a
 readVar = liftIO . readMVar . varMVar
 
 
-makeVar :: forall a m . (Farbe m, MonadIO m, GLtype a, Upload a)
+makeVar :: forall a m . (GL m, Farbe m, MonadIO m, GLtype a, Upload a)
 	=> a -> m (Var a)
 makeVar a = do
 	m <- liftIO $ newMVar a
@@ -86,9 +86,10 @@ makeVar a = do
 		return vname
 	return $ Var (ExprI r (toTypeS (bottom :: a)) []) m
 
+instance MonadIO m => GL (FarbeT m)
 
 class (GLtype a, Eq a) => Upload a where
-	upload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
+	upload :: (GL m, MonadIO m, HandTex m) => GLint -> a -> m ()
 	-- TODO: makeUploadFn :: GLint -> a -> m (a -> m ())
 	-- move RunWhenChanged into instances
 
@@ -132,41 +133,56 @@ instance Upload Texture where
 	upload = texUpload
 
 
-makeVarT :: forall a m . (Farbe m, MonadIO m) => Texture -> m (Var Texture)
-makeVarT t = do
-	m <- liftIO $ newMVar t
-	vname <- (name "u" t)
-	let r = do
-		b <- addHeader "uniform" t vname
-		s <- getShaderId
-		when b $ postShader $ do
-			l <- withString vname $ glGetUniformLocation s
-			preRender $ do
-				t <- liftIO $ readMVar m
-				b <- liftIO $ isEmptyMVar $ tbase t
-				texUpload l t
-				return $ not b -- TODO check if this correct
-		return vname
-	return $ Var (ExprI r (toTypeS t) []) m
+instance GLtype Texture where
+	slName _ = "sampler2D"
+	toTypeS _ = TTex
+	glType _ = GL_INT
+	glPrecision _ = ""
+	glShortName _ = "t"
+
+
+withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
+withArray' = liftIO .: withArray
+
+(.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
+(.:) = (.).(.)
+
+
+-- ~ makeVarT :: forall a m . (Farbe m, MonadIO m) => Texture -> m (Var Texture)
+-- ~ makeVarT t = do
+	-- ~ m <- liftIO $ newMVar t
+	-- ~ vname <- (name "u" t)
+	-- ~ let r = do
+		-- ~ b <- addHeader "uniform" t vname
+		-- ~ s <- getShaderId
+		-- ~ when b $ postShader $ do
+			-- ~ l <- withString vname $ glGetUniformLocation s
+			-- ~ preRender $ do
+				-- ~ t <- liftIO $ readMVar m
+				-- ~ b <- liftIO $ isEmptyMVar $ tbase t
+				-- ~ texUpload l t
+				-- ~ return $ not b -- TODO check if this correct
+		-- ~ return vname
+	-- ~ return $ Var (ExprI r (toTypeS t) []) m
 
 -- makeVars ------------------------------------------------------------------------------
 
-makeVarF :: (Farbe m, MonadIO m) => Float -> m (Var Float)
-makeVarI :: (Farbe m, MonadIO m) => Int32 -> m (Var Int32)
-makeVarB :: (Farbe m, MonadIO m) => Bool -> m (Var Bool)
-makeVarV2F :: (Farbe m, MonadIO m) => V2 Float -> m (Var (V2 Float))
-makeVarV2I :: (Farbe m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
-makeVarV2B :: (Farbe m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
-makeVarV3F :: (Farbe m, MonadIO m) => V3 Float -> m (Var (V3 Float))
-makeVarV3I :: (Farbe m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
-makeVarV3B :: (Farbe m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
-makeVarV4F :: (Farbe m, MonadIO m) => V4 Float -> m (Var (V4 Float))
-makeVarV4I :: (Farbe m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
-makeVarV4B :: (Farbe m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
-makeVarM2 :: (Farbe m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
-makeVarM3 :: (Farbe m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
-makeVarM4 :: (Farbe m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
--- ~ makeVarT :: (Farbe m, MonadIO m) => Texture -> m (Var Texture)
+makeVarF :: (Farbe m, MonadIO m, GL m) => Float -> m (Var Float)
+makeVarI :: (Farbe m, MonadIO m, GL m) => Int32 -> m (Var Int32)
+makeVarB :: (Farbe m, MonadIO m, GL m) => Bool -> m (Var Bool)
+makeVarV2F :: (Farbe m, MonadIO m, GL m) => V2 Float -> m (Var (V2 Float))
+makeVarV2I :: (Farbe m, MonadIO m, GL m) => V2 Int32 -> m (Var (V2 Int32))
+makeVarV2B :: (Farbe m, MonadIO m, GL m) => V2 Bool -> m (Var (V2 Bool))
+makeVarV3F :: (Farbe m, MonadIO m, GL m) => V3 Float -> m (Var (V3 Float))
+makeVarV3I :: (Farbe m, MonadIO m, GL m) => V3 Int32 -> m (Var (V3 Int32))
+makeVarV3B :: (Farbe m, MonadIO m, GL m) => V3 Bool -> m (Var (V3 Bool))
+makeVarV4F :: (Farbe m, MonadIO m, GL m) => V4 Float -> m (Var (V4 Float))
+makeVarV4I :: (Farbe m, MonadIO m, GL m) => V4 Int32 -> m (Var (V4 Int32))
+makeVarV4B :: (Farbe m, MonadIO m, GL m) => V4 Bool -> m (Var (V4 Bool))
+makeVarM2 :: (Farbe m, MonadIO m, GL m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
+makeVarM3 :: (Farbe m, MonadIO m, GL m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
+makeVarM4 :: (Farbe m, MonadIO m, GL m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
+makeVarT :: (Farbe m, MonadIO m, GL m) => Texture -> m (Var Texture)
 
 makeVarF   = makeVar
 makeVarI   = makeVar
@@ -183,11 +199,11 @@ makeVarV4B = makeVar
 makeVarM2  = makeVar
 makeVarM3  = makeVar
 makeVarM4  = makeVar
--- ~ makeVarT   = makeVar
+makeVarT   = makeVar
 
 -- add expr texture shader access functions
 
-makeVarEmpty :: (Farbe m, UploadDefault a) => m (Var a)
+makeVarEmpty :: (Farbe m, GL m, UploadDefault a) => m (Var a)
 makeVarEmpty = makeVar upDefault
 
 class Upload a => UploadDefault a where upDefault :: a

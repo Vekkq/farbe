@@ -26,8 +26,8 @@ import Control.Monad.IO.Class
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
 import Control.Concurrent
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
+-- ~ import Graphics.GL.Embedded20
+-- ~ import Graphics.GL.Types
 
 import Data.Either
 import Control.Monad

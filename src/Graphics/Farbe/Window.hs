@@ -62,7 +62,7 @@ import GHC.Float
 import System.Mem (performGC)
 import qualified Data.Set as S
 
-import Graphics.GL
+-- ~ import Graphics.GL
 
 -- for transformer instances
 import Control.Monad.State (StateT, MonadState)

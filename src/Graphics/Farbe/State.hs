@@ -125,6 +125,12 @@ type ShExec = FarbeT IO Bool
 runFarbeT :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT fs (FarbeT m) = runStateT m fs
 
+-- | variant running with empty state
+runFarbeT' :: MonadIO m => FarbeT m a -> m (a, FarbeState)
+runFarbeT' m = do
+	fs <- emptyFarbeState
+	runFarbeT fs m
+
 getsConfig :: Farbe m => (Config -> s) -> m s
 getsConfig f = getsFarbe (f . config)
 
