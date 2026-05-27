@@ -159,7 +159,7 @@ class MonadIO m => GL m where
 	glActiveTexture :: GL m => GLenum -> m ()
 	glActiveTexture e = do
 		GL.glActiveTexture e
-		whenGLDebug' $ putStrLn $ "glActiveTexture " ++ show e
+		whenGLDebug' $ putStrLn $ "glActiveTexture " ++ show (e - GL.GL_TEXTURE0)
 	glBindTexture :: GL m => GLenum -> GLuint -> m ()
 	glBindTexture e i = do
 		GL.glBindTexture e i
@@ -169,7 +169,9 @@ class MonadIO m => GL m where
 	glGenerateMipmap :: GL m => GLenum -> m ()
 	glGenerateMipmap = GL.glGenerateMipmap
 	glDeleteTextures :: GL m => GLsizei -> Ptr GLuint -> m ()
-	glDeleteTextures = GL.glDeleteTextures
+	glDeleteTextures i p = do
+		liftIO $ peek p >>= \a -> putStrLn $ "glDeleteTextures " ++ show a
+		GL.glDeleteTextures i p
 	glClearColor :: MonadIO m => GLfloat -> GLfloat -> GLfloat -> GLfloat -> m ()
 	glClearColor = GL.glClearColor
 	glEnable :: MonadIO m => GLenum -> m ()

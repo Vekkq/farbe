@@ -107,6 +107,22 @@ loadTexture io = do
 		void $ mkWeakMVar m (delay $ print "tex del" >> (with tex $ glDeleteTextures 1))
 	return $ Texture m
 
+loadTexture2 :: forall m t a . (MonadIO m, HandTex m)
+	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
+loadTexture2 io = do
+	delay <- getDelayFun
+	m <- liftIO newEmptyMVar
+	liftIO $ forkIO $ do
+		(t, wh, p) <- io
+		m2 <- newEmptyMVar
+		delay $ do
+			tex <- newTexture' t wh p
+			putMVar m2 tex
+		tex <- takeMVar m2
+		putMVar m $ TextureBase tex 0 t ""
+		void $ mkWeakMVar m (delay (with tex $ glDeleteTextures 1))
+	return $ Texture m
+
 
 -- returns texture id
 newTexture' :: forall m t a . (MonadIO m, GL m)

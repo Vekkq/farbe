@@ -53,17 +53,18 @@ mapRight (Left a) _ = pure (Left a)
 
 
 textureIO :: String -> V2 (Expr e Float) -> V4 (Expr e Float)
-textureIO s p = flip texture p $ Expr $ ExprI shdr TTex []
+textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
 	where
-		vname = sani s
+		vname = sani str
 		shdr = do
-			t <- loadImage s
 			b <- addHeader "uniform" (undefined :: Texture) vname
 			s <- getShaderId
 			when b $ postShader $ do
+				t <- loadImage str
 				l <- withString vname $ glGetUniformLocation s
 				preRender $ do
-					texUpload l t
+					liftIO $ putStrLn "prerender"
+					texUpload l t -- make conditional on texture state and return bool dependent on it
 					return $ not b -- TODO check if this correct
 			return vname
 

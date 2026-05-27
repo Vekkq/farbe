@@ -27,16 +27,26 @@ colorful t r = shader $ \(n,v) -> do
 	n' <- transfer n
 	-- ~ let n'' = down n'
 	let c = down fragCoord
-	-- ~ return (up 1 v', up 1 n' * 0.5 + textureIO "test-resources/KorDrTtaa42.png" (c / 256))
 	return (up 1 v', up 1 n' * 0.5 + texture (use t) (c / 256))
 	--
 	-- ~ return (up 1 v', up 1 (n' * 0.5 + textureIO (down n') "test-resources/KorDrTtaa4.png"))
 
 
 
+colorful2 :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
+colorful2 r = shader $ \(n,v) -> do
+	let v' = use r **| v
+	n' <- transfer n
+	-- ~ let n'' = down n'
+	let c = down fragCoord
+	-- ~ return (up 1 v', up 1 n' * 0.5)
+	return (up 1 v', up 1 n' * 0.5 + textureIO "test-resources/KorDrTtaa42.png" (c / 256))
+
+
+
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
-	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
+	modifyConfig $ \f -> f { devDebugMode = True }
 
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
@@ -52,6 +62,7 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 			_ -> return ()
 
 		colorful t r [cube, teapot]
+		-- ~ colorful2 r [cube, teapot]
 
 		-- ~ liftIO $ performGC
 		case es of
