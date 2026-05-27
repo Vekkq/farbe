@@ -123,7 +123,7 @@ runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 processEvents :: (W.MonadWindow m, Farbe m, GL m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
-	-- ~ delayedWork
+	runDelayed
 	-- ~ glerrcheck
 	W.swapBuffers
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
@@ -146,10 +146,9 @@ runDelayed = do
 	tl <- getsFarbe lastFrameTime
 	t <- W.getTime
 	c <- getsConfig workTime
-	if isEmpty && t - tl > c
+	if not isEmpty && t - tl > c
 		then runDelayed
-		else do
-			logTime
+		else logTime
 	where
 		work :: (Farbe m, MonadIO m) => m ()
 		work = do

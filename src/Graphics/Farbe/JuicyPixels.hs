@@ -59,13 +59,13 @@ textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
 		shdr = do
 			b <- addHeader "uniform" (undefined :: Texture) vname
 			s <- getShaderId
-			when b $ postShader $ do
+			postShader $ do
 				t <- loadImage str
 				l <- withString vname $ glGetUniformLocation s
 				preRender $ do
-					liftIO $ putStrLn "prerender"
-					texUpload l t -- make conditional on texture state and return bool dependent on it
-					return $ not b -- TODO check if this correct
+					b <- isTextureLoaded t
+					when b $ texUpload l t
+					return b -- TODO check if this correct
 			return vname
 
 sani = filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])

@@ -91,31 +91,32 @@ texSetup :: (MonadIO m, GL m) => TextureFormat -> m ()
 texSetup D = return ()
 texSetup _ = glGenerateMipmap GL_TEXTURE_2D
 
+-- ~ loadTexture :: forall m t a . (MonadIO m, HandTex m)
+	-- ~ => IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
+-- ~ loadTexture io = do
+	-- ~ delay <- getDelayFun
+	-- ~ m <- liftIO newEmptyMVar
+	-- ~ liftIO $ forkIO $ do
+		-- ~ (t, V2 w h, p) <- io
+		-- ~ tex <- liftIO $ withPtr_ $ glGenTextures 1
+		-- ~ glActiveTexture GL_TEXTURE0
+		-- ~ glBindTexture GL_TEXTURE_2D tex
+		-- ~ glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
+		-- ~ texSetup t
+		-- ~ putMVar m $ TextureBase tex 0 t ""
+		-- ~ void $ mkWeakMVar m (delay $ print "tex del" >> (with tex $ glDeleteTextures 1))
+	-- ~ return $ Texture m
+
 loadTexture :: forall m t a . (MonadIO m, HandTex m)
 	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
 loadTexture io = do
 	delay <- getDelayFun
 	m <- liftIO newEmptyMVar
 	liftIO $ forkIO $ do
-		(t, V2 w h, p) <- io
-		tex <- liftIO $ withPtr_ $ glGenTextures 1
-		glActiveTexture GL_TEXTURE0
-		glBindTexture GL_TEXTURE_2D tex
-		glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
-		texSetup t
-		putMVar m $ TextureBase tex 0 t ""
-		void $ mkWeakMVar m (delay $ print "tex del" >> (with tex $ glDeleteTextures 1))
-	return $ Texture m
-
-loadTexture2 :: forall m t a . (MonadIO m, HandTex m)
-	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
-loadTexture2 io = do
-	delay <- getDelayFun
-	m <- liftIO newEmptyMVar
-	liftIO $ forkIO $ do
 		(t, wh, p) <- io
 		m2 <- newEmptyMVar
 		delay $ do
+			liftIO $ putStrLn "ello"
 			tex <- newTexture' t wh p
 			putMVar m2 tex
 		tex <- takeMVar m2
@@ -195,5 +196,6 @@ texUpload l (Texture t) = do
 			(a,b) <- liftIO $ getBounds ts
 			return $ if x' >= b then a else x'
 
-
+isTextureLoaded :: MonadIO m => Texture -> m Bool
+isTextureLoaded (Texture t) = liftIO $ fmap not $ isEmptyMVar t
 
