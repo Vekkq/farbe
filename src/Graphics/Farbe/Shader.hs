@@ -34,8 +34,8 @@ import Data.Sequence ((|>))
 import qualified Data.IntMap as M
 
 
--- ~ import Graphics.GL.Embedded20
--- ~ import Graphics.GL.Types
+import Graphics.GL.Embedded20
+import Graphics.GL.Types
 
 import Control.Concurrent
 import Control.Exception

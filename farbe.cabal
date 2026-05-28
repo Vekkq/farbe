@@ -22,9 +22,6 @@ library
                    , Graphics.Farbe.Window
                    , Graphics.Farbe.JuicyPixels
                    , Graphics.Farbe.STL
-                   , Graphics.Farbe.BuildShader
-                   , Graphics.Farbe.Texture
-                   , Graphics.Farbe.Expr
 
     other-modules: Graphics.Farbe.Tuple
                  , Graphics.Farbe.VertexArray
@@ -38,6 +35,9 @@ library
                  , Graphics.Farbe.ShaderEnv
                  , Graphics.Farbe.Name
                  , Graphics.Farbe.ShaderCache
+                 , Graphics.Farbe.BuildShader
+                 , Graphics.Farbe.Texture
+                 , Graphics.Farbe.Expr
 
 
     build-depends: base ^>=4.21

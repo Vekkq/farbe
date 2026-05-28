@@ -26,8 +26,9 @@ import Control.Monad.IO.Class
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
 import Control.Concurrent
--- ~ import Graphics.GL.Embedded20
--- ~ import Graphics.GL.Types
+
+import Graphics.GL.Embedded20
+import Graphics.GL.Types
 
 import Data.Either
 import Control.Monad
@@ -65,7 +66,7 @@ textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
 				preRender $ do
 					b <- isTextureLoaded t
 					when b $ texUpload l t
-					return b -- TODO check if this correct
+					return b
 			return vname
 
 sani = filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])

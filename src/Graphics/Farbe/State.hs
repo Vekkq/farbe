@@ -33,7 +33,7 @@ import Data.Hashable
 import qualified Data.IntMap.Strict as M
 import System.Mem.StableName
 
-import Graphics.GL
+import Graphics.GL.Embedded20
 
 import Debug.Trace
 

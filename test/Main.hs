@@ -9,9 +9,9 @@ import Graphics.Farbe.Vec
 -- ~ import Graphics.Farbe.GL
 import Graphics.Farbe.STL
 import Graphics.Farbe.JuicyPixels
-import Graphics.Farbe.Texture
-import Graphics.Farbe.Expr
-import Graphics.Farbe.BuildShader
+-- ~ import Graphics.Farbe.Texture
+-- ~ import Graphics.Farbe.Expr
+-- ~ import Graphics.Farbe.BuildShader
 
 import Control.Monad
 
@@ -27,7 +27,7 @@ colorful t r = shader $ \(n,v) -> do
 	n' <- transfer n
 	-- ~ let n'' = down n'
 	let c = down fragCoord
-	return (up 1 v', up 1 n' * 0.5 + texture (use t) (c / 256))
+	return (up 1 v', up 1 n' * 0.5 + 0.5*texture (use t) (c / 256) + textureIO "test-resources/ayataka512.jpg" (c / 256 + 0.5))
 	--
 	-- ~ return (up 1 v', up 1 (n' * 0.5 + textureIO (down n') "test-resources/KorDrTtaa4.png"))
 
