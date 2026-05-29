@@ -44,12 +44,11 @@ library
                  , gl^>=0.9
                  , GLFW-b^>=3.3
                  , array^>=0.5
-                 , JuicyPixels^>=3.3
                  , bytestring^>=0.12
                  , binary^>=0.8.9
                  , vector^>=0.13
-                 , composition^>=1.0
                  , hashable^>=1.5
+                 , JuicyPixels^>=3.3
 
     hs-source-dirs:   src
     default-language: GHC2021

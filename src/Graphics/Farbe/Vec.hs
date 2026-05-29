@@ -1,9 +1,77 @@
+
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE IncoherentInstances #-}
+{-|
+Module      : Graphics.Farbe.Vec
+Description : Algebraic vector math
+Copyright   : (c) vekkq, 2024
+License     : CC0
+Maintainer  : vekkq@vivaldi.net
+Stability   : experimental
 
-module Graphics.Farbe.Vec where
+A basic math module for vectors and matrices.
+-}
+
+module Graphics.Farbe.Vec
+	-- * Vector types
+	( V1 (..)
+	, V2 (..)
+	, V3 (..)
+	, V4 (..)
+	, Vector (..)
+	-- * Vector operations
+	, (*|)
+	, (*||)
+	, vdot
+	, vlength
+	, vdistance
+	, vnormal
+	, vcross
+	, rel
+	, relm
+	, line
+	, curve
+	-- * Matrix operations
+	, Mat
+	, mtranspose
+	, vtranspose
+	, vtranspose'
+	, mult
+	, (****)
+	, multv
+	, (**|)
+	, toList2
+	-- * Rotation
+	, rotate2D
+	, rotationMatrix2D
+	, rotate
+	, roll
+	, pitch
+	, yaw
+	, rotationMatrix
+	-- * Perspective
+	, perspective
+	-- * Utility classes
+	, FromList (..)
+	, ToTuple (..)
+	, FromTuple (..)
+	, GetX (..)
+	, GetY (..)
+	, GetZ (..)
+	, GetW (..)
+	-- ~ , Fit (..)
+	-- ~ , fit0
+	, SizeUp (..)
+	, SizeDown (..)
+	-- * Miscellaneous
+	, subSizeOf
+	, itoi
+	, for
+	) where
 
 
 import Graphics.Farbe.Tuple ()
@@ -80,7 +148,7 @@ instance Foldable V4 where
 instance Traversable V4 where
   sequenceA (V4 x y z w) = V4 <$> x <*> y <*> z <*> w
 
-
+-- | Unifying vector class.
 class (Applicative v, Foldable v, Traversable v, FromList v) => Vector v where
   vsize :: Num n => v a -> n
 
@@ -174,13 +242,115 @@ rel r f = (+r) . f . subtract r
 relm :: Fractional v => v -> (v -> v) -> v -> v
 relm r f = (*r) . f . (/r)
 
--- | Calculates a point on a line between its two parameters. The point is based on the third parameter, which generally has to be 0 and 1 .
+-- | Calculates a point on a line between its two parameters. The point is based on the third parameter, which is interpolated by values between 0 and 1 .
 line :: (Vector v, Num (v a)) => v a -> v a -> a -> v a
 line v v2 t = rel v (* pure t) v2
 
 -- | Bezier curve with one control point.
 curve :: (Vector v, Num (v a)) => v a -> v a -> v a -> a -> v a
 curve v v2 v3 t = line (line v v2 t) (line v2 v3 t) t
+
+
+
+
+
+-- ~ -- angle-optimized curve
+-- ~ acurve :: (Vector v, Num a) => a -> v a -> v a -> v a -> [v a]
+-- ~ acurve = undefined
+
+-- ~ vcross' :: (Vector v, Num a) => v a -> v a -> v a
+-- ~ vcross' v1 v2 = vcross (fromList v1) (fromList v2)
+
+
+
+
+-- | Matrix type.
+type Mat vx vy a = vx (vy a)
+
+-- | Matrix transpose.
+mtranspose :: (Vector x, Vector y) => Mat x y a -> Mat y x a
+mtranspose = sequenceA
+
+-- | Tranpose vertex to matrix.
+vtranspose :: Vector v => v a -> Mat v V1 a
+vtranspose v = fmap V1 v
+
+-- | Tranpose matrix to vertex.
+vtranspose' :: Vector v => Mat v V1 a -> v a
+vtranspose' v = fmap f v
+  where f (V1 x) = x
+
+-- | Matrix multiplication.
+mult :: (Vector m, Vector n, Vector h, Num (m a), Num (n a), Num (h a), Num a) => Mat m n a -> Mat n h a -> Mat m h a
+mult a b = traverse (traverse vdot a) $ mtranspose b
+
+-- | Matrix multiplication, alias.
+(****) :: (Vector m, Vector n, Vector h, Num (m a), Num (n a), Num (h a), Num a) => Mat m n a -> Mat n h a -> Mat m h a
+(****) = mult
+
+-- | Matrix multiplication with vector.
+multv :: (Vector m, Vector n, Num (m a), Num (n a), Num a) => Mat m n a -> n a -> m a
+multv a b = vtranspose' $ a **** vtranspose b
+
+-- | Matrix multiplication with vector, alias.
+(**|) :: (Vector m, Vector n, Num (m a), Num (n a), Num a) => Mat m n a -> n a -> m a
+(**|) = multv
+
+toList2 :: (Foldable f, Foldable g) => f (g a) -> [a]
+toList2 = concatMap toList . toList
+
+
+
+-- | Rotate in 2D space.
+rotate2D :: Floating a => a -> V2 a -> V2 a
+rotate2D a v = rotationMatrix2D a **| v
+
+-- | Define a multiplication matrix for 2D space.
+rotationMatrix2D :: Floating a => a -> Mat V2 V2 a
+rotationMatrix2D a = V2 (V2 (cos a) (negate $ sin a)) (V2 (sin a) (cos a))
+
+-- | Rotate in 3D space.
+rotate :: Floating a => a -> a -> a -> V3 a -> V3 a
+rotate a b c v = rotationMatrix a b c **| v
+
+roll, pitch, yaw :: Floating a => a -> Mat V3 V3 a
+roll a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
+pitch a = V3 (V3 (cos a) 0 (sin a)) (V3 0 1 0) (V3 (-sin a) 0 (cos a))
+yaw a = V3 (V3 1 0 0) (V3 0 (cos a) (-sin a)) (V3 0 (sin a) (cos a))
+
+-- | Define a multiplication matrix for 3D space.
+rotationMatrix :: Floating a => a -> a -> a -> Mat V3 V3 a
+rotationMatrix a b c = roll a **** pitch b **** yaw c
+
+
+-- | Multiplication matrix for orthogonal to perspective projection.
+perspective
+  :: Floating a
+  => a -- ^ FOV (y direction, in radians)
+  -> a -- ^ Aspect ratio
+  -> a -- ^ Near plane
+  -> a -- ^ Far plane
+  -> Mat V4 V4 a
+perspective fovy aspect near far =
+  V4 (V4 x 0 0    0)
+     (V4 0 y 0    0)
+     (V4 0 0 z    w)
+     (V4 0 0 (-1) 0)
+  where tanHalfFovy = tan $ fovy / 2
+        x = 1 / (aspect * tanHalfFovy)
+        y = 1 / tanHalfFovy
+        fpn = far + near
+        fmn = far - near
+        oon = 0.5/near
+        oof = 0.5/far
+        -- z = 1 / (near/fpn - far/fpn) -- would be better by .5 bits
+        z = -fpn/fmn
+        w = 1/(oof-oon) -- 13 bits error reduced to 0.17
+        -- w = -(2 * far * near) / fmn
+-- copied from linear
+
+
+
 
 
 class ToTuple a b where toTuple :: a -> b
@@ -192,9 +362,6 @@ class FromTuple a b where fromTuple :: a -> b
 instance FromTuple (a,a) (V2 a) where fromTuple (x,y) = V2 x y
 instance FromTuple (a,a,a) (V3 a) where fromTuple (x,y,z) = V3 x y z
 instance FromTuple (a,a,a,a) (V4 a) where fromTuple (x,y,z,w) = V4 x y z w
-
-class TupleConverse a b
-instance (FromTuple a b, ToTuple b a) => TupleConverse a b
 
 
 class GetX v where getx :: v a -> a
@@ -236,12 +403,35 @@ fromList :: (FromList t, Num a) => [a] -> t a
 fromList = fromListFill 0
 
 
+class Fit x a b where fit :: x -> a -> b
 
+instance Fit a (V1 a) (V2 a) where fit a (V1 x) = V2 x a
+instance Fit a (V2 a) (V3 a) where fit a (V2 x y) = V3 x y a
+instance Fit a (V3 a) (V4 a) where fit a (V3 x y z) = V4 x y z a
+
+instance Fit a (V4 a) (V3 a) where fit a (V4 x y z w) = V3 x y z
+instance Fit a (V3 a) (V2 a) where fit a (V3 x y z) = V2 x y
+instance Fit a (V2 a) (V1 a) where fit a (V2 x y) = V1 x
+
+instance Fit a (V1 a) (V1 a) where fit a = id
+instance Fit a (V2 a) (V2 a) where fit a = id
+instance Fit a (V3 a) (V3 a) where fit a = id
+instance Fit a (V4 a) (V4 a) where fit a = id
+
+-- ~ instance {-# OVERLAPPING #-} Fit a v1 v2 where fit a v = fit a $ fit a v
+
+fit0 :: (Num a, Fit a (v a) (v2 a)) => v a -> v2 a
+fit0 = fit 0
+
+
+
+-- | Class to size __up__ vector to asked size.
 class SizeUp x a b | a -> x, b -> x where up :: x -> a -> b
 instance SizeUp a (V2 a) (V3 a) where up i (V2 x y) = V3 x y i
 instance SizeUp a (V2 a) (V4 a) where up i (V2 x y) = V4 x y i i
 instance SizeUp a (V3 a) (V4 a) where up i (V3 x y z) = V4 x y z i
 
+-- | Class to size __down__ vector to asked size.
 class SizeDown a b where down :: a -> b
 instance SizeDown (V3 a) (V2 a) where down (V3 x y _)   = (V2 x y)
 instance SizeDown (V4 a) (V2 a) where down (V4 x y _ _) = (V2 x y)
@@ -249,16 +439,20 @@ instance SizeDown (V4 a) (V3 a) where down (V4 x y z _) = (V3 x y z)
 
 
 
-
-
-
 #define bottom undefined
 
+-- | sizeOf variant for type parameter.
 subSizeOf :: forall g a n. (Storable a, Num n) => g a -> n
 subSizeOf _ = itoi $ sizeOf (bottom :: a)
 
 itoi :: (Integral a, Num c) => a -> c
 itoi = fromInteger . toInteger
+
+
+-- | @map@ with flipped parameters.
+for :: [a] -> (a -> b) -> [b]
+for = flip map
+
 
 instance Storable a => Storable (V1 a) where
   sizeOf = subSizeOf
@@ -283,108 +477,6 @@ instance Storable a => Storable (V4 a) where
   alignment = subSizeOf
   peek p = (fromTuple :: (a,a,a,a) -> (V4 a)) <$> peek (castPtr p)
   poke p v = poke (castPtr p) $ (toTuple :: (V4 a) -> (a,a,a,a)) v
-
-
-
-
-for :: [a] -> (a -> b) -> [b]
-for = flip map
-
-
-
--- angle-optimized curve
-acurve :: (Vector v, Num a) => a -> v a -> v a -> v a -> [v a]
-acurve = undefined
-
--- ~ vcross' :: (Vector v, Num a) => v a -> v a -> v a
--- ~ vcross' v1 v2 = vcross (fromList v1) (fromList v2)
-
-
-
-
-
-type Mat vx vy a = vx (vy a)
-
-toList2 :: (Foldable f, Foldable g) => f (g a) -> [a]
-toList2 = concatMap toList . toList
-
-mtranspose :: (Vector x, Vector y) => Mat x y a -> Mat y x a
-mtranspose = sequenceA
-
-vtranspose :: Vector v => v a -> Mat v V1 a
-vtranspose v = fmap V1 v
-
-vtranspose' :: Vector v => Mat v V1 a -> v a
-vtranspose' v = fmap f v
-  where f (V1 x) = x
-
-
-mult :: (Vector m, Vector n, Vector h, Num (m a), Num (n a), Num (h a), Num a) => Mat m n a -> Mat n h a -> Mat m h a
-mult a b = traverse (traverse vdot a) $ mtranspose b
-
-(****) :: (Vector m, Vector n, Vector h, Num (m a), Num (n a), Num (h a), Num a) => Mat m n a -> Mat n h a -> Mat m h a
-(****) = mult
-
-multv :: (Vector m, Vector n, Num (m a), Num (n a), Num a) => Mat m n a -> n a -> m a
-multv a b = vtranspose' $ a **** vtranspose b
-
-(**|) :: (Vector m, Vector n, Num (m a), Num (n a), Num a) => Mat m n a -> n a -> m a
-(**|) = multv
-
-
-
-
-rotationMatrix2D :: Floating a => a -> Mat V2 V2 a
-rotationMatrix2D a = V2 (V2 (cos a) (negate $ sin a)) (V2 (sin a) (cos a))
-
-roll, pitch, yaw :: Floating a => a -> Mat V3 V3 a
-roll a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
-pitch a = V3 (V3 (cos a) 0 (sin a)) (V3 0 1 0) (V3 (-sin a) 0 (cos a))
-yaw a = V3 (V3 1 0 0) (V3 0 (cos a) (-sin a)) (V3 0 (sin a) (cos a))
-
-rotationMatrix :: Floating a => a -> a -> a -> Mat V3 V3 a
-rotationMatrix a b c = roll a **** pitch b **** yaw c
-
-
-rotate2D :: Floating a => a -> V2 a -> V2 a
-rotate2D a v = rotationMatrix2D a **| v
-
-rotate :: Floating a => a -> a -> a -> V3 a -> V3 a
-rotate a b c v = rotationMatrix a b c **| v
-
-
--- copied from linear
-perspective
-  :: Floating a
-  => a -- ^ FOV (y direction, in radians)
-  -> a -- ^ Aspect ratio
-  -> a -- ^ Near plane
-  -> a -- ^ Far plane
-  -> Mat V4 V4 a
-perspective fovy aspect near far =
-  V4 (V4 x 0 0    0)
-     (V4 0 y 0    0)
-     (V4 0 0 z    w)
-     (V4 0 0 (-1) 0)
-  where tanHalfFovy = tan $ fovy / 2
-        x = 1 / (aspect * tanHalfFovy)
-        y = 1 / tanHalfFovy
-        fpn = far + near
-        fmn = far - near
-        oon = 0.5/near
-        oof = 0.5/far
-        -- z = 1 / (near/fpn - far/fpn) -- would be better by .5 bits
-        z = -fpn/fmn
-        w = 1/(oof-oon) -- 13 bits error reduced to 0.17
-        -- w = -(2 * far * near) / fmn
-
-
-
-
-
-
-
--- ~ main = print $ rotationMatrix2D (pi/2) **| V2 1 0
 
 
 
