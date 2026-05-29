@@ -8,7 +8,7 @@
 {-|
 Module      : Graphics.Farbe.Vec
 Description : Algebraic vector math
-Copyright   : (c) vekkq, 2024
+Copyright   : (c) vekkq, 2026
 License     : CC0
 Maintainer  : vekkq@vivaldi.net
 Stability   : experimental
@@ -57,14 +57,16 @@ module Graphics.Farbe.Vec
 	, perspective
 	-- * Utility classes
 	, FromList (..)
+	, fromList
 	, ToTuple (..)
 	, FromTuple (..)
 	, GetX (..)
 	, GetY (..)
 	, GetZ (..)
 	, GetW (..)
-	-- ~ , Fit (..)
-	-- ~ , fit0
+	, Fit (..)
+	, fit0
+	, fit1
 	, SizeUp (..)
 	, SizeDown (..)
 	-- * Miscellaneous
@@ -402,28 +404,31 @@ instance FromList V4 where
 fromList :: (FromList t, Num a) => [a] -> t a
 fromList = fromListFill 0
 
+-- | Class to coerce to fitting size.
+class Fit x a b | a -> x, b -> x where fit :: x -> a -> b
 
-class Fit x a b where fit :: x -> a -> b
-
+instance Fit a (V1 a) (V1 a) where fit _ (V1 x) = V1 x
 instance Fit a (V1 a) (V2 a) where fit a (V1 x) = V2 x a
+instance Fit a (V1 a) (V3 a) where fit a (V1 x) = V3 x a a
+instance Fit a (V1 a) (V4 a) where fit a (V1 x) = V4 x a a a
+instance Fit a (V2 a) (V1 a) where fit _ (V2 x _) = V1 x
+instance Fit a (V2 a) (V2 a) where fit _ (V2 x y) = V2 x y
 instance Fit a (V2 a) (V3 a) where fit a (V2 x y) = V3 x y a
+instance Fit a (V2 a) (V4 a) where fit a (V2 x y) = V4 x y a a
+instance Fit a (V3 a) (V1 a) where fit _ (V3 x _ _) = V1 x
+instance Fit a (V3 a) (V2 a) where fit _ (V3 x y _) = V2 x y
+instance Fit a (V3 a) (V3 a) where fit _ (V3 x y z) = V3 x y z
 instance Fit a (V3 a) (V4 a) where fit a (V3 x y z) = V4 x y z a
-
-instance Fit a (V4 a) (V3 a) where fit a (V4 x y z w) = V3 x y z
-instance Fit a (V3 a) (V2 a) where fit a (V3 x y z) = V2 x y
-instance Fit a (V2 a) (V1 a) where fit a (V2 x y) = V1 x
-
-instance Fit a (V1 a) (V1 a) where fit a = id
-instance Fit a (V2 a) (V2 a) where fit a = id
-instance Fit a (V3 a) (V3 a) where fit a = id
-instance Fit a (V4 a) (V4 a) where fit a = id
-
--- ~ instance {-# OVERLAPPING #-} Fit a v1 v2 where fit a v = fit a $ fit a v
+instance Fit a (V4 a) (V1 a) where fit _ (V4 x _ _ _) = V1 x
+instance Fit a (V4 a) (V2 a) where fit _ (V4 x y _ _) = V2 x y
+instance Fit a (V4 a) (V3 a) where fit _ (V4 x y z _) = V3 x y z
+instance Fit a (V4 a) (V4 a) where fit _ (V4 x y z w) = V4 x y z w
 
 fit0 :: (Num a, Fit a (v a) (v2 a)) => v a -> v2 a
 fit0 = fit 0
 
-
+fit1 :: (Num a, Fit a (v a) (v2 a)) => v a -> v2 a
+fit1 = fit 1
 
 -- | Class to size __up__ vector to asked size.
 class SizeUp x a b | a -> x, b -> x where up :: x -> a -> b

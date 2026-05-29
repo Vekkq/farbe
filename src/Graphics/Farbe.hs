@@ -95,6 +95,7 @@ instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
 
 
 -- | The environment to do draw operations.
+--   It spawns a window with the render context.
 
 runFarbeT :: MonadIO m => String -> W.Display -> W.WindowT (S.FarbeT m) a -> m a
 runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
