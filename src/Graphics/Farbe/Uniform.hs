@@ -1,58 +1,30 @@
-
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-type-defaults -Wno-orphans -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
+
 module Graphics.Farbe.Uniform where
 
 import Graphics.Farbe.Vec
-import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
-import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 import Graphics.Farbe.State
--- ~ import Graphics.Farbe.Shader
 import Graphics.Farbe.BuildShader
--- ~ import Graphics.Farbe.Name
 import Graphics.Farbe.ShaderEnv
 
 
-import qualified Data.Set as S
-import qualified Data.Map as M
-import Data.Char
-import Data.Maybe
-import Data.List
-import Data.Foldable
-import Data.Array.IO
 import Foreign hiding (void)
-import Foreign.C
-import Data.Hashable
-import System.Mem.StableName
-import qualified Data.Sequence as Seq
-import Data.Sequence ((|>))
-
-
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
-import Control.Exception
 import Control.Concurrent.MVar
 
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Cont (ContT)
-import Control.Monad.Except (ExceptT, MonadError)
-import Control.Applicative (Alternative)
-import Control.Monad.RWS (RWST)
-
 import GHC.TypeNats
 
 

@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE CPP #-}

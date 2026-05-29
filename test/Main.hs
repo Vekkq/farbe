@@ -3,15 +3,8 @@
 module Main (main) where
 
 import Graphics.Farbe
--- ~ import Graphics.Farbe.Window
--- ~ import Graphics.Farbe.Vec (V3, Mat, (**|))
-import Graphics.Farbe.Vec
--- ~ import Graphics.Farbe.GL
 import Graphics.Farbe.STL
 import Graphics.Farbe.JuicyPixels
--- ~ import Graphics.Farbe.Texture
--- ~ import Graphics.Farbe.Expr
--- ~ import Graphics.Farbe.BuildShader
 
 import Control.Monad
 
@@ -19,17 +12,13 @@ import Data.Maybe
 import Data.Function
 
 
-
-
 colorful :: Farbe m => Var Texture -> Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
 colorful t r = shader $ \(n,v) -> do
 	let v' = use r **| v
 	n' <- transfer n
-	-- ~ let n'' = down n'
 	let c = down fragCoord
 	return (up 1 v', up 1 n' * 0.5 + 0.5*texture (use t) (c / 256) + textureIO "test-resources/ayataka512.jpg" (c / 256 + 0.5))
-	--
-	-- ~ return (up 1 v', up 1 (n' * 0.5 + textureIO (down n') "test-resources/KorDrTtaa4.png"))
+
 
 
 
@@ -37,9 +26,7 @@ colorful2 :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -
 colorful2 r = shader $ \(n,v) -> do
 	let v' = use r **| v
 	n' <- transfer n
-	-- ~ let n'' = down n'
 	let c = down fragCoord
-	-- ~ return (up 1 v', up 1 n' * 0.5)
 	return (up 1 v', up 1 n' * 0.5 + textureIO "test-resources/KorDrTtaa42.png" (c / 256))
 
 
@@ -53,7 +40,6 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
 	t <- makeVarT =<< loadImage "test-resources/KorDrTtaa42.png"
-
 
 	fix $ \loop -> processEvents $ \es -> do
 

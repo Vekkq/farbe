@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
@@ -16,7 +15,7 @@ import Foreign hiding (void)
 import Foreign.C
 import Control.Exception
 
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class ()
 
 
 class Counter m where

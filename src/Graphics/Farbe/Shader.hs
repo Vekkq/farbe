@@ -1,13 +1,11 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-type-defaults -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-
--- ~ {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
+
 module Graphics.Farbe.Shader where
 
 import Graphics.Farbe.Vec

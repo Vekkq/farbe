@@ -1,4 +1,3 @@
-
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# OPTIONS_GHC -fno-warn-tabs #-}

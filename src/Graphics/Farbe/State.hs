@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-type-defaults #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
@@ -11,9 +11,6 @@ import Graphics.Farbe.Window
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Utility
--- ~ import Graphics.Farbe.Shader
-
--- ~ import qualified Data.Map as M
 import Graphics.GL.Types
 
 import Control.Concurrent

@@ -4,25 +4,15 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-
 module Graphics.Farbe.GL where
-
-
-
 
 import Graphics.Farbe.Vec
 
 import GHC.Generics (Generic)
 import Data.Hashable
-
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans
 import Foreign hiding (void)
 
 import Graphics.GL.Embedded20
-import Graphics.GL.Ext.OES.VertexArrayObject as GLEXT
-import Graphics.GL.Ext.OES.Mapbuffer as GLEXT
 import Graphics.GL.Types
 
 
