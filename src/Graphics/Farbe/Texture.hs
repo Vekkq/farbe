@@ -5,7 +5,6 @@
 
 module Graphics.Farbe.Texture where
 
-import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
 
 
@@ -17,14 +16,10 @@ import Foreign hiding (void)
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Except
-import Control.Monad.Cont
-import Control.Monad.RWS
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
+
 
 
 
@@ -73,12 +68,14 @@ data D
 
 data TextureFormat = L | LA | RGB | RGBA | D deriving (Eq,Show,Read)
 
+glTex :: (Eq a, Num a) => TextureFormat -> a
 glTex L = GL_LUMINANCE
 glTex LA = GL_LUMINANCE_ALPHA
 glTex RGB = GL_RGB
 glTex RGBA = GL_RGBA
 glTex D = GL_DEPTH_COMPONENT
 
+glInTex :: (Eq a, Num a) => TextureFormat -> a
 glInTex L = GL_ALPHA
 glInTex LA = GL_LUMINANCE_ALPHA
 glInTex RGB = GL_RGB
@@ -86,6 +83,7 @@ glInTex RGBA = GL_RGBA
 glInTex D = GL_DEPTH_COMPONENT
 
 -- ~ texType D = GL_UNSIGNED_SHORT -- only supports Byte according to dev.gl
+texType :: (Eq a, Num a) => p -> a
 texType _ = GL_UNSIGNED_BYTE
 
 texSetup :: (MonadIO m) => TextureFormat -> m ()
@@ -108,7 +106,7 @@ texSetup _ = glGenerateMipmap GL_TEXTURE_2D
 		-- ~ void $ mkWeakMVar m (delay $ print "tex del" >> (with tex $ glDeleteTextures 1))
 	-- ~ return $ Texture m
 
-loadTexture :: forall m t a . (MonadIO m, HandTex m)
+loadTexture :: forall m a . (MonadIO m, HandTex m)
 	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
 loadTexture io = do
 	delay <- getDelayFun
@@ -126,7 +124,7 @@ loadTexture io = do
 
 
 -- returns texture id
-newTexture' :: forall m t a . (MonadIO m)
+newTexture' :: forall m a . (MonadIO m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m GLuint
 newTexture' t (V2 w h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
@@ -137,7 +135,7 @@ newTexture' t (V2 w h) p = do
 	return tex
 
 
-newTexture :: forall m t a . (MonadIO m, HandTex m)
+newTexture :: forall m a . (MonadIO m, HandTex m)
 	=> TextureFormat -> V2 GLsizei -> Ptr a -> m Texture
 newTexture t p ptr = do
 	i <- newTexture' t p ptr
@@ -198,4 +196,5 @@ texUpload l (Texture t) = do
 
 isTextureLoaded :: MonadIO m => Texture -> m Bool
 isTextureLoaded (Texture t) = liftIO $ fmap not $ isEmptyMVar t
+
 

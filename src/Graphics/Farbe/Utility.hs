@@ -24,9 +24,6 @@ import Foreign.C
 import qualified Data.Sequence as S
 import Data.Sequence ((|>))
 
-
-
-
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
@@ -47,14 +44,6 @@ import GHC.TypeNats
 import Debug.Trace
 
 
-
-#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
-instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m) => cn (ContT r m) where { fn = lift op fn }              ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
 
 -- RunOnce -------------------------------------------------------------------------------
 
@@ -112,17 +101,4 @@ withPtr f = liftIO $ alloca $ \p -> do
 
 withPtr_ :: (MonadIO m, Storable a) => (Ptr a -> IO ()) -> m a
 withPtr_ f = fst <$> withPtr f
-
-
--- ~ class Monad m => GetDeferred n m | m -> n where
-	-- ~ getDeferred :: m (Maybe (n ()))
-
--- ~ instance (Monad m) => GetDeferred n (DeferT (n ()) m) where
-	-- ~ getDeferred = DeferT $ do
-		-- ~ seq <- get
-		-- ~ put $ S.drop 1 seq
-		-- ~ return $ S.lookup 0 seq
-
--- ~ SIMPLEFUNCTION_CLASSINSTANCES(getDeferred,GetDeferred n,)
-
 

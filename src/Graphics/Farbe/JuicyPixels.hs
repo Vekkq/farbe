@@ -10,30 +10,31 @@ import Codec.Picture
 import Codec.Picture.Types
 
 import Graphics.Farbe
-import Graphics.Farbe.Vec
+import Graphics.Farbe.Vec ()
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
-import Graphics.Farbe.Expr
-import Graphics.Farbe.Utility
+-- ~ import Graphics.Farbe.Expr
+-- ~ import Graphics.Farbe.Utility
 import Graphics.Farbe.Name
-import Graphics.Farbe.Uniform
+-- ~ import Graphics.Farbe.Uniform
 import Graphics.Farbe.GL
 import Data.Vector.Storable (unsafeToForeignPtr)
-import Control.Monad.IO.Class
+-- ~ import Control.Monad.IO.Class
 
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
-import Control.Concurrent
+-- ~ import Control.Concurrent
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
 import Data.Either
 import Control.Monad
-import Foreign hiding (void)
-import Data.Set (notMember)
+-- ~ import Foreign hiding (void)
+-- ~ import Data.Set (notMember)
+
 
 
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
@@ -43,10 +44,12 @@ loadImage s = loadTexture $ do
 		either print (void . return) ei -- add debug command
 		return (format, dim, ptr)
 
+
 errorTexture :: Image PixelRGB8
 errorTexture = generateImage f 8 8
 	where
-	f x y | x' <- itoi x, y' <- itoi y = if odd $ x + y then PixelRGB8 255 100 200 else PixelRGB8 255 255 0
+	f x y = if odd $ x + y then PixelRGB8 255 100 200 else PixelRGB8 255 255 0
+
 
 mapRight :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
 mapRight (Right b) f = Right <$> f b
@@ -60,28 +63,33 @@ textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
 		shdr = do
 			b <- addHeader "uniform" (undefined :: Texture) vname
 			s <- getShaderId
-			postShader $ do
+			when b $ postShader $ do
 				t <- loadImage str
 				l <- withString vname $ glGetUniformLocation s
 				preRender $ do
-					b <- isTextureLoaded t
-					when b $ texUpload l t
-					return b
+					b1 <- isTextureLoaded t
+					when b1 $ texUpload l t
+					return b1
 			return vname
 
+
+sani :: [Char] -> [Char]
 sani = filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])
      . replace (\a -> if elem a "\\/.-" then '_' else a)
 
+
 replace :: (a -> b) -> [a] -> [b]
-replace f [] = []
+replace _ [] = []
 replace f xs = foldr (\a ys -> f a : ys) [] xs
 
+
 toGLImage :: DynamicImage -> (TextureFormat, (V2 GLsizei, Ptr ()))
-toGLImage i = case convertToGLImage i of
+toGLImage j = case convertToGLImage j of
 	ImageY8 i -> (L, unpackImage i)
 	ImageYA8 i -> (LA, unpackImage i)
 	ImageRGB8 i -> (RGB, unpackImage i)
 	ImageRGBA8 i -> (RGBA, unpackImage i)
+	_ -> undefined
 	where
 		unpackImage (Image w h v) = (itoi <$> V2 w h, castPtr $ vecToPtr v)
 		vecToPtr = unsafeForeignPtrToPtr . tfst . unsafeToForeignPtr

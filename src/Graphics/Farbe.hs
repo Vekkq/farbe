@@ -72,14 +72,11 @@ import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Vec ()
 import Graphics.Farbe.Expr ()
 import Graphics.Farbe.Utility
-import Graphics.Farbe.GL
+import Graphics.Farbe.GL ()
 import Graphics.Farbe.Expr
 import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.IO.Class
-import qualified Data.Sequence as Seq
-
-import GHC.Clock
+import Control.Monad.IO.Class ()
 import Data.Maybe
 import System.Mem
 
@@ -117,22 +114,17 @@ processEvents :: (W.MonadWindow m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
 	runDelayed
-	-- ~ glerrcheck
 	W.swapBuffers
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 	W.processEvents f
 
--- ~ glerrcheck :: MonadIO m => m ()
--- ~ glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
-
-glerrcheck :: Farbe m => m ()
-glerrcheck = (liftIO $ glGetError) >>= \e -> when (e/=0) $ debug $ "gl error: " ++ show e
-
-
+glerrcheck :: MonadIO m => m ()
+glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
 
 
 runDelayed :: (W.MonadWindow m, Farbe m, MonadIO m) => m ()
 runDelayed = do
+	glerrcheck
 	liftIO $ performGC
 	work -- get at least one piece done per frame
 	isEmpty <- join $ (liftIO . isEmptyMVar) <$> getsFarbe delayed
@@ -150,7 +142,7 @@ runDelayed = do
 
 
 
-
+drawOver :: MonadIO m => m a1 -> m a2 -> m ()
 drawOver a b = do
 	glEnable GL_STENCIL_TEST
 	-- ~ glStencilOp GL_KEEP GL_KEEP GL_REPLACE
@@ -160,6 +152,8 @@ drawOver a b = do
 	b
 	glDisable GL_STENCIL_TEST
 
+
+drawInto :: MonadIO m => m a1 -> m a2 -> m ()
 drawInto a b = do
 	glEnable GL_STENCIL_TEST
 	glClear GL_STENCIL_BUFFER_BIT
@@ -257,14 +251,14 @@ genFramebuffer = liftIO $ fmap Framebuffer $ withPtr_ $ glGenFramebuffers 1
 bindfb :: (MonadIO m) => Framebuffer -> m ()
 bindfb (Framebuffer n) = glBindFramebuffer GL_FRAMEBUFFER n
 
-framebufferStatus :: (MonadIO m) => m ()
-framebufferStatus = do
-	s <- glCheckFramebufferStatus GL_FRAMEBUFFER
-	case s of
-		GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT -> error "borked framebuffer attachment"
-		GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS -> error "borked framebuffer dimensions"
-		GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT -> error "missing attachments"
-		GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
-		_ -> return ()
+-- ~ framebufferStatus :: (MonadIO m) => m ()
+-- ~ framebufferStatus = do
+	-- ~ s <- glCheckFramebufferStatus GL_FRAMEBUFFER
+	-- ~ case s of
+		-- ~ GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT -> error "borked framebuffer attachment"
+		-- ~ GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS -> error "borked framebuffer dimensions"
+		-- ~ GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT -> error "missing attachments"
+		-- ~ GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
+		-- ~ _ -> return ()
 
 

@@ -19,8 +19,7 @@ import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Name
 import Graphics.Farbe.Utility
-import Graphics.Farbe.ShaderCache
-import Graphics.Farbe.Uniform
+-- ~ import Graphics.Farbe.ShaderCache ()
 
 
 import Data.Char
@@ -37,7 +36,6 @@ import qualified Data.IntMap as M
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
-import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import Control.Monad.Reader
@@ -46,7 +44,6 @@ import Control.Monad.State.Strict
 #define bottom undefined
 
 -- ~ import GHC.Stack
--- ~ import Debug.Trace
 
 
 type ShaderM = DeferT' Shdr
@@ -69,16 +66,21 @@ compileShader f = do
 				-- splice fs here to add further outputs
 				return i
 	let	completeShader = liftFarbe $ do
-			b <- isShaderCompiled' $ shaderId sd
-			if b then return False else do
+			b <- isProgramCompiled $ shaderId sd
+			if b then do
 				liftIO $ glUseProgram $ shaderId sd
 				liftIO $ glBindVertexArray vao
 				fmap and $ sequence $ reverse $ preRenderM sd
-
+			else return False
 	return completeShader
 
-isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
-isShaderCompiled' id = fmap (0<) $ withPtr_ $ \p -> glGetShaderiv id GL_COMPILE_STATUS p
+isProgramCompiled :: MonadIO m => ShaderId -> m Bool
+isProgramCompiled i = fmap (==GL_TRUE) $ withPtr_ $ \p -> glGetProgramiv i GL_LINK_STATUS p
+
+-- ~ isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
+-- ~ isShaderCompiled' i = fmap (==GL_TRUE) $ withPtr_ $ \p -> glGetShaderiv i GL_COMPILE_STATUS p
+
+
 
 addShader :: (Farbe m, ShaderEnv m) => GLenum -> BuildShaderT m a -> m a
 addShader t shdr = do
@@ -90,21 +92,23 @@ addShader t shdr = do
 		++ "\n\nvoid main(){\n"
 		++ toCStatements (bexpr st)
 		++ "}"
-	liftIO $ bracket (newCAString str) free $ \cs -> do
+	i <- liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
-		err <- checkShaderError str i
+		err <- checkShaderError i
 		maybe (return ()) (putStrLn . (str++)) err
 		glAttachShader sp i
 		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
+		return i
+	modifyShader $ \sd -> sd { subShaderId = i : subShaderId sd }
 	devDebug str
 	return a
 	where
-		checkShaderError :: String -> GLuint -> IO (Maybe String)
-		checkShaderError str shdr = bracket (mallocArray $ 2^10) free $ \er ->
+		checkShaderError :: GLuint -> IO (Maybe String)
+		checkShaderError i = bracket (mallocArray $ 2^10) free $ \er ->
 			bracket malloc free $ \errLength -> do
-				glGetShaderInfoLog shdr (2^10) errLength er
+				glGetShaderInfoLog i (2^10) errLength er
 				peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
 					"" -> return Nothing
 					e -> return $ Just e
@@ -121,8 +125,8 @@ getExpr :: (Farbe m, AttrType a b)
 	=> (b -> ShaderDefi)
 	-> m (V4 (Expr V Float), V4 (Expr F Float))
 getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
-	(i,e) <- setAttributes (bottom :: a)
-	((vs,fs),fm) <- runDeferT $ f e
+	(_,e) <- setAttributes (bottom :: a)
+	((vs,fs),_) <- runDeferT $ f e
 	modifyShader $ \s -> s { postShaderM = return () } -- stops it from writing GL commands
 	return (vs,fs)
 
@@ -248,3 +252,20 @@ class Monad m => Defer n m | m -> n where
 
 instance (Monad m) => Defer n (DeferT n m) where
 	defer = DeferT . (\a -> modify (|>a))
+
+
+
+instance Eq ExprI where
+	(ExprI _ r ps) == (ExprI _ r2 ps2) = r == r2 && ps == ps2
+
+instance Eq (Expr e a) where
+	Expr i == Expr i2 = i == i2
+
+instance Hashable ExprI where
+	hashWithSalt salt (ExprI _ r ps) = salt `hashWithSalt` r `hashWithSalt` ps
+
+instance Hashable (Expr e a) where
+	hashWithSalt salt (Expr x) = hashWithSalt salt x
+
+instance (Hashable a) => Hashable (V4 a) where
+	hashWithSalt salt = foldl hashWithSalt salt

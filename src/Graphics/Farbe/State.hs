@@ -12,7 +12,6 @@ import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 -- ~ import Graphics.Farbe.Shader
 
-import qualified Data.Sequence as Seq
 -- ~ import qualified Data.Map as M
 import Graphics.GL.Types
 
@@ -24,18 +23,12 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
-import GHC.Clock
 import GHC.Stack
-import Numeric
 
-
-import Data.Hashable
 import qualified Data.IntMap.Strict as M
-import System.Mem.StableName
 
 import Graphics.GL.Embedded20
 
-import Debug.Trace
 
 
 newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
@@ -97,6 +90,7 @@ data Config = Config
 	, workTime :: Double
 	}
 
+defaultConfig :: Config
 defaultConfig = Config
 	{ debugMode = False
 	, devDebugMode = False

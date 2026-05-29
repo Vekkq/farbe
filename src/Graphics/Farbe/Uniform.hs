@@ -151,22 +151,22 @@ withArray' = liftIO .: withArray
 (.:) = (.).(.)
 
 
-makeVarT :: forall a m . (Farbe m, MonadIO m) => Texture -> m (Var Texture)
-makeVarT t = do
-	m <- liftIO $ newMVar t
-	vname <- (name "u" t)
+makeVarT :: forall m . (Farbe m, MonadIO m) => Texture -> m (Var Texture)
+makeVarT tex = do
+	m <- liftIO $ newMVar tex
+	vname <- (name "u" tex)
 	let r = do
-		b <- addHeader "uniform" t vname
+		b <- addHeader "uniform" tex vname
 		s <- getShaderId
 		when b $ postShader $ do
 			l <- withString vname $ glGetUniformLocation s
 			preRender $ do
 				t <- liftIO $ readMVar m
-				b <- liftIO $ isEmptyMVar $ tbase t
-				texUpload l t
-				return $ not b -- TODO check if this correct
+				b1 <- liftIO $ isEmptyMVar $ tbase t
+				when b1 $ texUpload l t
+				return $ not b1 -- TODO check if this correct
 		return vname
-	return $ Var (ExprI r (toTypeS t) []) m
+	return $ Var (ExprI r (toTypeS tex) []) m
 
 -- makeVars ------------------------------------------------------------------------------
 
@@ -186,6 +186,7 @@ makeVarM2 :: (Farbe m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
 makeVarM3 :: (Farbe m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
 makeVarM4 :: (Farbe m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
 -- ~ makeVarT :: (Farbe m, MonadIO m) => Texture -> m (Var Texture)
+
 
 makeVarF   = makeVar
 makeVarI   = makeVar

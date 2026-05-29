@@ -19,6 +19,7 @@ import Data.Maybe
 
 data STL = STL { triangles :: [Triangle] } deriving Show
 
+getSTL :: Get STL
 getSTL = do
 	replicateM 80 $ getWord8
 	i <- getWord32le

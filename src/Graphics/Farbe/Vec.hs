@@ -128,51 +128,53 @@ INSTANCEFRAC(V4)
 
 
 
-
+-- | Scalar multiplication.
 (*|) :: (Vector v, Num (v a)) => a -> v a -> v a
 a *| v = pure a * v
 
+-- | Scalar multiplication using a matrix.
 (*||) :: (Vector x, Vector y, Num (x (y a))) => a -> Mat x y a -> Mat x y a
 a *|| v = pure (pure a) * v
 
 
-
+-- | Dot product.
 vdot :: (Vector v, Num (v a), Num a) => v a -> v a -> a
 vdot v1 v2 = sum $ v1*v2
 
-
+-- | Vector length.
 vlength :: (Vector v, Num (v a), Floating a) => v a -> a
 vlength v = sqrt $ vdot v v
 
+
+-- | Distance between two vector coordinates.
 vdistance :: (Vector v, Num (v a), Floating a) => v a -> v a -> a
 vdistance a b = vlength (a-b)
 
+-- ~ -- | Turning a vector by 90°.
+-- ~ orth :: Num a => V2 a -> V2 a
+-- ~ orth v = V2 negate id <*> flipVec v
 
-orth :: Num a => V2 a -> V2 a
-orth v = V2 negate id <*> flipVec v
+-- ~ -- | Swap x with y of a vector.
+-- ~ flipVec :: V2 a -> V2 a
+-- ~ flipVec (V2 x y) = V2 y x
 
-flipVec :: V2 a -> V2 a
-flipVec (V2 x y) = V2 y x
-
-
+-- | Normalize vectors. Reduce a vector's length to 1, by retaining orientation.
 vnormal :: (Vector v, Fractional (v a), Floating a) => v a -> v a
 vnormal v = v / (pure $ vlength v)
 
-
+-- | Cross product.
 vcross :: Num a => V3 a -> V3 a -> V3 a
 vcross (V3 x y z) (V3 x2 y2 z2) = V3 (y*z2 - y2*z) (z*x2 - z2*x) (x*y2 - x2*y)
 
--- | Apply a computation relatively. The first parameter is first substracted and after added back again.
-
+-- | The first parameter is substracted and then added back afterwards.
 rel :: Num v => v -> (v -> v) -> v -> v
 rel r f = (+r) . f . subtract r
 
--- | Same as @rel@, but the first parameter is divided and afterwards multiplied.
-
+-- | Same as @rel@ for multiplication.
 relm :: Fractional v => v -> (v -> v) -> v -> v
 relm r f = (*r) . f . (/r)
 
--- | Creates a point on a line between its first two parameters, based on the third parameter, which generally has to be 0 and 1 .
+-- | Calculates a point on a line between its two parameters. The point is based on the third parameter, which generally has to be 0 and 1 .
 line :: (Vector v, Num (v a)) => v a -> v a -> a -> v a
 line v v2 t = rel v (* pure t) v2
 

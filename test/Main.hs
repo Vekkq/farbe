@@ -46,7 +46,7 @@ colorful2 r = shader $ \(n,v) -> do
 
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
-	modifyConfig $ \f -> f { devDebugMode = True }
+	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
 
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
@@ -60,7 +60,6 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 		case es of
 			[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
 			_ -> return ()
-
 		colorful t r [cube, teapot]
 		-- ~ colorful2 r [cube, teapot]
 

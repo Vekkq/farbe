@@ -34,7 +34,6 @@ library
                  , Graphics.Farbe.Uniform
                  , Graphics.Farbe.ShaderEnv
                  , Graphics.Farbe.Name
-                 , Graphics.Farbe.ShaderCache
                  , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Texture
                  , Graphics.Farbe.Expr

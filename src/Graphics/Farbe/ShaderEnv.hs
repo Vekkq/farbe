@@ -13,7 +13,6 @@ import Graphics.Farbe.State
 -- ~ import Graphics.Farbe.Shader
 
 import Foreign hiding (void)
-import Graphics.GL.Types
 import Graphics.GL
 
 import Control.Monad
@@ -21,11 +20,11 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 
 
-
 data ShaderData = ShaderData
 	{ byteCount :: Int
 	, byteMax :: Int
 	, shaderId :: ShaderId
+	, subShaderId :: [ShaderId]
 	, postShaderM :: ShaderEnvT (FarbeT IO) ()
 	, preRenderM :: [FarbeT IO Bool]
 	, buildSubShader :: [IO ()]
@@ -36,6 +35,7 @@ emptyShaderData = ShaderData
 	{ byteCount = 0
 	, byteMax = error "unset byte max"
 	, shaderId = error "unset shader id"
+	, subShaderId = []
 	, postShaderM = return ()
 	, preRenderM = []
 	, buildSubShader = []
@@ -136,7 +136,8 @@ setShaderId i = modifyShader (\s -> s { shaderId = i })
 getShaderId :: ShaderEnv m => m ShaderId
 getShaderId = getsShader shaderId
 
-addSubShader :: ShaderEnv m => GLenum -> IO () -> m ()
-addSubShader e io = modifyShader $
-	\s -> s { buildSubShader = buildSubShader s ++ [io] }
+-- ~ addSubShader :: ShaderEnv m => GLenum -> IO () -> m ()
+-- ~ addSubShader e io = modifyShader $
+	-- ~ \s -> s { buildSubShader = buildSubShader s ++ [io] }
+
 

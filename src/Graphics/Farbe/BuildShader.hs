@@ -18,7 +18,6 @@ import Graphics.Farbe.Vec
 import qualified Data.Set as S
 import Data.Foldable
 import Foreign hiding (void)
-import Graphics.GL.Types
 
 import Control.Monad
 import Control.Monad.Reader
