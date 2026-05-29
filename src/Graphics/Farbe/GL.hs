@@ -11,7 +11,6 @@ module Graphics.Farbe.GL where
 
 
 import Graphics.Farbe.Vec
--- ~ import Graphics.Farbe.Tuple
 
 import GHC.Generics (Generic)
 import Data.Hashable

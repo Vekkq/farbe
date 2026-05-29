@@ -17,9 +17,7 @@ import Graphics.Farbe.VertexArray
 import Graphics.Farbe.State
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
-import Graphics.Farbe.Name
 import Graphics.Farbe.Utility
--- ~ import Graphics.Farbe.ShaderCache ()
 
 
 import Data.Char

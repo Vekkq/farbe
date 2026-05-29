@@ -15,25 +15,18 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
--- ~ import Graphics.Farbe.Expr
--- ~ import Graphics.Farbe.Utility
-import Graphics.Farbe.Name
--- ~ import Graphics.Farbe.Uniform
+import Graphics.Farbe.Utility
 import Graphics.Farbe.GL
 import Data.Vector.Storable (unsafeToForeignPtr)
--- ~ import Control.Monad.IO.Class
 
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
--- ~ import Control.Concurrent
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
 import Data.Either
 import Control.Monad
--- ~ import Foreign hiding (void)
--- ~ import Data.Set (notMember)
 
 
 

@@ -19,7 +19,7 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.State
 -- ~ import Graphics.Farbe.Shader
 import Graphics.Farbe.BuildShader
-import Graphics.Farbe.Name
+-- ~ import Graphics.Farbe.Name
 import Graphics.Farbe.ShaderEnv
 
 

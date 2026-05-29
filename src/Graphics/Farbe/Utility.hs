@@ -2,46 +2,38 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 
 module Graphics.Farbe.Utility where
 
-import Graphics.Farbe.Vec
-import Graphics.Farbe.Tuple
 import Graphics.Farbe.GL
-import Graphics.Farbe.Array
-
-
-import Data.Char
-import Data.List
-import Data.Foldable
-import Data.Array.IO
-import Foreign hiding (void)
-import Foreign.C
-import qualified Data.Sequence as S
-import Data.Sequence ((|>))
-
-import Graphics.GL.Embedded20
-import Graphics.GL.Types
-
-import Control.Exception
 import Control.Concurrent.MVar
-
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Control.Monad.Writer.Strict
-import Control.Monad.Cont (ContT)
-import Control.Monad.Except (ExceptT, MonadError)
-import Control.Applicative (Alternative)
-import Control.Monad.RWS (RWST)
+import Foreign hiding (void)
+import Foreign.C
+import Control.Exception
 
-import GHC.TypeNats
+import Control.Monad.IO.Class
 
-import Debug.Trace
+
+class Counter m where
+	count :: m Int
+
+name :: (Counter m, Functor m, GLtype a) => String -> a -> m String
+name s a = generateName $ s ++ glShortName a
+
+nameAttrib :: (Counter m, Functor m, GLtype a) => String -> a -> m String
+nameAttrib s a = (++ glShortName a) <$> generateName s
+
+withString :: MonadIO m => String -> (CString -> IO a) -> m a
+withString n f = liftIO $ bracket (newCAString n) free f
+
+
+generateName :: (Counter m, Functor m) => String -> m String
+generateName s = (s++) . ("_"++) . show <$> count
 
 
 

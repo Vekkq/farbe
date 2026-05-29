@@ -10,6 +10,7 @@ module Graphics.Farbe.State where
 import Graphics.Farbe.Window
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
+import Graphics.Farbe.Utility
 -- ~ import Graphics.Farbe.Shader
 
 -- ~ import qualified Data.Map as M
@@ -60,9 +61,20 @@ class MonadIO m => Farbe m where
 instance MonadIO m => Farbe (FarbeT m) where
 	stateFarbe = FarbeT . state
 
+instance (MonadIO m, Farbe m) => Counter m where
 
-count :: Farbe m => m Int
-count = stateFarbe (\s -> let c = counter s in (c, s { counter = succ c }))
+-- ~ count :: Farbe m => m Int
+	count = stateFarbe (\s -> let c = counter s in (c, s { counter = succ c }))
+
+
+instance (MonadIO m, Farbe m) => HandVBO m where
+	stateVBO f = stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+
+instance (MonadIO m, Farbe m) => HandTex m where
+	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
+
+	getDelayFun :: MonadIO m => m (IO () -> IO ())
+	getDelayFun = delayFun
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
@@ -179,14 +191,6 @@ delayFun = do
 	return $ putMVar d . lift
 
 
-instance (MonadIO m, Farbe m) => HandVBO m where
-	stateVBO f = stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
-
-instance (MonadIO m, Farbe m) => HandTex m where
-	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
-
-	getDelayFun :: MonadIO m => m (IO () -> IO ())
-	getDelayFun = delayFun
 
 getThisLine :: HasCallStack => Int
 getThisLine = case reverse $ getCallStack callStack of

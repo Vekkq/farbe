@@ -5,7 +5,6 @@
 
 module Graphics.Farbe.VertexArray where
 
--- ~ import Graphics.Farbe.State
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Utility
 
@@ -19,7 +18,6 @@ import Data.Array.Base
 import Foreign hiding (void)
 import Foreign.C
 
--- ~ import Graphics.GL
 import Graphics.GL.Embedded20
 import Graphics.GL.Ext.OES.VertexArrayObject
 import Graphics.GL.Ext.OES.Mapbuffer

@@ -2,7 +2,6 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
@@ -18,12 +17,7 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.State
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.BuildShader
-import Graphics.Farbe.Name
 
--- ~ import Graphics.Farbe.ShaderEnv
--- ~ import Graphics.Farbe.Window
--- ~ import Graphics.Farbe.Utility
--- ~ import Graphics.Farbe.Delay
 
 
 import qualified Data.Set as S
@@ -56,8 +50,6 @@ import Control.Applicative (Alternative)
 import Control.Monad.RWS (RWST)
 
 import GHC.TypeNats
-
-import Debug.Trace
 
 #define bottom undefined
 

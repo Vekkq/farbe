@@ -33,7 +33,6 @@ library
                  , Graphics.Farbe.Attribute
                  , Graphics.Farbe.Uniform
                  , Graphics.Farbe.ShaderEnv
-                 , Graphics.Farbe.Name
                  , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Texture
                  , Graphics.Farbe.Expr
