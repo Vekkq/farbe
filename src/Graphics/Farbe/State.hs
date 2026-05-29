@@ -65,7 +65,14 @@ instance (MonadIO m, Farbe m) => Counter m where
 
 
 instance (MonadIO m, Farbe m) => HandVBO m where
-	stateVBO f = stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+	stateVBO f = do
+		m <- getVBOMVar
+		vbo <- liftIO $ takeMVar m
+		let (a, vbo') = f vbo
+		liftIO $ putMVar m vbo'
+		return a
+	--stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+	getVBOMVar = getsFarbe vboState
 
 instance (MonadIO m, Farbe m) => HandTex m where
 	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
@@ -86,7 +93,7 @@ SIMPLEFUNCTION_CLASSINSTANCES(stateFarbe,Farbe,.)
 data FarbeState = FarbeState
 	{ config :: Config
 	, counter :: Int
-	, vboState :: VBOState
+	, vboState :: MVar VBOState
 	, texState :: TexState
 	, delayed :: MVar (FarbeT IO ())
 	, shaderCache :: M.IntMap ShExec
@@ -109,12 +116,13 @@ defaultConfig = Config
 emptyFarbeState :: MonadIO m => m FarbeState
 emptyFarbeState = do
 	vbo <- initHandVBOState (2^24)
+	mvbo <- liftIO $ newMVar vbo
 	tex <- initTexState
 	del <- liftIO $ newEmptyMVar
 	return $ FarbeState
 		{ config = defaultConfig
 		, counter = 0
-		, vboState = vbo
+		, vboState = mvbo
 		, texState = tex
 		, delayed = del
 		, shaderCache = M.empty
@@ -128,11 +136,6 @@ type ShExec = FarbeT IO Bool
 runFarbeT :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT fs (FarbeT m) = runStateT m fs
 
--- | variant running with empty state
-runFarbeT' :: MonadIO m => FarbeT m a -> m (a, FarbeState)
-runFarbeT' m = do
-	fs <- emptyFarbeState
-	runFarbeT fs m
 
 getsConfig :: Farbe m => (Config -> s) -> m s
 getsConfig f = getsFarbe (f . config)
@@ -182,7 +185,7 @@ delay m = do --modifyFarbe $ \s -> s { delayed = delayed s Seq.|> m }
 		d <- getsFarbe delayed
 		liftIO $ putMVar d m
 
-delayFun :: Farbe m => m (IO () -> IO ())
+delayFun :: (Farbe m) => m (IO () -> IO ())
 delayFun = do
 	d <- getsFarbe delayed
 	return $ putMVar d . lift

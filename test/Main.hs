@@ -22,15 +22,6 @@ colorful t r = shader $ \(n,v) -> do
 
 
 
-colorful2 :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
-colorful2 r = shader $ \(n,v) -> do
-	let v' = use r **| v
-	n' <- transfer n
-	let c = down fragCoord
-	return (up 1 v', up 1 n' * 0.5 + textureIO "test-resources/KorDrTtaa42.png" (c / 256))
-
-
-
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
 	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
@@ -40,6 +31,7 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
 	t <- makeVarT =<< loadImage "test-resources/KorDrTtaa42.png"
+	-- ~ swapVar t =<< loadImage "test-resources/iwi.jpg"
 
 	fix $ \loop -> processEvents $ \es -> do
 

@@ -9,15 +9,11 @@
 
 * rewrite window to track pressed keys, by ensuring which keys are pressed by asking all after tabbing back in - done, but untested
 
-* rewrite VArray to delete itself after losing reference - done, rewritten to work with threadsafe ogl
+* rewrite VArray to delete itself after losing reference
 * rewrite shaders to delete themself - done
 * delete attached shaders with glDeleteShader - done
-* rewrite textures to delete themself - done
+* rewrite textures to delete themself - done, need testing
 
-
-* write a variant of deepseq, which will apply deepseq on every parameter of a function
-* lift instances from base class and remove unused derived instances from all other classes
-* maybe add id's to vertexarrays, to distinguish pager entries from deleted old ones.
 * make window not resizable
 * consider to apply always `up` to the vertex shader position value
   and add same same instances, like V3 -> V3
@@ -36,19 +32,7 @@
 
 * make eglMakeCurrent available through the outside - this function is for drawing without display
 
-* skip the multithreads. make it work for one thread, have heavy gl work when swapbuffers is running. - done
-* compile function is entirely run in gl backlog.
-	* this makes it possible that expr monads on shaders can take all their time needed for loading external data.
-	* alternative is to extend the shader monad for access to the backlogger. with heavy work it is the preferred method
-	* give the work monad a ReaderT (m Double) for time left for processing
-	*** done - gl api is nonblocking
 * add function for filtering for pressed keys in events
-
-* make it so, Farbe can be derived once and provide all functionality
-	* maybe have to merge the "world" to a single state monad
-	* provide a single class that covers all underlying functionality
-		* maybe by just returning its own monad object, which has all the underlying instances
-	* done - Farbe is one monad
 
 * free up the definition for textures, such that more types can be created
 	* e.g. with options to have yes/no mipmaps
@@ -64,11 +48,16 @@
 
 * maybe use HasCallStack for tracking shader definitions
 
-* easy direct texture access in shaders using paths
 
-* varray file access using paths
+* direct varray file access using paths
 
+* expr variable for screen ratio
+* function for defining expr by IO
 
+* provide function for videoModeRefreshRate access of glfw
+	* use it in Farbe to set work duration
+	-> data WorkDuration = Automatic | Manual Int
+	-> when automatic, will obtain fps and work duration calculated periodically
 
 
 info:

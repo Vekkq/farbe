@@ -42,6 +42,7 @@ class HandTex m where
 
 getTex :: HandTex m => m TexState
 getTex = stateTex (\s -> (s, s))
+
 setTex :: HandTex m => TexState -> m ()
 setTex s = stateTex (\_ -> ((), s))
 
@@ -61,11 +62,6 @@ data TextureBase = TextureBase
 	, path :: String
 	} deriving Eq
 
-data L
-data LA
-data RGB
-data RGBA
-data D
 
 data TextureFormat = L | LA | RGB | RGBA | D deriving (Eq,Show,Read)
 

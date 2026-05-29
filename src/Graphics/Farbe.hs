@@ -8,27 +8,39 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-|
+Module      : Graphics.Farbe
+Description : Framework for using OpenGL ES 2 .
+Copyright   : (c) vekkq, 2026
+License     : CC0
+Maintainer  : vekkq@vivaldi.net
+Stability   : experimental
 
+This library abstracts away traps of OpenGL and provides its basics for rendering.
+-}
 module Graphics.Farbe
 	( runFarbeT
 	, W.Display (..)
-	, Config (..)
+	-- * Event handling
 	, processEvents
-	, module Graphics.Farbe.Vec
-	, VArray (..)
-	, newVArray
-	, transfer
-	, Var (..)
-	, makeVar
-	, use
-	, swapVar
-	, W.KeyState (..)
 	, W.Event (..)
 	, W.Key (..)
-	, FarbeT
-	, Farbe
-	, AttrType
-	-- * makeVar variants
+	, W.KeyState (..)
+	-- * Shader definition
+	, shader
+	, isShaderCompiled
+	, module Graphics.Farbe.Vec
+	, fragCoord
+	, napier
+	, ln
+	, modf
+	, equot
+	, erem
+	, ediv
+	, emod
+	, transfer
+	, use
+	-- * Make shared variables for shaders
 	, makeVarF
 	, makeVarI
 	, makeVarB
@@ -44,19 +56,29 @@ module Graphics.Farbe
 	, makeVarM2
 	, makeVarM3
 	, makeVarM4
+	, makeVarT
+	, texture
 	, Texture
 	, loadTexture
-	, makeVarT
-	, MonadIO (..)
-	, glErr
-	, modifyConfig
-	, shader
-	, fragCoord
-	, texture
+	-- * Vertex array
+	, VArray (..)
+	, newVArray
+	, Var (..)
+	, swapVar
+	, AttrType
+	-- * Rendering control
 	, drawOver
 	, drawTexture
 	, drawDepth
 	, drawInto
+	-- * Configuration options
+	, modifyConfig
+	, Config (..)
+	, MonadIO (..)
+	-- * Miscellaneous
+	, FarbeT
+	, Farbe
+	, runFarbeT'
 	) where
 
 import qualified Graphics.Farbe.State as S
@@ -96,7 +118,6 @@ instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
 
 -- | The environment to do draw operations.
 --   It spawns a window with the render context.
-
 runFarbeT :: MonadIO m => String -> W.Display -> W.WindowT (S.FarbeT m) a -> m a
 runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 	e <- emptyFarbeState
@@ -110,7 +131,17 @@ runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 	 err = error "Farbe state not initialized yet"
 
 
+runFarbeT' :: MonadIO m => S.FarbeT m a -> m a
+runFarbeT' f = fmap fst . S.runFarbeT err $ do
+	glClearColor 0.1 0.1 0.1 1
+	glEnable GL_DEPTH_TEST
+	glPixelStorei GL_UNPACK_ALIGNMENT 1
+	f
+	where
+	 err = error "Farbe state not initialized yet"
 
+
+-- | Key function to get events and render to window (swap buffers)
 processEvents :: (W.MonadWindow m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do

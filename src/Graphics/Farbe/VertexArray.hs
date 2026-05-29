@@ -26,6 +26,9 @@ import Graphics.GL.Types
 import System.Mem
 import Control.Monad.IO.Class
 import Control.Concurrent.MVar
+import Control.Monad.State.Lazy
+
+
 
 
 data VBOState = VBOState
@@ -33,16 +36,20 @@ data VBOState = VBOState
 	, vboIndex :: GLuint
 	}
 
-class (MonadIO m) => HandVBO m where
+class MonadIO m => HandVBO m where
 	stateVBO :: (VBOState -> (a, VBOState)) -> m a
+	getVBOMVar :: m (MVar VBOState)
 
-	getVBO :: m VBOState
-	getVBO = stateVBO (\s -> (s, s))
+getVBO :: HandVBO m => m VBOState
+getVBO = stateVBO (\s -> (s, s))
 
-	setVBO :: VBOState -> m ()
-	setVBO s = stateVBO (\_ -> ((), s))
+setVBO :: HandVBO m => VBOState -> m ()
+setVBO s = stateVBO (\_ -> ((), s))
 
-	-- ~ getVBOMVar :: m (MVar VBOState)
+
+instance MonadIO m => HandVBO (StateT VBOState m) where
+	stateVBO = state
+	getVBOMVar = error "no MVar for StateT"
 
 -- VBO manager ---------------------------------------------------------------------------
 
@@ -220,14 +227,13 @@ newtype VArray a = VArray { unVArray :: (MVar (VArrayF a)) }
 
 newVArray :: (HandVBO m, Storable a, Foldable f) => f a -> m (VArray a)
 newVArray xs = do
-	f <- newVArrayF xs
-	-- ~ mvbo <- getVBOMVar
-	mva <- liftIO $ newMVar f
-	-- ~ liftIO $ mkWeakMVar mva (free mvbo f)
+	va <- newVArrayF xs
+	mva <- liftIO $ newMVar va
+	mvbo <- getVBOMVar
+	liftIO $ modifyMVarMasked_ mvbo $ execStateT (removeVArrayF va)
 	liftIO $ performGC
 	return $ VArray mva
-	where
-		-- ~ free mvbo f = modifyMVarMasked_ mvbo $ \vbo -> runHandVBOT' vbo $ removeVArrayF f
+
 
 drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays xs = do

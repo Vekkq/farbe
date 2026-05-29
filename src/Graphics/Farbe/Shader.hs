@@ -132,7 +132,7 @@ lookupShader f = do
 	sc <- getShaderCache
 	return $ liftFarbe <$> M.lookup e sc
 
-
+-- | Use shader definitions for rendering.
 shader :: (Farbe m, AttrType a b)
 	=> (b -> ShaderDefi)
 	-> [VArray a] -> m ()
