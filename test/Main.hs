@@ -17,15 +17,14 @@ basicShader :: Farbe m => Var Texture -> Var (Mat V3 V3 Float) -> [VArray (V3 Fl
 basicShader t r = shader $ \(n,v) -> do
 	let v' = use r **| v
 	n' <- transfer n
-	let c = down fragCoord
-	return (up 1 v', up 1 n' * 0.5 + 0.5*texture (use t) (c / 256) + textureIO "test-resources/ayataka512.jpg" (c / 256 + 0.5))
+	return (up 1 v', up 1 n' + texture (use t) (V2 1 (-1) * down fragCoord / 512))
 
 
 renderbasic r = do
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
 
-	t <- makeVarT =<< loadImage "test-resources/KorDrTtaa42.png"
+	t <- makeVarT =<< loadImage "test-resources/s0GpiMly_400x400.jpg"
 
 	fix $ \loop -> processEvents $ \es -> do
 		updateRotate es r
