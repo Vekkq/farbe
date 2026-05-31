@@ -7,7 +7,6 @@
 {-# LANGUAGE IncoherentInstances #-}
 {-|
 Module      : Graphics.Farbe.Vec
-Description : Algebraic vector math
 Copyright   : (c) vekkq, 2026
 License     : CC0
 Maintainer  : vekkq@vivaldi.net
