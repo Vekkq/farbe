@@ -86,6 +86,7 @@ module Graphics.Farbe
 import qualified Graphics.Farbe.State as S
 import Graphics.Farbe.State hiding (runFarbeT, runFarbeT')
 import qualified Graphics.Farbe.Window as W
+import Graphics.Farbe.Window hiding (processEvents)
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Uniform
 import Graphics.Farbe.Attribute
@@ -103,6 +104,7 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.IO.Class ()
 import Data.Maybe
+import Data.Set (member)
 import System.Mem
 
 import Foreign.Ptr
@@ -141,14 +143,31 @@ runFarbeT' f = fmap fst . S.runFarbeT $ do
 	 err = error "Farbe state not initialized yet"
 
 
--- | Key function to get events and render to window (swap buffers)
+-- | @processEvents@ obtains the events and sends it to a provided function. The function is called, when the program isn't asked to quit. This function also controls the render pipeline (swap buffers).
 processEvents :: (W.MonadWindow m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
+	es <- processEvents'
+	b <- shouldWindowClose
+	if b || isEsc es || isAltF4 es
+	then return ()
+	else f es
+
+isEsc es = case es of
+	[(EventKey Key'Escape Down _, _)] -> True
+	_ -> False
+
+isAltF4 es = case es of
+	[(EventKey Key'F4 Down _, c)] | member (Right Key'LeftAlt) c -> True
+	_ -> False
+
+processEvents' :: (MonadWindow m, Farbe m) => m [(W.Event, W.EventContext)]
+processEvents' = do
 	runDelayed
 	W.swapBuffers
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
-	W.processEvents f
+	W.processEvents
+
 
 glerrcheck :: MonadIO m => m ()
 glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
