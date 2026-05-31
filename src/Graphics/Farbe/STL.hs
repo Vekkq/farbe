@@ -17,28 +17,28 @@ import Data.Maybe
 
 
 
-data STL = STL { triangles :: [Triangle] } deriving Show
+data STL = STL { triangles :: [STLTriangle] } deriving Show
 
 getSTL :: Get STL
 getSTL = do
 	replicateM 80 $ getWord8
 	i <- getWord32le
 	fmap STL $ replicateM (itoi i) $ do
-		tri <- getTriangle
+		tri <- getSTLTriangle
 		_ :: Word16 <- get
 		return $ tri
 
-getTriangle :: Get Triangle
-getTriangle = do
+getSTLTriangle :: Get STLTriangle
+getSTLTriangle = do
 	[n,v1,v2,v3] <- replicateM 4 getSTLV3
-	return $ Triangle n v1 v2 v3
+	return $ STLTriangle n v1 v2 v3
 
 getSTLV3 :: Get (V3 Float)
 getSTLV3 = do
 	(x:y:z:[]) <- replicateM 3 getFloatle
 	return $ V3 x y z
 
-data Triangle = Triangle
+data STLTriangle = STLTriangle
 	{ tn  :: V3 Float
 	, tv1 :: V3 Float
 	, tv2 :: V3 Float
@@ -50,7 +50,7 @@ data Triangle = Triangle
 readFileBinSTL :: MonadIO m => FilePath -> m [(V3 Float, V3 Float)]
 readFileBinSTL p = do
 	STL tri <- fmap (runGet getSTL) $ liftIO $ B.readFile p
-	return $ concatMap (\(Triangle n a b c) -> [(n,a),(n,b),(n,c)]) tri
+	return $ concatMap (\(STLTriangle n a b c) -> [(n,a),(n,b),(n,c)]) tri
 
 
 readFileSTL :: MonadIO m => FilePath -> m [V3 Float]
@@ -76,10 +76,10 @@ writeFileSTL s ts = writeFile s $ showSTL ts
 showSTL :: [Face] -> String
 showSTL ts
 	=  "solid solid\n"
-	++ concatMap showSTLTriangle ts
+	++ concatMap showSTLSTLTriangle ts
 	++ "endsolid solid\n"
 	where
-	showSTLTriangle t
+	showSTLSTLTriangle t
 		= "facet normal 0 0 0\n"
 		++ "outer loop\n"
 		++ unlines (map (("vertex "++) . unwords . map show) t)

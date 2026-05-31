@@ -198,7 +198,7 @@ instance (GLtype a, GLtype (V4 a), GLtype (V4 (V4 a))) =>
 	transfer = fmap (fmap vecParts . vecParts) . transfer1 . exprMat
 
 
-transfer1 :: forall a . GLtype a => Expr V a -> DeferT' Shdr (Expr F a)
+transfer1 :: forall a . GLtype a => Expr V a -> ShaderM (Expr F a)
 transfer1 e = do
 	let a = bottom :: a
 	n <- name "t" a

@@ -19,6 +19,11 @@ flag juicypixels
     default:     True
     manual:      True
 
+flag wavefront
+    description: Use wavefront for loading obj-Files and provide its module.
+    default:     True
+    manual:      True
+
 library
     --import:         warnings
 
@@ -56,6 +61,10 @@ library
     if flag(juicypixels)
         build-depends: JuicyPixels^>=3.3
         exposed-modules: Graphics.Farbe.JuicyPixels
+
+    if flag(wavefront)
+        build-depends: wavefront>=0.7.1.5
+        exposed-modules: Graphics.Farbe.OBJ
 
     hs-source-dirs:   src
     default-language: GHC2021

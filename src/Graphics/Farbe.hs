@@ -30,6 +30,9 @@ module Graphics.Farbe
 	, shader
 	, isShaderCompiled
 	, module Graphics.Farbe.Vec
+	, Expr
+	, V
+	, F
 	, fragCoord
 	, napier
 	, ln
@@ -91,10 +94,11 @@ import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
 import Graphics.Farbe.ShaderEnv
-import Graphics.Farbe.Vec ()
-import Graphics.Farbe.Expr ()
+import Graphics.Farbe.BuildShader
+import Graphics.Farbe.Vec
+import Graphics.Farbe.Expr
 import Graphics.Farbe.Utility
-import Graphics.Farbe.GL ()
+import Graphics.Farbe.GL
 import Graphics.Farbe.Expr
 import Control.Monad
 import Control.Monad.Trans

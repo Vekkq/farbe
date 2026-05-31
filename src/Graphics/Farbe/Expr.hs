@@ -42,7 +42,7 @@ instance (GLtype a, Floating a) => Floating (Expr e a) where
 	asin = liftE1 "asin"
 	acos = liftE1 "acos"
 	atan = liftE1 "atan"
-	-- following functions not available in glsl es 1
+	-- following functions are not available in glsl es 1
 	sinh x = (napier ** x - napier ** (negate x)) / 2
 	cosh x = (napier ** x + napier ** (negate x)) / 2
 	tanh x = sinh x / cosh x

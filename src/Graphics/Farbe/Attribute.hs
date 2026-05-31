@@ -93,6 +93,15 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		(setAttribute (bottom :: c))
 		(setAttribute (bottom :: d))
 
+-- ~ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w, AttrType e v) =>
+	-- ~ AttrType (a,b,c,d,e) (x,y,z,w,v) where
+	-- ~ setAttribute _ = liftM4 (,,,,)
+		-- ~ (setAttribute (bottom :: a))
+		-- ~ (setAttribute (bottom :: b))
+		-- ~ (setAttribute (bottom :: c))
+		-- ~ (setAttribute (bottom :: d))
+		-- ~ (setAttribute (bottom :: e))
+
 attribPartsVec
 	:: ( Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a
 		 , GLtype a, GLtype (v a), Storable a, Storable (v a), Vector v
@@ -129,7 +138,6 @@ instance AttrType (V3 (V3 Float)) (V3 (V3 (Expr V Float))) where
 
 instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where
 	setAttribute = attribPartsMat
-
 
 
 -- "disallowed by spec"
