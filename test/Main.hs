@@ -46,8 +46,9 @@ shaderobj r = shader $ \(OBJPointE v t n) -> do
 
 renderobj r = do
 	fishv <- loadOBJ "test-resources/fish_red.obj"
-	liftIO $ print fishv
-	fish <- newVArray fishv
+	-- ~ w <- liftIO $ objData "test-resources/fish_red.obj"
+	-- ~ liftIO $ print $ objLocations w
+	fish <- newVArray $ map (\op -> op { oCoord = 0.1 * oCoord op }) fishv
 	fix $ \loop -> processEvents $ \es -> do
 		shaderobj r [fish]
 
