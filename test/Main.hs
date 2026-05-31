@@ -28,12 +28,10 @@ renderbasic r = do
 	t <- makeVarT =<< loadImage "test-resources/KorDrTtaa42.png"
 
 	fix $ \loop -> processEvents $ \es -> do
-		basicShader t r [cube, teapot]
-
 		updateRotate es r
+		basicShader t r [cube, teapot]
 		anyMouseClick es $ renderobj r
-		whenNotEsc es loop
-
+		loop
 
 
 
@@ -51,7 +49,7 @@ renderobj r = do
 		shaderobj r [fish]
 		updateRotate es r
 		anyMouseClick es $ renderbasic r
-		whenNotEsc es loop
+		loop
 
 anyMouseClick es f = case es of
 	[(EventMouseKey _ _ Down, _)] -> f
@@ -62,9 +60,6 @@ updateRotate es r = case es of
 	[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
 	_ -> return ()
 
-whenNotEsc es f = case es of
-	[(EventKey Key'Escape Down _, _)] -> return ()
-	_ -> f
 
 
 

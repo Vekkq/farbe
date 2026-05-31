@@ -28,7 +28,7 @@ module Graphics.Farbe.Window
 	, swapBuffers
 	-- * Event processing
 	, processEvents
-	, processEvents'
+	, shouldWindowClose
 	, Event (..)
 	, EventContext
 	-- ** Cursor mode
@@ -232,8 +232,8 @@ toEventContext es = do
 	return $ zip es cs
 
 -- | Process and fetch events.
-processEvents' :: MonadWindow m => m [(Event, EventContext)]
-processEvents' = do
+processEvents :: MonadWindow m => m [(Event, EventContext)]
+processEvents = do
 	eq <- eventQueue
 	liftIO $ W.pollEvents
 	es <- reverse <$> mlRemoveAll eq >>= eventsOnLocked
@@ -243,12 +243,17 @@ processEvents' = do
 -- | Process and fetch events.
 --   Delivers Events to a function.
 --   The function is run, unless window is signaled to be closed.
-processEvents :: MonadWindow m => ([(Event, EventContext)] -> m ()) -> m ()
-processEvents f = do
-	es <- processEvents'
+-- ~ processEvents :: MonadWindow m => ([(Event, EventContext)] -> m ()) -> m ()
+-- ~ processEvents f = do
+	-- ~ es <- processEvents'
+	-- ~ w <- glfwWindow
+	-- ~ b <- liftIO $ W.windowShouldClose w
+	-- ~ when (not $ b || elem EventClose (map fst es)) $ f es
+
+shouldWindowClose :: MonadWindow m => m Bool
+shouldWindowClose = do
 	w <- glfwWindow
-	b <- liftIO $ W.windowShouldClose w
-	when (not $ b || elem EventClose (map fst es)) $ f es
+	liftIO $ W.windowShouldClose w
 
 
 
