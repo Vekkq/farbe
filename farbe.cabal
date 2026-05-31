@@ -3,7 +3,7 @@ name:               farbe
 version:            0.1.0.0
 synopsis: rendering library
 description:
-  a window and rendering library for the OpenGL ES 2 and GLFW. The library comes with an eDSL for shaders.
+  A window and rendering library for the OpenGL ES 2 and GLFW. The library comes with an eDSL for shaders.
 license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Vekkq
@@ -47,7 +47,7 @@ library
                  , Graphics.Farbe.Expr
 
 
-    build-depends: base ^>=4.21
+    build-depends: base ^>=4.18
                  , containers^>=0.7
                  , mtl^>=2.3
                  , gl^>=0.9
@@ -81,7 +81,7 @@ test-suite farbe-test
 
     main-is:          Main.hs
 
-    build-depends: base ^>=4.21
+    build-depends: base ^>=4.18
                  , farbe
                  , gl^>=0.9
                  , bytestring^>=0.12

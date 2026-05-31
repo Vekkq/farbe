@@ -83,6 +83,7 @@ module Graphics.Farbe
 	, runFarbeT'
 	) where
 
+
 import qualified Graphics.Farbe.State as S
 import Graphics.Farbe.State hiding (runFarbeT, runFarbeT')
 import qualified Graphics.Farbe.Window as W
