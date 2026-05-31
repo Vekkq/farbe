@@ -26,19 +26,19 @@ renderbasic r = do
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray
 
 	t <- makeVarT =<< loadImage "test-resources/KorDrTtaa42.png"
-	-- ~ swapVar t =<< loadImage "test-resources/iwi.jpg"
 
 	fix $ \loop -> processEvents $ \es -> do
 		basicShader t r [cube, teapot]
 
 		updateRotate es r
+		anyMouseClick es $ renderobj r
 		whenNotEsc es loop
 
 
 
 
 shaderobj :: Farbe m => Var (Mat V3 V3 Float) -> [VArray OBJPoint] -> m ()
-shaderobj r = shader $ \(OBJPointE v t n) -> do
+shaderobj r = shader $ \(OBJPointE v n t) -> do
 	let v' = use r **| v
 	t' <- transfer $ down t
 	return (up 1 v', textureIO "test-resources/fish_red.jpg" t')
@@ -46,17 +46,17 @@ shaderobj r = shader $ \(OBJPointE v t n) -> do
 
 renderobj r = do
 	fishv <- loadOBJ "test-resources/fish_red.obj"
-	-- ~ w <- liftIO $ objData "test-resources/fish_red.obj"
-	-- ~ liftIO $ print $ objLocations w
 	fish <- newVArray $ map (\op -> op { oCoord = 0.1 * oCoord op }) fishv
 	fix $ \loop -> processEvents $ \es -> do
 		shaderobj r [fish]
-
 		updateRotate es r
+		anyMouseClick es $ renderbasic r
 		whenNotEsc es loop
 
 anyMouseClick es f = case es of
-	[(EventMouseKey _ _ _, _)] -> f
+	[(EventMouseKey _ _ Down, _)] -> f
+	_ -> return ()
+
 
 updateRotate es r = case es of
 	[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)

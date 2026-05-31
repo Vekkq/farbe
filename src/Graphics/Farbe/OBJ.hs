@@ -71,20 +71,17 @@ fromFace wave (Face i j k xs) = let
 map2 :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
 map2 = (fmap . fmap)
 
--- ~ triangulize :: [FaceIndex] -> [V3 FaceIndex]
--- ~ triangulize (a:b:c:xs) = V3 a b c : triangulize (a:c:xs)
--- ~ triangulize _ = []
-
 triangulize :: [FaceIndex] -> [V3 FaceIndex]
-triangulize (a:b:c:xs) = V3 a b c : []
+triangulize (a:b:c:xs) = V3 a b c : triangulize (a:c:xs)
 triangulize _ = []
+
 
 fromFaceIndex :: WavefrontOBJ -> FaceIndex -> OBJPoint
 fromFaceIndex wave (FaceIndex ic mit min) = let
 	c = maybe (V3 0 0 0) lToVec $ objLocations wave !? (pred ic)
-	t = maybe (V3 0 0 0) tToVec $ objTexCoords wave !?! mit
-	n = maybe (V3 0 0 0) nToVec $ objNormals wave !?! min
-	in OBJPoint c t n
+	t = maybe (V3 0 0 0) tToVec $ objTexCoords wave !?! (fmap pred mit)
+	n = maybe (V3 0 0 0) nToVec $ objNormals wave !?! (fmap pred min)
+	in OBJPoint c n t
 
 v !?! (Just i) = v !? i
 v !?! Nothing = Nothing
