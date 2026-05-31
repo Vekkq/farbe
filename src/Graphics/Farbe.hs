@@ -10,7 +10,6 @@
 {-# LANGUAGE DataKinds #-}
 {-|
 Module      : Graphics.Farbe
-Description : Framework for using OpenGL ES 2 .
 Copyright   : (c) vekkq, 2026
 License     : CC0
 Maintainer  : vekkq@vivaldi.net
@@ -85,7 +84,7 @@ module Graphics.Farbe
 	) where
 
 import qualified Graphics.Farbe.State as S
-import Graphics.Farbe.State hiding (runFarbeT)
+import Graphics.Farbe.State hiding (runFarbeT, runFarbeT')
 import qualified Graphics.Farbe.Window as W
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Uniform
@@ -122,11 +121,8 @@ instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
 
 -- | The environment to do draw operations.
 --   It spawns a window with the render context.
-runFarbeT :: MonadIO m => String -> W.Display -> W.WindowT (S.FarbeT m) a -> m a
-runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
-	e <- emptyFarbeState
-	putFarbe e
-	devDebug "window creation passed."
+runFarbeT :: MonadIO m => String -> W.Display -> S.FarbeT (W.WindowT m) a -> m a
+runFarbeT s d f = fmap fst . W.runWindowT s d . S.runFarbeT $ do
 	glClearColor 0.1 0.1 0.1 1
 	glEnable GL_DEPTH_TEST
 	glPixelStorei GL_UNPACK_ALIGNMENT 1
@@ -136,7 +132,7 @@ runFarbeT s d f = fmap fst . S.runFarbeT err . W.runWindowT s d $ do
 
 
 runFarbeT' :: MonadIO m => S.FarbeT m a -> m a
-runFarbeT' f = fmap fst . S.runFarbeT err $ do
+runFarbeT' f = fmap fst . S.runFarbeT $ do
 	glClearColor 0.1 0.1 0.1 1
 	glEnable GL_DEPTH_TEST
 	glPixelStorei GL_UNPACK_ALIGNMENT 1

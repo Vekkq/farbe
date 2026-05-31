@@ -133,8 +133,13 @@ type ShaderId = GLuint
 
 type ShExec = FarbeT IO Bool
 
-runFarbeT :: FarbeState -> FarbeT m a -> m (a, FarbeState)
-runFarbeT fs (FarbeT m) = runStateT m fs
+runFarbeT :: MonadIO m => FarbeT m a -> m (a, FarbeState)
+runFarbeT (FarbeT m) = do
+	fs <- emptyFarbeState
+	runStateT m fs
+
+runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
+runFarbeT' fs (FarbeT m) = runStateT m fs
 
 
 getsConfig :: Farbe m => (Config -> s) -> m s
