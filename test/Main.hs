@@ -65,8 +65,7 @@ updateRotate es r = case es of
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
-	renderobj r
-	-- ~ renderbasic r
+	renderbasic r
 
 	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
 

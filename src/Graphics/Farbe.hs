@@ -29,6 +29,10 @@ module Graphics.Farbe
 	, shader
 	, isShaderCompiled
 	, module Graphics.Farbe.Vec
+	-- * Vertex array
+	, VArray (..)
+	, newVArray
+	-- * Shader's Expr type
 	, Expr
 	, V
 	, F
@@ -42,7 +46,7 @@ module Graphics.Farbe
 	, emod
 	, transfer
 	, use
-	-- * Make shared variables for shaders
+	-- * Make mutable shared variables for shaders
 	, makeVarF
 	, makeVarI
 	, makeVarB
@@ -62,9 +66,6 @@ module Graphics.Farbe
 	, texture
 	, Texture
 	, loadTexture
-	-- * Vertex array
-	, VArray (..)
-	, newVArray
 	, Var (..)
 	, swapVar
 	, AttrType

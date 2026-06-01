@@ -59,6 +59,10 @@
 
 * rewrite shaders to record Shdr by name, to run it separately and only once
 
+* try alternative window creation, if creation fails.
+	see ContextCreationAPI - GLFW_OSMESA_CONTEXT_API
+
+
 
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.

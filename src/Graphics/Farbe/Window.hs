@@ -110,7 +110,6 @@ createWindow st d = do
 	windowHint $ W.WindowHint'DepthBits (Just 16)
 	windowHint $ W.WindowHint'ClientAPI W.ClientAPI'OpenGLES
 	windowHint $ W.WindowHint'ContextVersionMajor 2
-	-- ~ windowHint $ W.WindowHint'ContextVersionMinor 2
 	w <- case d of
 		Fullscreen -> do
 			e <- getMonitor
