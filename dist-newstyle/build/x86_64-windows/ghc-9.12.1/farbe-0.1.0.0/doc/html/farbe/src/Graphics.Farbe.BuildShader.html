@@ -1,0 +1,626 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-tabs #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-type-defaults #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-unused-do-bind #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE FunctionalDependencies #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html"><span class="hs-identifier">Graphics.Farbe.BuildShader</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html"><span class="hs-identifier">Graphics.Farbe.GL</span></a></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html"><span class="hs-identifier">Graphics.Farbe.ShaderEnv</span></a></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html"><span class="hs-identifier">Graphics.Farbe.State</span></a></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html"><span class="hs-identifier">Graphics.Farbe.Vec</span></a></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">void</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Reader</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.State.Strict</span></span><span class="hs-cpp">
+
+
+
+#define bottom undefined
+</span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- | User-facing type expression.</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">data</span><span> </span><span id="Expr"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-var">Expr</span></a></span></span><span> </span><span id="local-6989586621679200894"><span class="annot"><a href="#local-6989586621679200894"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span id="local-6989586621679200895"><span class="annot"><a href="#local-6989586621679200895"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Expr"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-var">Expr</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unExpr"><span class="annot"><span class="annottext">forall {k} {k} (e :: k) (a :: k). Expr e a -&gt; ExprI
+</span><a href="Graphics.Farbe.BuildShader.html#unExpr"><span class="hs-identifier hs-var hs-var">unExpr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-type">ExprI</span></a></span><span> </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679201213"><span id="local-6989586621679201216"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; Expr e a -&gt; Expr e b)
+-&gt; (forall a b. a -&gt; Expr e b -&gt; Expr e a) -&gt; Functor (Expr e)
+forall k (e :: k) a b. a -&gt; Expr e b -&gt; Expr e a
+forall k (e :: k) a b. (a -&gt; b) -&gt; Expr e a -&gt; Expr e b
+forall a b. a -&gt; Expr e b -&gt; Expr e a
+forall a b. (a -&gt; b) -&gt; Expr e a -&gt; Expr e b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+$cfmap :: forall k (e :: k) a b. (a -&gt; b) -&gt; Expr e a -&gt; Expr e b
+fmap :: forall a b. (a -&gt; b) -&gt; Expr e a -&gt; Expr e b
+$c&lt;$ :: forall k (e :: k) a b. a -&gt; Expr e b -&gt; Expr e a
+&lt;$ :: forall a b. a -&gt; Expr e b -&gt; Expr e a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><span class="hs-comment">-- | Internal expression description.</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">data</span><span> </span><span id="ExprI"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-var">ExprI</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ExprI"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-var">ExprI</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="fnName"><span class="annot"><span class="annottext">ExprI -&gt; Shdr String
+</span><a href="Graphics.Farbe.BuildShader.html#fnName"><span class="hs-identifier hs-var hs-var">fnName</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Shdr"><span class="hs-identifier hs-type">Shdr</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">,</span><span> </span><span id="rtype"><span class="annot"><span class="annottext">ExprI -&gt; TypeS
+</span><a href="Graphics.Farbe.BuildShader.html#rtype"><span class="hs-identifier hs-var hs-var">rtype</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-type">TypeS</span></a></span><span class="hs-special">,</span><span> </span><span id="fnAst"><span class="annot"><span class="annottext">ExprI -&gt; [ExprI]
+</span><a href="Graphics.Farbe.BuildShader.html#fnAst"><span class="hs-identifier hs-var hs-var">fnAst</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-type">ExprI</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">data</span><span> </span><span id="ExprS"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprS"><span class="hs-identifier hs-var">ExprS</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ExprS"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprS"><span class="hs-identifier hs-var">ExprS</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-type">TypeS</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprS"><span class="hs-identifier hs-type">ExprS</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679201226"><span id="local-6989586621679201237"><span id="local-6989586621679201241"><span class="annot"><span class="annottext">Int -&gt; ExprS -&gt; ShowS
+[ExprS] -&gt; ShowS
+ExprS -&gt; String
+(Int -&gt; ExprS -&gt; ShowS)
+-&gt; (ExprS -&gt; String) -&gt; ([ExprS] -&gt; ShowS) -&gt; Show ExprS
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ExprS -&gt; ShowS
+showsPrec :: Int -&gt; ExprS -&gt; ShowS
+$cshow :: ExprS -&gt; String
+show :: ExprS -&gt; String
+$cshowList :: [ExprS] -&gt; ShowS
+showList :: [ExprS] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><span class="hs-comment">-- | A Shader-building environment.</span></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">type</span><span> </span><span id="Shdr"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Shdr"><span class="hs-identifier hs-var">Shdr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-type">BuildShaderT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.State.html#FarbeT"><span class="hs-identifier hs-type">FarbeT</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- ~ data ExprI = ExprI { exprName :: String, exprSetup :: BuildShaderT (ShaderEnvT IO)</span><span>
+</span><span id="line-42"></span><span>	</span><span class="hs-comment">-- ~ , exprType :: TypeS, exprAst :: [ExprI] }</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- TODO future rewrite form</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#runExprI"><span class="hs-identifier hs-type">runExprI</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-type">ExprI</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Shdr"><span class="hs-identifier hs-type">Shdr</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprS"><span class="hs-identifier hs-type">ExprS</span></a></span><span>
+</span><span id="line-46"></span><span id="runExprI"><span class="annot"><span class="annottext">runExprI :: ExprI -&gt; Shdr ExprS
+</span><a href="Graphics.Farbe.BuildShader.html#runExprI"><span class="hs-identifier hs-var hs-var">runExprI</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-type">ExprI</span></a></span><span> </span><span id="local-6989586621679201247"><span class="annot"><span class="annottext">Shdr String
+</span><a href="#local-6989586621679201247"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679201248"><span class="annot"><span class="annottext">TypeS
+</span><a href="#local-6989586621679201248"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679201249"><span class="annot"><span class="annottext">[ExprI]
+</span><a href="#local-6989586621679201249"><span class="hs-identifier hs-var">ps</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>	</span><span id="local-6989586621679201250"><span class="annot"><a href="#local-6989586621679201250"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Shdr String
+</span><a href="#local-6989586621679201247"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-48"></span><span>	</span><span id="local-6989586621679201251"><span class="annot"><a href="#local-6989586621679201251"><span class="hs-identifier hs-var">ps'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">mapM</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#runExprI"><span class="hs-identifier hs-type">runExprI</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201249"><span class="hs-identifier hs-type">ps</span></a></span><span>
+</span><span id="line-49"></span><span>	</span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprS"><span class="hs-identifier hs-type">ExprS</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201250"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201248"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201251"><span class="hs-identifier hs-type">ps'</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span id="local-6989586621679200933"><span id="local-6989586621679200935"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-type">liftExpr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200933"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-type">ExprI</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200935"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200933"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-52"></span><span id="liftExpr"><span class="annot"><span class="annottext">liftExpr :: forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var hs-var">liftExpr</span></a></span></span><span> </span><span id="local-6989586621679201257"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201257"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679201258"><span class="annot"><span class="annottext">[ExprI]
+</span><a href="#local-6989586621679201258"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Shdr String -&gt; [ExprI] -&gt; Expr e a
+forall {k} (e :: k) a.
+GLtype a =&gt;
+Shdr String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExprShdr"><span class="hs-identifier hs-var">liftExprShdr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Shdr String
+forall a. a -&gt; BuildShaderT (ShaderEnvT (FarbeT IO)) a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201257"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[ExprI]
+</span><a href="#local-6989586621679201258"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span id="local-6989586621679200943"><span id="local-6989586621679200944"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftExpr%27"><span class="hs-identifier hs-type">liftExpr'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200943"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200944"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200943"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-55"></span><span id="liftExpr%27"><span class="annot"><span class="annottext">liftExpr' :: forall {k} a (e :: k). GLtype a =&gt; String -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr%27"><span class="hs-identifier hs-var hs-var">liftExpr'</span></a></span></span><span> </span><span id="local-6989586621679201263"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201263"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e a
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201263"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftExprShdr"><span class="hs-identifier hs-type">liftExprShdr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679200941"><span class="annot"><a href="#local-6989586621679200941"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span id="local-6989586621679200940"><span class="annot"><a href="#local-6989586621679200940"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200940"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Shdr"><span class="hs-identifier hs-type">Shdr</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-type">ExprI</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200941"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200940"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-58"></span><span id="liftExprShdr"><span class="annot"><span class="annottext">liftExprShdr :: forall {k} (e :: k) a.
+GLtype a =&gt;
+Shdr String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExprShdr"><span class="hs-identifier hs-var hs-var">liftExprShdr</span></a></span></span><span> </span><span id="local-6989586621679201268"><span class="annot"><span class="annottext">Shdr String
+</span><a href="#local-6989586621679201268"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679201269"><span class="annot"><span class="annottext">[ExprI]
+</span><a href="#local-6989586621679201269"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExprI -&gt; Expr e a
+forall {k} {k} (e :: k) (a :: k). ExprI -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-var">Expr</span></a></span><span> </span><span class="annot"><span class="annottext">(ExprI -&gt; Expr e a) -&gt; ExprI -&gt; Expr e a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Shdr String -&gt; TypeS -&gt; [ExprI] -&gt; ExprI
+</span><a href="Graphics.Farbe.BuildShader.html#ExprI"><span class="hs-identifier hs-var">ExprI</span></a></span><span> </span><span class="annot"><span class="annottext">Shdr String
+</span><a href="#local-6989586621679201268"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; TypeS
+forall a. GLtype a =&gt; a -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var">toTypeS</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">p</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span id="local-6989586621679200956"><span id="local-6989586621679200957"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftExprShdr%27"><span class="hs-identifier hs-type">liftExprShdr'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200956"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Shdr"><span class="hs-identifier hs-type">Shdr</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200957"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200956"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-61"></span><span id="liftExprShdr%27"><span class="annot"><span class="annottext">liftExprShdr' :: forall {k} a (e :: k). GLtype a =&gt; Shdr String -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExprShdr%27"><span class="hs-identifier hs-var hs-var">liftExprShdr'</span></a></span></span><span> </span><span id="local-6989586621679201275"><span class="annot"><span class="annottext">Shdr String
+</span><a href="#local-6989586621679201275"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Shdr String -&gt; [ExprI] -&gt; Expr e a
+forall {k} (e :: k) a.
+GLtype a =&gt;
+Shdr String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExprShdr"><span class="hs-identifier hs-var">liftExprShdr</span></a></span><span> </span><span class="annot"><span class="annottext">Shdr String
+</span><a href="#local-6989586621679201275"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span id="local-6989586621679200962"><span id="local-6989586621679200963"><span id="local-6989586621679200964"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#expr"><span class="hs-identifier hs-type">expr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621679200962"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200963"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200962"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200964"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200963"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-65"></span><span id="expr"><span class="annot"><span class="annottext">expr :: forall {k} b a (e :: k). (Show b, GLtype a) =&gt; b -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#expr"><span class="hs-identifier hs-var hs-var">expr</span></a></span></span><span> </span><span id="local-6989586621679201281"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679201281"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e a
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679201281"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- overload it for multiple parameters</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679201283"><span id="local-6989586621679201284"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftE0"><span class="hs-identifier hs-type">liftE0</span></a></span><span> </span><span class="hs-glyph">::</span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201283"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201284"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201283"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-71"></span><span id="liftE0"><span class="annot"><span class="annottext">liftE0 :: forall {k} a (e :: k). GLtype a =&gt; String -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftE0"><span class="hs-identifier hs-var hs-var">liftE0</span></a></span></span><span> </span><span id="local-6989586621679201288"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201288"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e a
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201288"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span id="local-6989586621679200974"><span id="local-6989586621679200975"><span id="local-6989586621679200976"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-type">liftE1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200974"><span class="hs-identifier hs-type">a2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200975"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200976"><span class="hs-identifier hs-type">a1</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200975"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200974"><span class="hs-identifier hs-type">a2</span></a></span></span></span></span><span>
+</span><span id="line-74"></span><span id="liftE1"><span class="annot"><span class="annottext">liftE1 :: forall {k} {k} a2 (e :: k) (a1 :: k).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var hs-var">liftE1</span></a></span></span><span> </span><span id="local-6989586621679201292"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201292"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span id="local-6989586621679201293"><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201293"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e a2
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201292"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201293"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span id="local-6989586621679200985"><span id="local-6989586621679200986"><span id="local-6989586621679200987"><span id="local-6989586621679200988"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-type">liftE2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200985"><span class="hs-identifier hs-type">a3</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200986"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200987"><span class="hs-identifier hs-type">a1</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200986"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200988"><span class="hs-identifier hs-type">a2</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200986"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200985"><span class="hs-identifier hs-type">a3</span></a></span></span></span></span></span><span>
+</span><span id="line-77"></span><span id="liftE2"><span class="annot"><span class="annottext">liftE2 :: forall {k} {k} {k} a3 (e :: k) (a1 :: k) (a2 :: k).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var hs-var">liftE2</span></a></span></span><span> </span><span id="local-6989586621679201297"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201297"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span id="local-6989586621679201298"><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201298"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span id="local-6989586621679201299"><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201299"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e a3
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201297"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201298"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201299"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span id="local-6989586621679201000"><span id="local-6989586621679201001"><span id="local-6989586621679201002"><span id="local-6989586621679201003"><span id="local-6989586621679201004"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#liftE3"><span class="hs-identifier hs-type">liftE3</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201000"><span class="hs-identifier hs-type">a4</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201001"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201002"><span class="hs-identifier hs-type">a1</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201001"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201003"><span class="hs-identifier hs-type">a2</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201001"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201004"><span class="hs-identifier hs-type">a3</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201001"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201000"><span class="hs-identifier hs-type">a4</span></a></span></span></span></span></span></span><span>
+</span><span id="line-80"></span><span id="liftE3"><span class="annot"><span class="annottext">liftE3 :: forall {k} {k} {k} {k} a4 (e :: k) (a1 :: k) (a2 :: k) (a3 :: k).
+GLtype a4 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3 -&gt; Expr e a4
+</span><a href="Graphics.Farbe.BuildShader.html#liftE3"><span class="hs-identifier hs-var hs-var">liftE3</span></a></span></span><span> </span><span id="local-6989586621679201303"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201303"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span id="local-6989586621679201304"><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201304"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span id="local-6989586621679201305"><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201305"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span id="local-6989586621679201306"><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201306"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e a4
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201303"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201304"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201305"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201306"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span id="local-6989586621679201015"><span id="local-6989586621679201016"><span id="local-6989586621679201018"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#vecParts"><span class="hs-identifier hs-type">vecParts</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201015"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#Vector"><span class="hs-identifier hs-type">Vector</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201016"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201018"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201016"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201015"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201016"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201018"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201015"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-84"></span><span id="vecParts"><span class="annot"><span class="annottext">vecParts :: forall {k} a (v :: * -&gt; *) (e :: k).
+(GLtype a, Vector v) =&gt;
+Expr e (v a) -&gt; v (Expr e a)
+</span><a href="Graphics.Farbe.BuildShader.html#vecParts"><span class="hs-identifier hs-var hs-var">vecParts</span></a></span></span><span> </span><span id="local-6989586621679201325"><span class="annot"><span class="annottext">Expr e (v a)
+</span><a href="#local-6989586621679201325"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; [Expr e a] -&gt; v (Expr e a)
+forall a. a -&gt; [a] -&gt; v a
+forall (t :: * -&gt; *) a. FromList t =&gt; a -&gt; [a] -&gt; t a
+</span><a href="Graphics.Farbe.Vec.html#fromListFill"><span class="hs-identifier hs-var">fromListFill</span></a></span><span> </span><span class="hs-identifier">bottom</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">map</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">i</span><span> </span><span id="local-6989586621679201327"></span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">arrV</span><span> </span><span class="hs-identifier">e</span><span> </span><span class="hs-identifier">i</span><span class="hs-special">)</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">map</span><span> </span><span class="hs-identifier">expr</span><span> </span><span class="hs-special">[</span><span class="hs-number">0</span><span class="hs-glyph">..</span><span class="hs-special">]</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#exprVec"><span class="hs-identifier hs-type">exprVec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679201038"><span class="annot"><a href="#local-6989586621679201038"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span id="local-6989586621679201036"><span class="annot"><a href="#local-6989586621679201036"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679201037"><span class="annot"><a href="#local-6989586621679201037"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201036"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#Vector"><span class="hs-identifier hs-type">Vector</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201037"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201037"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201036"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201037"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201038"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201036"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201038"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201037"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201036"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span id="exprVec"><span class="annot"><span class="annottext">exprVec :: forall {k} (e :: k) a (v :: * -&gt; *).
+(GLtype a, Vector v, GLtype (v a)) =&gt;
+v (Expr e a) -&gt; Expr e (v a)
+</span><a href="Graphics.Farbe.BuildShader.html#exprVec"><span class="hs-identifier hs-var hs-var">exprVec</span></a></span></span><span> </span><span id="local-6989586621679201340"><span class="annot"><span class="annottext">v (Expr e a)
+</span><a href="#local-6989586621679201340"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e (v a)
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">v a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var">slName</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">v</span><span> </span><span class="hs-identifier">a</span><span class="annot"><a href="#local-6989586621679201037"><span class="hs-special hs-type">)</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">map</span><span> </span><span class="hs-identifier">unExpr</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">toList</span><span> </span><span class="hs-identifier">v</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#exprMat"><span class="hs-identifier hs-type">exprMat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679201046"><span class="annot"><a href="#local-6989586621679201046"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679201048"><span class="annot"><a href="#local-6989586621679201048"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span id="local-6989586621679201047"><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-operator">.</span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201046"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#Vector"><span class="hs-identifier hs-type">Vector</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201046"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201046"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>	</span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201048"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201046"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201048"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201046"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span id="exprMat"><span class="annot"><span class="annottext">exprMat :: forall {k} a (e :: k) (v :: * -&gt; *).
+(GLtype a, Vector v, GLtype (v a), GLtype (v (v a))) =&gt;
+v (v (Expr e a)) -&gt; Expr e (v (v a))
+</span><a href="Graphics.Farbe.BuildShader.html#exprMat"><span class="hs-identifier hs-var hs-var">exprMat</span></a></span></span><span> </span><span id="local-6989586621679201357"><span class="annot"><span class="annottext">v (v (Expr e a))
+</span><a href="#local-6989586621679201357"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [ExprI] -&gt; Expr e (v (v a))
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; [ExprI] -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftExpr"><span class="hs-identifier hs-var">liftExpr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">v a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var">slName</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">v</span><span> </span><span class="hs-identifier">a</span><span class="annot"><a href="#local-6989586621679201047"><span class="hs-special hs-type">)</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">map</span><span> </span><span class="hs-identifier">unExpr</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">concatMap</span><span> </span><span class="hs-identifier">toList</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">toList</span><span> </span><span class="hs-identifier">v</span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span id="local-6989586621679201030"><span id="local-6989586621679201031"><span id="local-6989586621679201032"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#arrV"><span class="hs-identifier hs-type">arrV</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201030"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#Vector"><span class="hs-identifier hs-type">Vector</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201031"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201032"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201031"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201030"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201032"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201032"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201030"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-94"></span><span id="arrV"><span class="annot"><span class="annottext">arrV :: forall {k} a (v :: * -&gt; *) (e :: k).
+(GLtype a, Vector v) =&gt;
+Expr e (v a) -&gt; Expr e Int32 -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#arrV"><span class="hs-identifier hs-var hs-var">arrV</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e (v a) -&gt; Expr e Int32 -&gt; Expr e a
+forall {k} {k} {k} a3 (e :: k) (a1 :: k) (a2 :: k).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;[]&quot;</span></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- Shader building monad -----------------------------------------------------------------</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-keyword">data</span><span> </span><span id="BuildShaderState"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-var">BuildShaderState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BuildShaderState"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-var">BuildShaderState</span></a></span></span><span>
+</span><span id="line-101"></span><span>	</span><span class="hs-special">{</span><span> </span><span id="header"><span class="annot"><span class="annottext">BuildShaderState -&gt; Set String
+</span><a href="Graphics.Farbe.BuildShader.html#header"><span class="hs-identifier hs-var hs-var">header</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Set</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-102"></span><span>	</span><span class="hs-special">,</span><span> </span><span id="bexpr"><span class="annot"><span class="annottext">BuildShaderState -&gt; [(String, ExprS)]
+</span><a href="Graphics.Farbe.BuildShader.html#bexpr"><span class="hs-identifier hs-var hs-var">bexpr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ExprS"><span class="hs-identifier hs-type">ExprS</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-103"></span><span>	</span><span class="hs-special">}</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#emptyShaderState"><span class="hs-identifier hs-type">emptyShaderState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-type">BuildShaderState</span></a></span><span>
+</span><span id="line-106"></span><span id="emptyShaderState"><span class="annot"><span class="annottext">emptyShaderState :: BuildShaderState
+</span><a href="Graphics.Farbe.BuildShader.html#emptyShaderState"><span class="hs-identifier hs-var hs-var">emptyShaderState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set String -&gt; [(String, ExprS)] -&gt; BuildShaderState
+</span><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-var">BuildShaderState</span></a></span><span> </span><span class="annot"><span class="annottext">Set String
+forall a. Set a
+</span><span class="hs-identifier hs-var">S.empty</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="hs-keyword">newtype</span><span> </span><span id="BuildShaderT"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-var">BuildShaderT</span></a></span></span><span> </span><span id="local-6989586621679201063"><span class="annot"><a href="#local-6989586621679201063"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679201064"><span class="annot"><a href="#local-6989586621679201064"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BuildShaderT"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-var">BuildShaderT</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unBuildShaderT"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) a.
+BuildShaderT m a -&gt; StateT BuildShaderState m a
+</span><a href="Graphics.Farbe.BuildShader.html#unBuildShaderT"><span class="hs-identifier hs-var hs-var">unBuildShaderT</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateT</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-type">BuildShaderState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201063"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201064"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-109"></span><span>	</span><span class="hs-keyword">deriving</span><span>
+</span><span id="line-110"></span><span>		</span><span class="hs-special">(</span><span id="local-6989586621679201371"><span id="local-6989586621679201376"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b)
+-&gt; (forall a b. a -&gt; BuildShaderT m b -&gt; BuildShaderT m a)
+-&gt; Functor (BuildShaderT m)
+forall a b. a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+forall a b. (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+$cfmap :: forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+fmap :: forall a b. (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+$c&lt;$ :: forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+&lt;$ :: forall a b. a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679201386"><span id="local-6989586621679201391"><span id="local-6989586621679201395"><span id="local-6989586621679201399"><span id="local-6989586621679201403"><span class="annot"><span class="annottext">Functor (BuildShaderT m)
+Functor (BuildShaderT m) =&gt;
+(forall a. a -&gt; BuildShaderT m a)
+-&gt; (forall a b.
+    BuildShaderT m (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m c)
+-&gt; (forall a b.
+    BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b)
+-&gt; (forall a b.
+    BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m a)
+-&gt; Applicative (BuildShaderT m)
+forall a. a -&gt; BuildShaderT m a
+forall a b.
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+forall a b.
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+forall a b.
+BuildShaderT m (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m c
+forall (m :: * -&gt; *). Monad m =&gt; Functor (BuildShaderT m)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; c)
+-&gt; BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a. a -&gt; f a)
+-&gt; (forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; Applicative f
+$cpure :: forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; BuildShaderT m a
+pure :: forall a. a -&gt; BuildShaderT m a
+$c&lt;*&gt; :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+&lt;*&gt; :: forall a b.
+BuildShaderT m (a -&gt; b) -&gt; BuildShaderT m a -&gt; BuildShaderT m b
+$cliftA2 :: forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; c)
+-&gt; BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m c
+liftA2 :: forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m c
+$c*&gt; :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+*&gt; :: forall a b.
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+$c&lt;* :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+&lt;* :: forall a b.
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679201417"><span id="local-6989586621679201422"><span id="local-6989586621679201426"><span class="annot"><span class="annottext">Applicative (BuildShaderT m)
+Applicative (BuildShaderT m) =&gt;
+(forall a b.
+ BuildShaderT m a -&gt; (a -&gt; BuildShaderT m b) -&gt; BuildShaderT m b)
+-&gt; (forall a b.
+    BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b)
+-&gt; (forall a. a -&gt; BuildShaderT m a)
+-&gt; Monad (BuildShaderT m)
+forall a. a -&gt; BuildShaderT m a
+forall a b.
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+forall a b.
+BuildShaderT m a -&gt; (a -&gt; BuildShaderT m b) -&gt; BuildShaderT m b
+forall (m :: * -&gt; *). Monad m =&gt; Applicative (BuildShaderT m)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; (a -&gt; BuildShaderT m b) -&gt; BuildShaderT m b
+forall (m :: * -&gt; *).
+Applicative m =&gt;
+(forall a b. m a -&gt; (a -&gt; m b) -&gt; m b)
+-&gt; (forall a b. m a -&gt; m b -&gt; m b)
+-&gt; (forall a. a -&gt; m a)
+-&gt; Monad m
+$c&gt;&gt;= :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; (a -&gt; BuildShaderT m b) -&gt; BuildShaderT m b
+&gt;&gt;= :: forall a b.
+BuildShaderT m a -&gt; (a -&gt; BuildShaderT m b) -&gt; BuildShaderT m b
+$c&gt;&gt; :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+&gt;&gt; :: forall a b.
+BuildShaderT m a -&gt; BuildShaderT m b -&gt; BuildShaderT m b
+$creturn :: forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; BuildShaderT m a
+return :: forall a. a -&gt; BuildShaderT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679201435"><span class="annot"><span class="annottext">Monad (BuildShaderT m)
+Monad (BuildShaderT m) =&gt;
+(forall a. IO a -&gt; BuildShaderT m a) -&gt; MonadIO (BuildShaderT m)
+forall a. IO a -&gt; BuildShaderT m a
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(forall a. IO a -&gt; m a) -&gt; MonadIO m
+forall (m :: * -&gt; *). MonadIO m =&gt; Monad (BuildShaderT m)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; BuildShaderT m a
+$cliftIO :: forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; BuildShaderT m a
+liftIO :: forall a. IO a -&gt; BuildShaderT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679201446"><span class="annot"><span class="annottext">(forall (m :: * -&gt; *). Monad m =&gt; Monad (BuildShaderT m)) =&gt;
+(forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; BuildShaderT m a)
+-&gt; MonadTrans BuildShaderT
+forall (m :: * -&gt; *). Monad m =&gt; Monad (BuildShaderT m)
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; BuildShaderT m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *).
+(forall (m :: * -&gt; *). Monad m =&gt; Monad (t m)) =&gt;
+(forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; t m a) -&gt; MonadTrans t
+$clift :: forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; BuildShaderT m a
+lift :: forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; BuildShaderT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadTrans</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679201460"><span id="local-6989586621679201466"><span id="local-6989586621679201470"><span id="local-6989586621679201474"><span id="local-6989586621679201478"><span class="annot"><span class="annottext">MonadIO (BuildShaderT m)
+BuildShaderT m FarbeState
+MonadIO (BuildShaderT m) =&gt;
+(forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; BuildShaderT m a)
+-&gt; (forall a. (FarbeState -&gt; a) -&gt; BuildShaderT m a)
+-&gt; BuildShaderT m FarbeState
+-&gt; (FarbeState -&gt; BuildShaderT m ())
+-&gt; ((FarbeState -&gt; FarbeState) -&gt; BuildShaderT m ())
+-&gt; Farbe (BuildShaderT m)
+FarbeState -&gt; BuildShaderT m ()
+(FarbeState -&gt; FarbeState) -&gt; BuildShaderT m ()
+forall a. (FarbeState -&gt; a) -&gt; BuildShaderT m a
+forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; BuildShaderT m a
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+(forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; m a)
+-&gt; (forall a. (FarbeState -&gt; a) -&gt; m a)
+-&gt; m FarbeState
+-&gt; (FarbeState -&gt; m ())
+-&gt; ((FarbeState -&gt; FarbeState) -&gt; m ())
+-&gt; Farbe m
+forall (m :: * -&gt; *). Farbe m =&gt; MonadIO (BuildShaderT m)
+forall (m :: * -&gt; *). Farbe m =&gt; BuildShaderT m FarbeState
+forall (m :: * -&gt; *). Farbe m =&gt; FarbeState -&gt; BuildShaderT m ()
+forall (m :: * -&gt; *).
+Farbe m =&gt;
+(FarbeState -&gt; FarbeState) -&gt; BuildShaderT m ()
+forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; a) -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; (a, FarbeState)) -&gt; BuildShaderT m a
+$cstateFarbe :: forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; (a, FarbeState)) -&gt; BuildShaderT m a
+stateFarbe :: forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; BuildShaderT m a
+$cgetsFarbe :: forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; a) -&gt; BuildShaderT m a
+getsFarbe :: forall a. (FarbeState -&gt; a) -&gt; BuildShaderT m a
+$cgetFarbe :: forall (m :: * -&gt; *). Farbe m =&gt; BuildShaderT m FarbeState
+getFarbe :: BuildShaderT m FarbeState
+$cputFarbe :: forall (m :: * -&gt; *). Farbe m =&gt; FarbeState -&gt; BuildShaderT m ()
+putFarbe :: FarbeState -&gt; BuildShaderT m ()
+$cmodifyFarbe :: forall (m :: * -&gt; *).
+Farbe m =&gt;
+(FarbeState -&gt; FarbeState) -&gt; BuildShaderT m ()
+modifyFarbe :: (FarbeState -&gt; FarbeState) -&gt; BuildShaderT m ()
+</span><a href="Graphics.Farbe.State.html#Farbe"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Farbe</span></a></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679201146"><span id="local-6989586621679201147"><span id="local-6989586621679201494"><span id="local-6989586621679201498"><span class="annot"><span class="hs-identifier hs-type">MonadState</span></span><span> </span><span class="annot"><a href="#local-6989586621679201146"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201147"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadState</span></span><span> </span><span class="annot"><a href="#local-6989586621679201146"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-type">BuildShaderT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201147"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-113"></span><span>	</span><span id="local-6989586621679201506"><span class="annot"><span class="annottext">state :: forall a. (s -&gt; (a, s)) -&gt; BuildShaderT m a
+</span><a href="#local-6989586621679201506"><span class="hs-identifier hs-var hs-var hs-var">state</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; BuildShaderT m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(m a -&gt; BuildShaderT m a)
+-&gt; ((s -&gt; (a, s)) -&gt; m a) -&gt; (s -&gt; (a, s)) -&gt; BuildShaderT m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(s -&gt; (a, s)) -&gt; m a
+forall a. (s -&gt; (a, s)) -&gt; m a
+forall s (m :: * -&gt; *) a. MonadState s m =&gt; (s -&gt; (a, s)) -&gt; m a
+</span><span class="hs-identifier hs-var">state</span></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span id="local-6989586621679201152"><span id="local-6989586621679201153"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#runBuildShader"><span class="hs-identifier hs-type">runBuildShader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-type">BuildShaderT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201152"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201153"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201152"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201153"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-type">BuildShaderState</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-117"></span><span id="runBuildShader"><span class="annot"><span class="annottext">runBuildShader :: forall (m :: * -&gt; *) a. BuildShaderT m a -&gt; m (a, BuildShaderState)
+</span><a href="Graphics.Farbe.BuildShader.html#runBuildShader"><span class="hs-identifier hs-var hs-var">runBuildShader</span></a></span></span><span>  </span><span id="local-6989586621679201510"><span class="annot"><span class="annottext">BuildShaderT m a
+</span><a href="#local-6989586621679201510"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT BuildShaderState m a
+-&gt; BuildShaderState -&gt; m (a, BuildShaderState)
+forall s (m :: * -&gt; *) a. StateT s m a -&gt; s -&gt; m (a, s)
+</span><span class="hs-identifier hs-var">runStateT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuildShaderT m a -&gt; StateT BuildShaderState m a
+forall (m :: * -&gt; *) a.
+BuildShaderT m a -&gt; StateT BuildShaderState m a
+</span><a href="Graphics.Farbe.BuildShader.html#unBuildShaderT"><span class="hs-identifier hs-var">unBuildShaderT</span></a></span><span> </span><span class="annot"><span class="annottext">BuildShaderT m a
+</span><a href="#local-6989586621679201510"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="Graphics.Farbe.BuildShader.html#emptyShaderState"><span class="hs-identifier hs-var">emptyShaderState</span></a></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679201159"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="BuildShader"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShader"><span class="hs-identifier hs-var">BuildShader</span></a></span></span><span> </span><span id="local-6989586621679201159"><span class="annot"><a href="#local-6989586621679201159"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-121"></span><span>	</span><span id="buildShaderState"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#buildShaderState"><span class="hs-identifier hs-type">buildShaderState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679201161"><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-type">BuildShaderState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201161"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-type">BuildShaderState</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201159"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201161"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span>	</span><span id="buildShaderStateGet"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#buildShaderStateGet"><span class="hs-identifier hs-type">buildShaderStateGet</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679201159"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-type">BuildShaderState</span></a></span><span>
+</span><span id="line-124"></span><span>	</span><span id="local-6989586621679201516"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#buildShaderStateGet"><span class="hs-identifier hs-var hs-var">buildShaderStateGet</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuildShaderState -&gt; (BuildShaderState, BuildShaderState))
+-&gt; m BuildShaderState
+forall a. (BuildShaderState -&gt; (a, BuildShaderState)) -&gt; m a
+forall (m :: * -&gt; *) a.
+BuildShader m =&gt;
+(BuildShaderState -&gt; (a, BuildShaderState)) -&gt; m a
+</span><a href="Graphics.Farbe.BuildShader.html#buildShaderState"><span class="hs-identifier hs-var">buildShaderState</span></a></span><span> </span><span class="annot"><span class="annottext">((BuildShaderState -&gt; (BuildShaderState, BuildShaderState))
+ -&gt; m BuildShaderState)
+-&gt; (BuildShaderState -&gt; (BuildShaderState, BuildShaderState))
+-&gt; m BuildShaderState
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679201518"><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201518"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201518"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201518"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-125"></span><span>	</span><span id="buildShaderStatePut"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#buildShaderStatePut"><span class="hs-identifier hs-type">buildShaderStatePut</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderState"><span class="hs-identifier hs-type">BuildShaderState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201159"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>	</span><span id="local-6989586621679201520"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#buildShaderStatePut"><span class="hs-identifier hs-var hs-var">buildShaderStatePut</span></a></span><span> </span><span id="local-6989586621679201522"><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201522"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuildShaderState -&gt; ((), BuildShaderState)) -&gt; m ()
+forall a. (BuildShaderState -&gt; (a, BuildShaderState)) -&gt; m a
+forall (m :: * -&gt; *) a.
+BuildShader m =&gt;
+(BuildShaderState -&gt; (a, BuildShaderState)) -&gt; m a
+</span><a href="Graphics.Farbe.BuildShader.html#buildShaderState"><span class="hs-identifier hs-var">buildShaderState</span></a></span><span> </span><span class="annot"><span class="annottext">((BuildShaderState -&gt; ((), BuildShaderState)) -&gt; m ())
+-&gt; (BuildShaderState -&gt; ((), BuildShaderState)) -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">BuildShaderState
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201522"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679201163"><span id="local-6989586621679201528"><span id="local-6989586621679201532"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679201163"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShader"><span class="hs-identifier hs-type">BuildShader</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-type">BuildShaderT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201163"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-129"></span><span>	</span><span id="local-6989586621679201537"><span class="annot"><span class="annottext">buildShaderState :: forall a.
+(BuildShaderState -&gt; (a, BuildShaderState)) -&gt; BuildShaderT m a
+</span><a href="Graphics.Farbe.BuildShader.html#buildShaderState"><span class="hs-identifier hs-var hs-var hs-var">buildShaderState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT BuildShaderState m a -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a.
+StateT BuildShaderState m a -&gt; BuildShaderT m a
+</span><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-var">BuildShaderT</span></a></span><span> </span><span class="annot"><span class="annottext">(StateT BuildShaderState m a -&gt; BuildShaderT m a)
+-&gt; ((BuildShaderState -&gt; (a, BuildShaderState))
+    -&gt; StateT BuildShaderState m a)
+-&gt; (BuildShaderState -&gt; (a, BuildShaderState))
+-&gt; BuildShaderT m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(BuildShaderState -&gt; (a, BuildShaderState))
+-&gt; StateT BuildShaderState m a
+forall a.
+(BuildShaderState -&gt; (a, BuildShaderState))
+-&gt; StateT BuildShaderState m a
+forall s (m :: * -&gt; *) a. MonadState s m =&gt; (s -&gt; (a, s)) -&gt; m a
+</span><span class="hs-identifier hs-var">state</span></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- ~ SIMPLEFUNCTION_CLASSINSTANCES(buildShaderState,BuildShader,.)</span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span id="local-6989586621679201167"><span id="local-6989586621679201168"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#addHeader"><span class="hs-identifier hs-type">addHeader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201167"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShader"><span class="hs-identifier hs-type">BuildShader</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201168"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201167"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679201168"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span><span>
+</span><span id="line-134"></span><span id="addHeader"><span class="annot"><span class="annottext">addHeader :: forall a (m :: * -&gt; *).
+(GLtype a, BuildShader m) =&gt;
+String -&gt; a -&gt; String -&gt; m Bool
+</span><a href="Graphics.Farbe.BuildShader.html#addHeader"><span class="hs-identifier hs-var hs-var">addHeader</span></a></span></span><span> </span><span id="local-6989586621679201555"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201555"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span id="local-6989586621679201556"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679201556"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679201557"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201557"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-135"></span><span>	</span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679201560"><span class="annot"><span class="annottext">str :: String
+</span><a href="#local-6989586621679201560"><span class="hs-identifier hs-var hs-var hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[String] -&gt; String
+</span><span class="hs-identifier hs-var">unwords</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201555"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slNameWithPrec"><span class="hs-identifier hs-var">slNameWithPrec</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679201556"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201557"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;;&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-136"></span><span>	</span><span id="local-6989586621679201563"><span class="annot"><a href="#local-6989586621679201563"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m BuildShaderState
+forall (m :: * -&gt; *). BuildShader m =&gt; m BuildShaderState
+</span><a href="Graphics.Farbe.BuildShader.html#buildShaderStateGet"><span class="hs-identifier hs-var">buildShaderStateGet</span></a></span><span>
+</span><span id="line-137"></span><span>	</span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679201566"><span class="annot"><a href="#local-6989586621679201566"><span class="hs-identifier hs-var hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; Bool -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Set String -&gt; Bool
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Bool
+</span><span class="hs-identifier hs-var">S.member</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201560"><span class="hs-identifier hs-var">str</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuildShaderState -&gt; Set String
+</span><a href="Graphics.Farbe.BuildShader.html#header"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201563"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>	</span><span class="annot"><span class="hs-identifier hs-type">when</span></span><span> </span><span class="annot"><a href="#local-6989586621679201566"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#buildShaderStatePut"><span class="hs-identifier hs-type">buildShaderStatePut</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="#local-6989586621679201563"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#header"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679201560"><span class="hs-identifier hs-type">str</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#header"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201563"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-139"></span><span>	</span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><a href="#local-6989586621679201566"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span id="local-6989586621679201177"><span id="local-6989586621679201178"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#addExpr"><span class="hs-identifier hs-type">addExpr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201177"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201178"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Shdr"><span class="hs-identifier hs-type">Shdr</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-143"></span><span id="addExpr"><span class="annot"><span class="annottext">addExpr :: forall {k} {k} (e :: k) (a :: k). String -&gt; Expr e a -&gt; Shdr ()
+</span><a href="Graphics.Farbe.BuildShader.html#addExpr"><span class="hs-identifier hs-var hs-var">addExpr</span></a></span></span><span> </span><span id="local-6989586621679201574"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679201574"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span id="local-6989586621679201575"><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201575"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-144"></span><span>	</span><span id="local-6989586621679201576"><span class="annot"><a href="#local-6989586621679201576"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ExprI -&gt; Shdr ExprS
+</span><a href="Graphics.Farbe.BuildShader.html#runExprI"><span class="hs-identifier hs-var">runExprI</span></a></span><span> </span><span class="annot"><span class="annottext">ExprI
+</span><a href="#local-6989586621679201575"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-145"></span><span>	</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#buildShaderState"><span class="hs-identifier hs-type">buildShaderState</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679201577"><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201577"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">BuildShaderState
+</span><a href="#local-6989586621679201577"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#bexpr"><span class="hs-identifier hs-var">bexpr</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679201574"><span class="hs-identifier hs-type">n</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679201576"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#bexpr"><span class="hs-identifier hs-var">bexpr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201577"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-keyword">data</span><span> </span><span id="V"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#V"><span class="hs-identifier hs-var">V</span></a></span></span><span> </span><span class="hs-comment">-- | Vertex shader signifier.</span><span>
+</span><span id="line-148"></span><span class="hs-keyword">data</span><span> </span><span id="F"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#F"><span class="hs-identifier hs-var">F</span></a></span></span><span> </span><span class="hs-comment">-- | Fragment/pixel shader signifier.</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-keyword">class</span><span> </span><span id="ShaderType"><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ShaderType"><span class="hs-identifier hs-var">ShaderType</span></a></span></span><span> </span><span id="local-6989586621679201186"><span class="annot"><a href="#local-6989586621679201186"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-151"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ShaderType"><span class="hs-identifier hs-type">ShaderType</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#V"><span class="hs-identifier hs-type">V</span></a></span><span>
+</span><span id="line-152"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#ShaderType"><span class="hs-identifier hs-type">ShaderType</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#F"><span class="hs-identifier hs-type">F</span></a></span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679201194"><span id="local-6989586621679201588"><span id="local-6989586621679201592"><span id="local-6989586621679201595"><span id="local-6989586621679201598"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679201194"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201194"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#BuildShaderT"><span class="hs-identifier hs-type">BuildShaderT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679201194"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-156"></span><span>	</span><span id="local-6989586621679201605"><span class="annot"><span class="annottext">stateShader :: forall a. (ShaderData -&gt; (a, ShaderData)) -&gt; BuildShaderT m a
+</span><a href="#local-6989586621679201605"><span class="hs-identifier hs-var hs-var hs-var">stateShader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; BuildShaderT m a
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; BuildShaderT m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(m a -&gt; BuildShaderT m a)
+-&gt; ((ShaderData -&gt; (a, ShaderData)) -&gt; m a)
+-&gt; (ShaderData -&gt; (a, ShaderData))
+-&gt; BuildShaderT m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; (a, ShaderData)) -&gt; m a
+forall a. (ShaderData -&gt; (a, ShaderData)) -&gt; m a
+forall (m :: * -&gt; *) a.
+ShaderEnv m =&gt;
+(ShaderData -&gt; (a, ShaderData)) -&gt; m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#stateShader"><span class="hs-identifier hs-var">stateShader</span></a></span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span></pre></body></html>

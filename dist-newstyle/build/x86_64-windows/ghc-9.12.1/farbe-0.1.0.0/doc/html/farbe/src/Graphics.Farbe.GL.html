@@ -1,0 +1,624 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-tabs #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE PatternSynonyms #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html"><span class="hs-identifier">Graphics.Farbe.GL</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html"><span class="hs-identifier">Graphics.Farbe.Vec</span></a></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\hashable-1.5.1.0-a3ca0d0d8fe4b081b728db3b173b80016dd608ab\share\doc\html\src/Data.Hashable.html"><span class="hs-identifier">Data.Hashable</span></a></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">void</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Embedded20.html"><span class="hs-identifier">Graphics.GL.Embedded20</span></a></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Types.html"><span class="hs-identifier">Graphics.GL.Types</span></a></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- GL type information -------------------------------------------------------------------</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">data</span><span> </span><span id="TypeS"><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-var">TypeS</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TBool"><span class="annot"><a href="Graphics.Farbe.GL.html#TBool"><span class="hs-identifier hs-var">TBool</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="TInt"><span class="annot"><a href="Graphics.Farbe.GL.html#TInt"><span class="hs-identifier hs-var">TInt</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="TFloat"><span class="annot"><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="TVec2"><span class="annot"><a href="Graphics.Farbe.GL.html#TVec2"><span class="hs-identifier hs-var">TVec2</span></a></span></span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-type">TypeS</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="TVec3"><span class="annot"><a href="Graphics.Farbe.GL.html#TVec3"><span class="hs-identifier hs-var">TVec3</span></a></span></span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-type">TypeS</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="TVec4"><span class="annot"><a href="Graphics.Farbe.GL.html#TVec4"><span class="hs-identifier hs-var">TVec4</span></a></span></span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-type">TypeS</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="TTex"><span class="annot"><a href="Graphics.Farbe.GL.html#TTex"><span class="hs-identifier hs-var">TTex</span></a></span></span><span>
+</span><span id="line-23"></span><span>	</span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679193633"><span id="local-6989586621679193642"><span class="annot"><span class="annottext">TypeS -&gt; TypeS -&gt; Bool
+(TypeS -&gt; TypeS -&gt; Bool) -&gt; (TypeS -&gt; TypeS -&gt; Bool) -&gt; Eq TypeS
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: TypeS -&gt; TypeS -&gt; Bool
+== :: TypeS -&gt; TypeS -&gt; Bool
+$c/= :: TypeS -&gt; TypeS -&gt; Bool
+/= :: TypeS -&gt; TypeS -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679193648"><span id="local-6989586621679193658"><span id="local-6989586621679193661"><span id="local-6989586621679193664"><span id="local-6989586621679193667"><span id="local-6989586621679193670"><span id="local-6989586621679193673"><span class="annot"><span class="annottext">Eq TypeS
+Eq TypeS =&gt;
+(TypeS -&gt; TypeS -&gt; Ordering)
+-&gt; (TypeS -&gt; TypeS -&gt; Bool)
+-&gt; (TypeS -&gt; TypeS -&gt; Bool)
+-&gt; (TypeS -&gt; TypeS -&gt; Bool)
+-&gt; (TypeS -&gt; TypeS -&gt; Bool)
+-&gt; (TypeS -&gt; TypeS -&gt; TypeS)
+-&gt; (TypeS -&gt; TypeS -&gt; TypeS)
+-&gt; Ord TypeS
+TypeS -&gt; TypeS -&gt; Bool
+TypeS -&gt; TypeS -&gt; Ordering
+TypeS -&gt; TypeS -&gt; TypeS
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+$ccompare :: TypeS -&gt; TypeS -&gt; Ordering
+compare :: TypeS -&gt; TypeS -&gt; Ordering
+$c&lt; :: TypeS -&gt; TypeS -&gt; Bool
+&lt; :: TypeS -&gt; TypeS -&gt; Bool
+$c&lt;= :: TypeS -&gt; TypeS -&gt; Bool
+&lt;= :: TypeS -&gt; TypeS -&gt; Bool
+$c&gt; :: TypeS -&gt; TypeS -&gt; Bool
+&gt; :: TypeS -&gt; TypeS -&gt; Bool
+$c&gt;= :: TypeS -&gt; TypeS -&gt; Bool
+&gt;= :: TypeS -&gt; TypeS -&gt; Bool
+$cmax :: TypeS -&gt; TypeS -&gt; TypeS
+max :: TypeS -&gt; TypeS -&gt; TypeS
+$cmin :: TypeS -&gt; TypeS -&gt; TypeS
+min :: TypeS -&gt; TypeS -&gt; TypeS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679193678"><span id="local-6989586621679193682"><span id="local-6989586621679193685"><span id="local-6989586621679193704"><span class="annot"><span class="annottext">ReadPrec [TypeS]
+ReadPrec TypeS
+Int -&gt; ReadS TypeS
+ReadS [TypeS]
+(Int -&gt; ReadS TypeS)
+-&gt; ReadS [TypeS]
+-&gt; ReadPrec TypeS
+-&gt; ReadPrec [TypeS]
+-&gt; Read TypeS
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+$creadsPrec :: Int -&gt; ReadS TypeS
+readsPrec :: Int -&gt; ReadS TypeS
+$creadList :: ReadS [TypeS]
+readList :: ReadS [TypeS]
+$creadPrec :: ReadPrec TypeS
+readPrec :: ReadPrec TypeS
+$creadListPrec :: ReadPrec [TypeS]
+readListPrec :: ReadPrec [TypeS]
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679193711"><span id="local-6989586621679193721"><span id="local-6989586621679193724"><span class="annot"><span class="annottext">Int -&gt; TypeS -&gt; ShowS
+[TypeS] -&gt; ShowS
+TypeS -&gt; String
+(Int -&gt; TypeS -&gt; ShowS)
+-&gt; (TypeS -&gt; String) -&gt; ([TypeS] -&gt; ShowS) -&gt; Show TypeS
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; TypeS -&gt; ShowS
+showsPrec :: Int -&gt; TypeS -&gt; ShowS
+$cshow :: TypeS -&gt; String
+show :: TypeS -&gt; String
+$cshowList :: [TypeS] -&gt; ShowS
+showList :: [TypeS] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679193729"><span id="local-6989586621679193731"><span class="annot"><span class="annottext">(forall x. TypeS -&gt; Rep TypeS x)
+-&gt; (forall x. Rep TypeS x -&gt; TypeS) -&gt; Generic TypeS
+forall x. Rep TypeS x -&gt; TypeS
+forall x. TypeS -&gt; Rep TypeS x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. TypeS -&gt; Rep TypeS x
+from :: forall x. TypeS -&gt; Rep TypeS x
+$cto :: forall x. Rep TypeS x -&gt; TypeS
+to :: forall x. Rep TypeS x -&gt; TypeS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193739"><span id="local-6989586621679193746"><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\hashable-1.5.1.0-a3ca0d0d8fe4b081b728db3b173b80016dd608ab\share\doc\html\src/Data.Hashable.Class.html#Hashable"><span class="hs-identifier hs-type">Hashable</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-type">TypeS</span></a></span></span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">class</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="GLtype"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-var">GLtype</span></a></span></span><span> </span><span id="local-6989586621679193577"><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-29"></span><span>	</span><span id="slName"><span class="annot"><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-type">slName</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-30"></span><span>	</span><span id="toTypeS"><span class="annot"><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-type">toTypeS</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#TypeS"><span class="hs-identifier hs-type">TypeS</span></a></span><span>
+</span><span id="line-31"></span><span>	</span><span id="glType"><span class="annot"><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-type">glType</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Types.html#GLenum"><span class="hs-identifier hs-type">GLenum</span></a></span><span>
+</span><span id="line-32"></span><span>	</span><span id="glComponents"><span class="annot"><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-type">glComponents</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Types.html#GLint"><span class="hs-identifier hs-type">GLint</span></a></span><span>
+</span><span id="line-33"></span><span>	</span><span id="local-6989586621679193778"><span class="annot"><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var">glComponents</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">1</span></span></span><span>
+</span><span id="line-34"></span><span>	</span><span id="glNormalized"><span class="annot"><a href="Graphics.Farbe.GL.html#glNormalized"><span class="hs-identifier hs-type">glNormalized</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Types.html#GLboolean"><span class="hs-identifier hs-type">GLboolean</span></a></span><span>
+</span><span id="line-35"></span><span>	</span><span id="local-6989586621679193781"><span class="annot"><a href="Graphics.Farbe.GL.html#glNormalized"><span class="hs-identifier hs-var hs-var">glNormalized</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLboolean
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FALSE"><span class="hs-identifier hs-var">GL_FALSE</span></a></span></span><span>
+</span><span id="line-36"></span><span>	</span><span id="glShortName"><span class="annot"><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-type">glShortName</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-37"></span><span>	</span><span id="local-6989586621679193788"><span class="annot"><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var">glShortName</span></a></span><span> </span><span id="local-6989586621679193790"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679193790"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ShowS
+forall a. Int -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">take</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">ShowS -&gt; ShowS
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var">slName</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679193790"><span class="hs-identifier hs-var">a</span></a></span></span><span>
+</span><span id="line-38"></span><span>	</span><span id="glPrecision"><span class="annot"><a href="Graphics.Farbe.GL.html#glPrecision"><span class="hs-identifier hs-type">glPrecision</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-39"></span><span>	</span><span id="local-6989586621679193793"><span class="annot"><a href="Graphics.Farbe.GL.html#glPrecision"><span class="hs-identifier hs-var hs-var">glPrecision</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;highp&quot;</span></span></span><span>
+</span><span id="line-40"></span><span>	</span><span id="slNameWithPrec"><span class="annot"><a href="Graphics.Farbe.GL.html#slNameWithPrec"><span class="hs-identifier hs-type">slNameWithPrec</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-41"></span><span>	</span><span id="local-6989586621679193795"><span class="annot"><a href="Graphics.Farbe.GL.html#slNameWithPrec"><span class="hs-identifier hs-var hs-var">slNameWithPrec</span></a></span><span> </span><span id="local-6989586621679193798"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679193798"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glPrecision"><span class="hs-identifier hs-var">glPrecision</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679193798"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot; &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var">slName</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679193798"><span class="hs-identifier hs-var">a</span></a></span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193806"><span id="local-6989586621679193810"><span id="local-6989586621679193813"><span id="local-6989586621679193816"><span id="local-6989586621679193819"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>	</span><span id="local-6989586621679193822"><span class="annot"><span class="annottext">slName :: Bool -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bool&quot;</span></span><span>
+</span><span id="line-47"></span><span>	</span><span id="local-6989586621679193823"><span class="annot"><span class="annottext">toTypeS :: Bool -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TBool"><span class="hs-identifier hs-var">TBool</span></a></span><span>
+</span><span id="line-48"></span><span>	</span><span id="local-6989586621679193828"><span class="annot"><span class="annottext">glType :: Bool -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_BOOL"><span class="hs-identifier hs-var">GL_BOOL</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193837"><span id="local-6989586621679193841"><span id="local-6989586621679193844"><span id="local-6989586621679193847"><span id="local-6989586621679193850"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-51"></span><span>	</span><span id="local-6989586621679193852"><span class="annot"><span class="annottext">slName :: Int32 -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;int&quot;</span></span><span>
+</span><span id="line-52"></span><span>	</span><span id="local-6989586621679193853"><span class="annot"><span class="annottext">toTypeS :: Int32 -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TInt"><span class="hs-identifier hs-var">TInt</span></a></span><span>
+</span><span id="line-53"></span><span>	</span><span id="local-6989586621679193856"><span class="annot"><span class="annottext">glType :: Int32 -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_INT"><span class="hs-identifier hs-var">GL_INT</span></a></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193865"><span id="local-6989586621679193869"><span id="local-6989586621679193872"><span id="local-6989586621679193875"><span id="local-6989586621679193878"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-56"></span><span>	</span><span id="local-6989586621679193880"><span class="annot"><span class="annottext">slName :: Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;float&quot;</span></span><span>
+</span><span id="line-57"></span><span>	</span><span id="local-6989586621679193881"><span class="annot"><span class="annottext">toTypeS :: Float -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span><span>
+</span><span id="line-58"></span><span>	</span><span id="local-6989586621679193884"><span class="annot"><span class="annottext">glType :: Float -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FLOAT"><span class="hs-identifier hs-var">GL_FLOAT</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193895"><span id="local-6989586621679193900"><span id="local-6989586621679193903"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V2"><span class="hs-identifier hs-type">V2</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-61"></span><span>	</span><span id="local-6989586621679193905"><span class="annot"><span class="annottext">slName :: V2 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;vec2&quot;</span></span><span>
+</span><span id="line-62"></span><span>	</span><span id="local-6989586621679193906"><span class="annot"><span class="annottext">toTypeS :: V2 Float -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec2"><span class="hs-identifier hs-var">TVec2</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span><span>
+</span><span id="line-63"></span><span>	</span><span id="local-6989586621679193909"><span class="annot"><span class="annottext">glType :: V2 Float -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FLOAT"><span class="hs-identifier hs-var">GL_FLOAT</span></a></span><span>
+</span><span id="line-64"></span><span>	</span><span id="local-6989586621679193911"><span class="annot"><span class="annottext">glComponents :: V2 Float -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-65"></span><span>	</span><span id="local-6989586621679193912"><span class="annot"><span class="annottext">glShortName :: V2 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v2&quot;</span></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193922"><span id="local-6989586621679193927"><span id="local-6989586621679193930"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V3"><span class="hs-identifier hs-type">V3</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-68"></span><span>	</span><span id="local-6989586621679193932"><span class="annot"><span class="annottext">slName :: V3 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;vec3&quot;</span></span><span>
+</span><span id="line-69"></span><span>	</span><span id="local-6989586621679193933"><span class="annot"><span class="annottext">toTypeS :: V3 Float -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec3"><span class="hs-identifier hs-var">TVec3</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span><span>
+</span><span id="line-70"></span><span>	</span><span id="local-6989586621679193936"><span class="annot"><span class="annottext">glType :: V3 Float -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FLOAT"><span class="hs-identifier hs-var">GL_FLOAT</span></a></span><span>
+</span><span id="line-71"></span><span>	</span><span id="local-6989586621679193938"><span class="annot"><span class="annottext">glComponents :: V3 Float -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-72"></span><span>	</span><span id="local-6989586621679193939"><span class="annot"><span class="annottext">glShortName :: V3 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v3&quot;</span></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193949"><span id="local-6989586621679193954"><span id="local-6989586621679193957"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V4"><span class="hs-identifier hs-type">V4</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-75"></span><span>	</span><span id="local-6989586621679193959"><span class="annot"><span class="annottext">slName :: V4 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;vec4&quot;</span></span><span>
+</span><span id="line-76"></span><span>	</span><span id="local-6989586621679193960"><span class="annot"><span class="annottext">toTypeS :: V4 Float -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec4"><span class="hs-identifier hs-var">TVec4</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span><span>
+</span><span id="line-77"></span><span>	</span><span id="local-6989586621679193963"><span class="annot"><span class="annottext">glType :: V4 Float -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FLOAT"><span class="hs-identifier hs-var">GL_FLOAT</span></a></span><span>
+</span><span id="line-78"></span><span>	</span><span id="local-6989586621679193965"><span class="annot"><span class="annottext">glComponents :: V4 Float -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-79"></span><span>	</span><span id="local-6989586621679193966"><span class="annot"><span class="annottext">glShortName :: V4 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v4&quot;</span></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193975"><span id="local-6989586621679193980"><span id="local-6989586621679193983"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V2"><span class="hs-identifier hs-type">V2</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-83"></span><span>	</span><span id="local-6989586621679193985"><span class="annot"><span class="annottext">slName :: V2 Int32 -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;ivec2&quot;</span></span><span>
+</span><span id="line-84"></span><span>	</span><span id="local-6989586621679193986"><span class="annot"><span class="annottext">toTypeS :: V2 Int32 -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec2"><span class="hs-identifier hs-var">TVec2</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TInt"><span class="hs-identifier hs-var">TInt</span></a></span><span>
+</span><span id="line-85"></span><span>	</span><span id="local-6989586621679193989"><span class="annot"><span class="annottext">glType :: V2 Int32 -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_INT"><span class="hs-identifier hs-var">GL_INT</span></a></span><span>
+</span><span id="line-86"></span><span>	</span><span id="local-6989586621679193991"><span class="annot"><span class="annottext">glComponents :: V2 Int32 -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-87"></span><span>	</span><span id="local-6989586621679193992"><span class="annot"><span class="annottext">glShortName :: V2 Int32 -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v2i&quot;</span></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194001"><span id="local-6989586621679194006"><span id="local-6989586621679194009"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V3"><span class="hs-identifier hs-type">V3</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-90"></span><span>	</span><span id="local-6989586621679194011"><span class="annot"><span class="annottext">slName :: V3 Int32 -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;ivec3&quot;</span></span><span>
+</span><span id="line-91"></span><span>	</span><span id="local-6989586621679194012"><span class="annot"><span class="annottext">toTypeS :: V3 Int32 -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec3"><span class="hs-identifier hs-var">TVec3</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TInt"><span class="hs-identifier hs-var">TInt</span></a></span><span>
+</span><span id="line-92"></span><span>	</span><span id="local-6989586621679194015"><span class="annot"><span class="annottext">glType :: V3 Int32 -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_INT"><span class="hs-identifier hs-var">GL_INT</span></a></span><span>
+</span><span id="line-93"></span><span>	</span><span id="local-6989586621679194017"><span class="annot"><span class="annottext">glComponents :: V3 Int32 -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-94"></span><span>	</span><span id="local-6989586621679194018"><span class="annot"><span class="annottext">glShortName :: V3 Int32 -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v3i&quot;</span></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194027"><span id="local-6989586621679194032"><span id="local-6989586621679194035"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V4"><span class="hs-identifier hs-type">V4</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-97"></span><span>	</span><span id="local-6989586621679194037"><span class="annot"><span class="annottext">slName :: V4 Int32 -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;ivec4&quot;</span></span><span>
+</span><span id="line-98"></span><span>	</span><span id="local-6989586621679194038"><span class="annot"><span class="annottext">toTypeS :: V4 Int32 -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec4"><span class="hs-identifier hs-var">TVec4</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TInt"><span class="hs-identifier hs-var">TInt</span></a></span><span>
+</span><span id="line-99"></span><span>	</span><span id="local-6989586621679194041"><span class="annot"><span class="annottext">glType :: V4 Int32 -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_INT"><span class="hs-identifier hs-var">GL_INT</span></a></span><span>
+</span><span id="line-100"></span><span>	</span><span id="local-6989586621679194043"><span class="annot"><span class="annottext">glComponents :: V4 Int32 -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-101"></span><span>	</span><span id="local-6989586621679194044"><span class="annot"><span class="annottext">glShortName :: V4 Int32 -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v4i&quot;</span></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194053"><span id="local-6989586621679194058"><span id="local-6989586621679194061"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V2"><span class="hs-identifier hs-type">V2</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-104"></span><span>	</span><span id="local-6989586621679194063"><span class="annot"><span class="annottext">slName :: V2 Bool -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bvec2&quot;</span></span><span>
+</span><span id="line-105"></span><span>	</span><span id="local-6989586621679194064"><span class="annot"><span class="annottext">toTypeS :: V2 Bool -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec2"><span class="hs-identifier hs-var">TVec2</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TBool"><span class="hs-identifier hs-var">TBool</span></a></span><span>
+</span><span id="line-106"></span><span>	</span><span id="local-6989586621679194067"><span class="annot"><span class="annottext">glType :: V2 Bool -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_BOOL"><span class="hs-identifier hs-var">GL_BOOL</span></a></span><span>
+</span><span id="line-107"></span><span>	</span><span id="local-6989586621679194069"><span class="annot"><span class="annottext">glComponents :: V2 Bool -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-108"></span><span>	</span><span id="local-6989586621679194070"><span class="annot"><span class="annottext">glShortName :: V2 Bool -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V2 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v2b&quot;</span></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194079"><span id="local-6989586621679194084"><span id="local-6989586621679194087"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V3"><span class="hs-identifier hs-type">V3</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-111"></span><span>	</span><span id="local-6989586621679194089"><span class="annot"><span class="annottext">slName :: V3 Bool -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bvec3&quot;</span></span><span>
+</span><span id="line-112"></span><span>	</span><span id="local-6989586621679194090"><span class="annot"><span class="annottext">toTypeS :: V3 Bool -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec3"><span class="hs-identifier hs-var">TVec3</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TBool"><span class="hs-identifier hs-var">TBool</span></a></span><span>
+</span><span id="line-113"></span><span>	</span><span id="local-6989586621679194093"><span class="annot"><span class="annottext">glType :: V3 Bool -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_BOOL"><span class="hs-identifier hs-var">GL_BOOL</span></a></span><span>
+</span><span id="line-114"></span><span>	</span><span id="local-6989586621679194095"><span class="annot"><span class="annottext">glComponents :: V3 Bool -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-115"></span><span>	</span><span id="local-6989586621679194096"><span class="annot"><span class="annottext">glShortName :: V3 Bool -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V3 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v3b&quot;</span></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194105"><span id="local-6989586621679194110"><span id="local-6989586621679194113"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#V4"><span class="hs-identifier hs-type">V4</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-118"></span><span>	</span><span id="local-6989586621679194115"><span class="annot"><span class="annottext">slName :: V4 Bool -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bvec4&quot;</span></span><span>
+</span><span id="line-119"></span><span>	</span><span id="local-6989586621679194116"><span class="annot"><span class="annottext">toTypeS :: V4 Bool -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec4"><span class="hs-identifier hs-var">TVec4</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TBool"><span class="hs-identifier hs-var">TBool</span></a></span><span>
+</span><span id="line-120"></span><span>	</span><span id="local-6989586621679194119"><span class="annot"><span class="annottext">glType :: V4 Bool -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_BOOL"><span class="hs-identifier hs-var">GL_BOOL</span></a></span><span>
+</span><span id="line-121"></span><span>	</span><span id="local-6989586621679194121"><span class="annot"><span class="annottext">glComponents :: V4 Bool -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-122"></span><span>	</span><span id="local-6989586621679194122"><span class="annot"><span class="annottext">glShortName :: V4 Bool -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">V4 Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;v4b&quot;</span></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="annot"><a href="Graphics.Farbe.GL.html#boolToInt"><span class="hs-identifier hs-type">boolToInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span>
+</span><span id="line-125"></span><span id="boolToInt"><span class="annot"><span class="annottext">boolToInt :: Bool -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#boolToInt"><span class="hs-identifier hs-var hs-var">boolToInt</span></a></span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-126"></span><span class="annot"><a href="Graphics.Farbe.GL.html#boolToInt"><span class="hs-identifier hs-var">boolToInt</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194132"><span id="local-6989586621679194137"><span id="local-6989586621679194140"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#Mat"><span class="hs-identifier hs-type">Mat</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V2"><span class="hs-identifier hs-type">V2</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V2"><span class="hs-identifier hs-type">V2</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-130"></span><span>	</span><span id="local-6989586621679194143"><span class="annot"><span class="annottext">slName :: Mat V2 V2 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V2 V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;mat2&quot;</span></span><span>
+</span><span id="line-131"></span><span>	</span><span id="local-6989586621679194144"><span class="annot"><span class="annottext">toTypeS :: Mat V2 V2 Float -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V2 V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec2"><span class="hs-identifier hs-var">TVec2</span></a></span><span> </span><span class="annot"><span class="annottext">(TypeS -&gt; TypeS) -&gt; TypeS -&gt; TypeS
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec2"><span class="hs-identifier hs-var">TVec2</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span><span>
+</span><span id="line-132"></span><span>	</span><span id="local-6989586621679194147"><span class="annot"><span class="annottext">glType :: Mat V2 V2 Float -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V2 V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FLOAT"><span class="hs-identifier hs-var">GL_FLOAT</span></a></span><span>
+</span><span id="line-133"></span><span>	</span><span id="local-6989586621679194149"><span class="annot"><span class="annottext">glComponents :: Mat V2 V2 Float -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V2 V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-134"></span><span>	</span><span id="local-6989586621679194150"><span class="annot"><span class="annottext">glShortName :: Mat V2 V2 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V2 V2 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;m2&quot;</span></span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194159"><span id="local-6989586621679194164"><span id="local-6989586621679194167"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#Mat"><span class="hs-identifier hs-type">Mat</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V3"><span class="hs-identifier hs-type">V3</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V3"><span class="hs-identifier hs-type">V3</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>	</span><span id="local-6989586621679194170"><span class="annot"><span class="annottext">slName :: Mat V3 V3 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V3 V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;mat3&quot;</span></span><span>
+</span><span id="line-138"></span><span>	</span><span id="local-6989586621679194171"><span class="annot"><span class="annottext">toTypeS :: Mat V3 V3 Float -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V3 V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec3"><span class="hs-identifier hs-var">TVec3</span></a></span><span> </span><span class="annot"><span class="annottext">(TypeS -&gt; TypeS) -&gt; TypeS -&gt; TypeS
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec3"><span class="hs-identifier hs-var">TVec3</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span><span>
+</span><span id="line-139"></span><span>	</span><span id="local-6989586621679194174"><span class="annot"><span class="annottext">glType :: Mat V3 V3 Float -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V3 V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FLOAT"><span class="hs-identifier hs-var">GL_FLOAT</span></a></span><span>
+</span><span id="line-140"></span><span>	</span><span id="local-6989586621679194176"><span class="annot"><span class="annottext">glComponents :: Mat V3 V3 Float -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V3 V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">9</span></span><span>
+</span><span id="line-141"></span><span>	</span><span id="local-6989586621679194177"><span class="annot"><span class="annottext">glShortName :: Mat V3 V3 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V3 V3 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;m3&quot;</span></span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194186"><span id="local-6989586621679194191"><span id="local-6989586621679194194"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Vec.html#Mat"><span class="hs-identifier hs-type">Mat</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V4"><span class="hs-identifier hs-type">V4</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V4"><span class="hs-identifier hs-type">V4</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-144"></span><span>	</span><span id="local-6989586621679194197"><span class="annot"><span class="annottext">slName :: Mat V4 V4 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V4 V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;mat4&quot;</span></span><span>
+</span><span id="line-145"></span><span>	</span><span id="local-6989586621679194198"><span class="annot"><span class="annottext">toTypeS :: Mat V4 V4 Float -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V4 V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec4"><span class="hs-identifier hs-var">TVec4</span></a></span><span> </span><span class="annot"><span class="annottext">(TypeS -&gt; TypeS) -&gt; TypeS -&gt; TypeS
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TypeS -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#TVec4"><span class="hs-identifier hs-var">TVec4</span></a></span><span> </span><span class="annot"><span class="annottext">TypeS
+</span><a href="Graphics.Farbe.GL.html#TFloat"><span class="hs-identifier hs-var">TFloat</span></a></span><span>
+</span><span id="line-146"></span><span>	</span><span id="local-6989586621679194201"><span class="annot"><span class="annottext">glType :: Mat V4 V4 Float -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V4 V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLenum
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_FLOAT"><span class="hs-identifier hs-var">GL_FLOAT</span></a></span><span>
+</span><span id="line-147"></span><span>	</span><span id="local-6989586621679194203"><span class="annot"><span class="annottext">glComponents :: Mat V4 V4 Float -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V4 V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32
+</span><span class="hs-number">16</span></span><span>
+</span><span id="line-148"></span><span>	</span><span id="local-6989586621679194204"><span class="annot"><span class="annottext">glShortName :: Mat V4 V4 Float -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Mat V4 V4 Float
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;m4&quot;</span></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="hs-keyword">data</span><span> </span><span id="Normalized"><span class="annot"><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-var">Normalized</span></a></span></span><span> </span><span id="local-6989586621679193596"><span class="annot"><a href="#local-6989586621679193596"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Normalized"><span class="annot"><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-var">Normalized</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unNormalized"><span class="annot"><span class="annottext">forall a. Normalized a -&gt; a
+</span><a href="Graphics.Farbe.GL.html#unNormalized"><span class="hs-identifier hs-var hs-var">unNormalized</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679193596"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679194209"><span id="local-6989586621679194212"><span class="annot"><span class="annottext">Normalized a -&gt; Normalized a -&gt; Bool
+(Normalized a -&gt; Normalized a -&gt; Bool)
+-&gt; (Normalized a -&gt; Normalized a -&gt; Bool) -&gt; Eq (Normalized a)
+forall a. Eq a =&gt; Normalized a -&gt; Normalized a -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: forall a. Eq a =&gt; Normalized a -&gt; Normalized a -&gt; Bool
+== :: Normalized a -&gt; Normalized a -&gt; Bool
+$c/= :: forall a. Eq a =&gt; Normalized a -&gt; Normalized a -&gt; Bool
+/= :: Normalized a -&gt; Normalized a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679194217"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-type">Normalized</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-155"></span><span>	</span><span id="local-6989586621679194221"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Normalized a -&gt; Normalized b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679194222"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679194222"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-type">Normalized</span></a></span><span> </span><span id="local-6989586621679194223"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679194223"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">b -&gt; Normalized b
+forall a. a -&gt; Normalized a
+</span><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-var">Normalized</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; Normalized b) -&gt; b -&gt; Normalized b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679194222"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679194223"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-cpp">
+
+#define bottom undefined
+</span><span>
+</span><span id="line-159"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193613"><span id="local-6989586621679194228"><span id="local-6989586621679194232"><span id="local-6989586621679194235"><span id="local-6989586621679194238"><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679193613"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-type">Normalized</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679193613"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-160"></span><span>	</span><span id="local-6989586621679194246"><span class="annot"><span class="annottext">sizeOf :: Normalized a -&gt; Int
+</span><a href="#local-6989586621679194246"><span class="hs-identifier hs-var hs-var hs-var">sizeOf</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Storable a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">sizeOf</span></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>	</span><span id="local-6989586621679194252"><span class="annot"><span class="annottext">alignment :: Normalized a -&gt; Int
+</span><a href="#local-6989586621679194252"><span class="hs-identifier hs-var hs-var hs-var">alignment</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Storable a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">alignment</span></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span>
+</span><span id="line-162"></span><span>	</span><span id="local-6989586621679194257"><span class="annot"><span class="annottext">peek :: Ptr (Normalized a) -&gt; IO (Normalized a)
+</span><a href="#local-6989586621679194257"><span class="hs-identifier hs-var hs-var hs-var">peek</span></a></span></span><span> </span><span id="local-6989586621679194259"><span class="annot"><span class="annottext">Ptr (Normalized a)
+</span><a href="#local-6989586621679194259"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Normalized a) -&gt; IO a -&gt; IO (Normalized a)
+forall a b. (a -&gt; b) -&gt; IO a -&gt; IO b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Normalized a
+forall a. a -&gt; Normalized a
+</span><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-var">Normalized</span></a></span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; IO (Normalized a)) -&gt; IO a -&gt; IO (Normalized a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Ptr a -&gt; IO a
+forall a. Storable a =&gt; Ptr a -&gt; IO a
+</span><span class="hs-identifier hs-var">peek</span></span><span> </span><span class="annot"><span class="annottext">(Ptr a -&gt; IO a) -&gt; Ptr a -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Ptr (Normalized a) -&gt; Ptr a
+forall a b. Ptr a -&gt; Ptr b
+</span><span class="hs-identifier hs-var">castPtr</span></span><span> </span><span class="annot"><span class="annottext">Ptr (Normalized a)
+</span><a href="#local-6989586621679194259"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-163"></span><span>	</span><span id="local-6989586621679194262"><span class="annot"><span class="annottext">poke :: Ptr (Normalized a) -&gt; Normalized a -&gt; IO ()
+</span><a href="#local-6989586621679194262"><span class="hs-identifier hs-var hs-var hs-var">poke</span></a></span></span><span> </span><span id="local-6989586621679194264"><span class="annot"><span class="annottext">Ptr (Normalized a)
+</span><a href="#local-6989586621679194264"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-type">Normalized</span></a></span><span> </span><span id="local-6989586621679194265"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679194265"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ptr a -&gt; a -&gt; IO ()
+forall a. Storable a =&gt; Ptr a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">poke</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr (Normalized a) -&gt; Ptr a
+forall a b. Ptr a -&gt; Ptr b
+</span><span class="hs-identifier hs-var">castPtr</span></span><span> </span><span class="annot"><span class="annottext">Ptr (Normalized a)
+</span><a href="#local-6989586621679194264"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679194265"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-164"></span><span>
+</span><span id="line-165"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679193620"><span id="local-6989586621679194277"><span id="local-6989586621679194281"><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679193620"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#Normalized"><span class="hs-identifier hs-type">Normalized</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679193620"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-166"></span><span>	</span><span id="local-6989586621679194285"><span class="annot"><span class="annottext">glNormalized :: Normalized a -&gt; GLboolean
+</span><a href="Graphics.Farbe.GL.html#glNormalized"><span class="hs-identifier hs-var hs-var hs-var">glNormalized</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GLboolean
+forall a. (Eq a, Num a) =&gt; a
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#GL_TRUE"><span class="hs-identifier hs-var">GL_TRUE</span></a></span><span>
+</span><span id="line-167"></span><span>	</span><span id="local-6989586621679194290"><span class="annot"><span class="annottext">slName :: Normalized a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var hs-var hs-var">slName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#slName"><span class="hs-identifier hs-var">slName</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span>
+</span><span id="line-168"></span><span>	</span><span id="local-6989586621679194294"><span class="annot"><span class="annottext">toTypeS :: Normalized a -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var hs-var hs-var">toTypeS</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; TypeS
+forall a. GLtype a =&gt; a -&gt; TypeS
+</span><a href="Graphics.Farbe.GL.html#toTypeS"><span class="hs-identifier hs-var">toTypeS</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span>
+</span><span id="line-169"></span><span>	</span><span id="local-6989586621679194298"><span class="annot"><span class="annottext">glType :: Normalized a -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var hs-var hs-var">glType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; GLenum
+forall a. GLtype a =&gt; a -&gt; GLenum
+</span><a href="Graphics.Farbe.GL.html#glType"><span class="hs-identifier hs-var">glType</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span>
+</span><span id="line-170"></span><span>	</span><span id="local-6989586621679194302"><span class="annot"><span class="annottext">glComponents :: Normalized a -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var hs-var hs-var">glComponents</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Int32
+forall a. GLtype a =&gt; a -&gt; Int32
+</span><a href="Graphics.Farbe.GL.html#glComponents"><span class="hs-identifier hs-var">glComponents</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span>	</span><span id="local-6989586621679194306"><span class="annot"><span class="annottext">glShortName :: Normalized a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var hs-var hs-var">glShortName</span></a></span></span><span> </span><span class="annot"><span class="annottext">Normalized a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;n&quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a. GLtype a =&gt; a -&gt; String
+</span><a href="Graphics.Farbe.GL.html#glShortName"><span class="hs-identifier hs-var">glShortName</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">bottom</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span></pre></body></html>

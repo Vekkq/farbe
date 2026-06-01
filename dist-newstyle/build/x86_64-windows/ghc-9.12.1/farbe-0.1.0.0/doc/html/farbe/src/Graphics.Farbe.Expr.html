@@ -1,0 +1,433 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-tabs #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-type-defaults #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Graphics.Farbe.Expr.html"><span class="hs-identifier">Graphics.Farbe.Expr</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html"><span class="hs-identifier">Graphics.Farbe.GL</span></a></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html"><span class="hs-identifier">Graphics.Farbe.Vec</span></a></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.Texture.html"><span class="hs-identifier">Graphics.Farbe.Texture</span></a></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.Array.html"><span class="hs-identifier">Graphics.Farbe.Array</span></a></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html"><span class="hs-identifier">Graphics.Farbe.BuildShader</span></a></span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">void</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679202997"><span id="local-6989586621679202998"><span id="local-6989586621679203123"><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679202997"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Num</span></span><span> </span><span class="annot"><a href="#local-6989586621679202997"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Num</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679202998"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679202997"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-19"></span><span>	</span><span id="local-6989586621679203131"><span class="annot"><span class="annottext">+ :: Expr e a -&gt; Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203131"><span class="hs-operator hs-var hs-var hs-var">(+)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;+&quot;</span></span><span>
+</span><span id="line-20"></span><span>	</span><span id="local-6989586621679203135"><span class="annot"><span class="annottext">* :: Expr e a -&gt; Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203135"><span class="hs-operator hs-var hs-var hs-var">(*)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;*&quot;</span></span><span>
+</span><span id="line-21"></span><span>	</span><span id="local-6989586621679203138"><span class="hs-special">(</span><span class="hs-glyph">-</span><span class="hs-special">)</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-&quot;</span></span><span>
+</span><span id="line-22"></span><span>	</span><span id="local-6989586621679203140"><span class="annot"><span class="annottext">abs :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203140"><span class="hs-identifier hs-var hs-var hs-var">abs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;abs&quot;</span></span><span>
+</span><span id="line-23"></span><span>	</span><span id="local-6989586621679203144"><span class="annot"><span class="annottext">signum :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203144"><span class="hs-identifier hs-var hs-var hs-var">signum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;sign&quot;</span></span><span>
+</span><span id="line-24"></span><span>	</span><span id="local-6989586621679203167"><span class="annot"><span class="annottext">fromInteger :: Integer -&gt; Expr e a
+</span><span class="hs-identifier hs-var hs-var hs-var">fromInteger</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftE0"><span class="hs-identifier hs-var">liftE0</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Expr e a) -&gt; (Integer -&gt; String) -&gt; Integer -&gt; Expr e a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(String -&gt; String) -&gt; String -&gt; String
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((String -&gt; String) -&gt; String)
+-&gt; (Integer -&gt; String -&gt; String) -&gt; Integer -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int -&gt; Double -&gt; String -&gt; String
+forall a. RealFloat a =&gt; Maybe Int -&gt; a -&gt; String -&gt; String
+</span><span class="hs-identifier hs-var">showFFloat</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">(Double -&gt; String -&gt; String)
+-&gt; (Integer -&gt; Double) -&gt; Integer -&gt; String -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Double
+forall a. Num a =&gt; Integer -&gt; a
+</span><span class="hs-identifier hs-var">fromInteger</span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679203028"><span id="local-6989586621679203029"><span id="local-6989586621679203178"><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203028"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fractional</span></span><span> </span><span class="annot"><a href="#local-6989586621679203028"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fractional</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203029"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203028"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>	</span><span id="local-6989586621679203197"><span class="annot"><span class="annottext">fromRational :: Rational -&gt; Expr e a
+</span><span class="hs-identifier hs-var hs-var hs-var">fromRational</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftE0"><span class="hs-identifier hs-var">liftE0</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Expr e a)
+-&gt; (Rational -&gt; String) -&gt; Rational -&gt; Expr e a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(String -&gt; String) -&gt; String -&gt; String
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((String -&gt; String) -&gt; String)
+-&gt; (Rational -&gt; String -&gt; String) -&gt; Rational -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int -&gt; Double -&gt; String -&gt; String
+forall a. RealFloat a =&gt; Maybe Int -&gt; a -&gt; String -&gt; String
+</span><span class="hs-identifier hs-var">showFFloat</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">(Double -&gt; String -&gt; String)
+-&gt; (Rational -&gt; Double) -&gt; Rational -&gt; String -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Rational -&gt; Double
+forall a. RealFloat a =&gt; Rational -&gt; a
+</span><span class="hs-identifier hs-var">fromRat</span></span><span>
+</span><span id="line-28"></span><span>	</span><span id="local-6989586621679203200"><span class="annot"><span class="annottext">/ :: Expr e a -&gt; Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203200"><span class="hs-operator hs-var hs-var hs-var">(/)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;/&quot;</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span id="local-6989586621679203031"><span class="annot"><a href="Graphics.Farbe.Expr.html#napier"><span class="hs-identifier hs-type">napier</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fractional</span></span><span> </span><span class="annot"><a href="#local-6989586621679203031"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679203031"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-31"></span><span id="napier"><span class="annot"><span class="annottext">napier :: forall a. Fractional a =&gt; a
+</span><a href="Graphics.Farbe.Expr.html#napier"><span class="hs-identifier hs-var hs-var">napier</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Rational -&gt; a
+forall a. Fractional a =&gt; Rational -&gt; a
+</span><span class="hs-identifier hs-var">fromRational</span></span><span> </span><span class="annot"><span class="annottext">Rational
+</span><span class="hs-number">2.718281828459045235360287471352</span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679203039"><span id="local-6989586621679203040"><span id="local-6989586621679203220"><span id="local-6989586621679203236"><span id="local-6989586621679203239"><span id="local-6989586621679203242"><span id="local-6989586621679203245"><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203039"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Floating</span></span><span> </span><span class="annot"><a href="#local-6989586621679203039"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Floating</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203040"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203039"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>	</span><span id="local-6989586621679203256"><span class="annot"><span class="annottext">pi :: Expr e a
+</span><a href="#local-6989586621679203256"><span class="hs-identifier hs-var hs-var hs-var">pi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftE0"><span class="hs-identifier hs-var">liftE0</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Expr e a) -&gt; String -&gt; Expr e a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Double
+forall a. Floating a =&gt; a
+</span><span class="hs-identifier hs-var">pi</span></span><span>
+</span><span id="line-35"></span><span>	</span><span id="local-6989586621679203260"><span class="annot"><span class="annottext">exp :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203260"><span class="hs-identifier hs-var hs-var hs-var">exp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;exp&quot;</span></span><span>
+</span><span id="line-36"></span><span>	</span><span id="local-6989586621679203263"><span class="annot"><span class="annottext">log :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203263"><span class="hs-identifier hs-var hs-var hs-var">log</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;log&quot;</span></span><span>
+</span><span id="line-37"></span><span>	</span><span id="local-6989586621679203266"><span class="annot"><span class="annottext">sqrt :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203266"><span class="hs-identifier hs-var hs-var hs-var">sqrt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;sqrt&quot;</span></span><span>
+</span><span id="line-38"></span><span>	</span><span id="local-6989586621679203269"><span class="annot"><span class="annottext">** :: Expr e a -&gt; Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203269"><span class="hs-operator hs-var hs-var hs-var">(**)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;^&quot;</span></span><span>
+</span><span id="line-39"></span><span>	</span><span id="local-6989586621679203272"><span class="annot"><span class="annottext">sin :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203272"><span class="hs-identifier hs-var hs-var hs-var">sin</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;sin&quot;</span></span><span>
+</span><span id="line-40"></span><span>	</span><span id="local-6989586621679203275"><span class="annot"><span class="annottext">cos :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203275"><span class="hs-identifier hs-var hs-var hs-var">cos</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;cos&quot;</span></span><span>
+</span><span id="line-41"></span><span>	</span><span id="local-6989586621679203278"><span class="annot"><span class="annottext">tan :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203278"><span class="hs-identifier hs-var hs-var hs-var">tan</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;tan&quot;</span></span><span>
+</span><span id="line-42"></span><span>	</span><span id="local-6989586621679203281"><span class="annot"><span class="annottext">asin :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203281"><span class="hs-identifier hs-var hs-var hs-var">asin</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;asin&quot;</span></span><span>
+</span><span id="line-43"></span><span>	</span><span id="local-6989586621679203284"><span class="annot"><span class="annottext">acos :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203284"><span class="hs-identifier hs-var hs-var hs-var">acos</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;acos&quot;</span></span><span>
+</span><span id="line-44"></span><span>	</span><span id="local-6989586621679203287"><span class="annot"><span class="annottext">atan :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203287"><span class="hs-identifier hs-var hs-var hs-var">atan</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} a2 (e :: k1) (a1 :: k2).
+GLtype a2 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2
+</span><a href="Graphics.Farbe.BuildShader.html#liftE1"><span class="hs-identifier hs-var">liftE1</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;atan&quot;</span></span><span>
+</span><span id="line-45"></span><span>	</span><span class="hs-comment">-- following functions are not available in glsl es 1</span><span>
+</span><span id="line-46"></span><span>	</span><span id="local-6989586621679203297"><span class="annot"><span class="annottext">sinh :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203297"><span class="hs-identifier hs-var hs-var hs-var">sinh</span></a></span></span><span> </span><span id="local-6989586621679203299"><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203299"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+forall a. Fractional a =&gt; a
+</span><a href="Graphics.Farbe.Expr.html#napier"><span class="hs-identifier hs-var">napier</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">**</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203299"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+forall a. Fractional a =&gt; a
+</span><a href="Graphics.Farbe.Expr.html#napier"><span class="hs-identifier hs-var">napier</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">**</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">negate</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203299"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-47"></span><span>	</span><span id="local-6989586621679203308"><span class="annot"><span class="annottext">cosh :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203308"><span class="hs-identifier hs-var hs-var hs-var">cosh</span></a></span></span><span> </span><span id="local-6989586621679203310"><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203310"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+forall a. Fractional a =&gt; a
+</span><a href="Graphics.Farbe.Expr.html#napier"><span class="hs-identifier hs-var">napier</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">**</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203310"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+forall a. Fractional a =&gt; a
+</span><a href="Graphics.Farbe.Expr.html#napier"><span class="hs-identifier hs-var">napier</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">**</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">negate</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203310"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-48"></span><span>	</span><span id="local-6989586621679203314"><span class="annot"><span class="annottext">tanh :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203314"><span class="hs-identifier hs-var hs-var hs-var">tanh</span></a></span></span><span> </span><span id="local-6989586621679203316"><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203316"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">sinh</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203316"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">cosh</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203316"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-49"></span><span>	</span><span id="local-6989586621679203324"><span class="annot"><span class="annottext">asinh :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203324"><span class="hs-identifier hs-var hs-var hs-var">asinh</span></a></span></span><span> </span><span id="local-6989586621679203326"><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203326"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a
+</span><a href="Graphics.Farbe.Expr.html#ln"><span class="hs-identifier hs-var">ln</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203326"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">sqrt</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203326"><span class="hs-identifier hs-var">x</span></a></span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">**</span></span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>	</span><span id="local-6989586621679203335"><span class="annot"><span class="annottext">acosh :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203335"><span class="hs-identifier hs-var hs-var hs-var">acosh</span></a></span></span><span> </span><span id="local-6989586621679203337"><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203337"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a
+</span><a href="Graphics.Farbe.Expr.html#ln"><span class="hs-identifier hs-var">ln</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203337"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">sqrt</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203337"><span class="hs-identifier hs-var">x</span></a></span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">**</span></span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>	</span><span id="local-6989586621679203348"><span class="annot"><span class="annottext">atanh :: Expr e a -&gt; Expr e a
+</span><a href="#local-6989586621679203348"><span class="hs-identifier hs-var hs-var hs-var">atanh</span></a></span></span><span> </span><span id="local-6989586621679203350"><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203350"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">1</span></span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a
+forall a. Floating a =&gt; a -&gt; a
+</span><a href="Graphics.Farbe.Expr.html#ln"><span class="hs-identifier hs-var">ln</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">1</span></span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203350"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Expr e a
+</span><span class="hs-number">1</span></span><span class="annot"><span class="annottext">Expr e a -&gt; Expr e a -&gt; Expr e a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Expr e a
+</span><a href="#local-6989586621679203350"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span id="local-6989586621679203351"><span class="annot"><a href="Graphics.Farbe.Expr.html#ln"><span class="hs-identifier hs-type">ln</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Floating</span></span><span> </span><span class="annot"><a href="#local-6989586621679203351"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679203351"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679203351"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-54"></span><span id="ln"><span class="annot"><span class="annottext">ln :: forall a. Floating a =&gt; a -&gt; a
+</span><a href="Graphics.Farbe.Expr.html#ln"><span class="hs-identifier hs-var hs-var">ln</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Floating a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">logBase</span></span><span> </span><span class="annot"><span class="annottext">a
+forall a. Fractional a =&gt; a
+</span><a href="Graphics.Farbe.Expr.html#napier"><span class="hs-identifier hs-var">napier</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span id="local-6989586621679203044"><span class="annot"><a href="Graphics.Farbe.Expr.html#modf"><span class="hs-identifier hs-type">modf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203044"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203044"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203044"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span></span><span>
+</span><span id="line-57"></span><span id="modf"><span class="annot"><span class="annottext">modf :: forall {k} (e :: k). Expr e Float -&gt; Expr e Float -&gt; Expr e Float
+</span><a href="Graphics.Farbe.Expr.html#modf"><span class="hs-identifier hs-var hs-var">modf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e Float -&gt; Expr e Float -&gt; Expr e Float
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;mod&quot;</span></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span id="local-6989586621679203048"><span class="annot"><a href="Graphics.Farbe.Expr.html#equot"><span class="hs-identifier hs-type">equot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.Expr.html#erem"><span class="hs-identifier hs-type">erem</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.Expr.html#ediv"><span class="hs-identifier hs-type">ediv</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.Expr.html#emod"><span class="hs-identifier hs-type">emod</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203048"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203048"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203048"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span></span><span>
+</span><span id="line-60"></span><span id="equot"><span class="annot"><span class="annottext">equot :: forall {k} (e :: k). Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+</span><a href="Graphics.Farbe.Expr.html#equot"><span class="hs-identifier hs-var hs-var">equot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;/&quot;</span></span><span>
+</span><span id="line-61"></span><span id="erem"><span class="annot"><span class="annottext">erem :: forall {k} (e :: k). Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+</span><a href="Graphics.Farbe.Expr.html#erem"><span class="hs-identifier hs-var hs-var">erem</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rem&quot;</span></span><span>
+</span><span id="line-62"></span><span id="ediv"><span class="annot"><span class="annottext">ediv :: forall {k} (e :: k). Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+</span><a href="Graphics.Farbe.Expr.html#ediv"><span class="hs-identifier hs-var hs-var">ediv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;div&quot;</span></span><span>
+</span><span id="line-63"></span><span id="emod"><span class="annot"><span class="annottext">emod :: forall {k} (e :: k). Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+</span><a href="Graphics.Farbe.Expr.html#emod"><span class="hs-identifier hs-var hs-var">emod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e Int32 -&gt; Expr e Int32 -&gt; Expr e Int32
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;mod&quot;</span></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- TODO add non-component-wise vector and matrix functions</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="annot"><a href="Graphics.Farbe.Expr.html#fragCoord"><span class="hs-identifier hs-type">fragCoord</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V4"><span class="hs-identifier hs-type">V4</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#F"><span class="hs-identifier hs-type">F</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span id="fragCoord"><span class="annot"><span class="annottext">fragCoord :: V4 (Expr F Float)
+</span><a href="Graphics.Farbe.Expr.html#fragCoord"><span class="hs-identifier hs-var hs-var">fragCoord</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expr F (V4 Float) -&gt; V4 (Expr F Float)
+forall {k} a (v :: * -&gt; *) (e :: k).
+(GLtype a, Vector v) =&gt;
+Expr e (v a) -&gt; v (Expr e a)
+</span><a href="Graphics.Farbe.BuildShader.html#vecParts"><span class="hs-identifier hs-var">vecParts</span></a></span><span> </span><span class="annot"><span class="annottext">(Expr F (V4 Float) -&gt; V4 (Expr F Float))
+-&gt; Expr F (V4 Float) -&gt; V4 (Expr F Float)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr F (V4 Float)
+forall {k} a (e :: k). GLtype a =&gt; String -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#liftE0"><span class="hs-identifier hs-var">liftE0</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;gl_FragCoord&quot;</span></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679203063"><span class="annot"><a href="Graphics.Farbe.Expr.html#texture"><span class="hs-identifier hs-type">texture</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203063"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.Texture.html#Texture"><span class="hs-identifier hs-type">Texture</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V2"><span class="hs-identifier hs-type">V2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203063"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.Vec.html#V4"><span class="hs-identifier hs-type">V4</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203063"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-71"></span><span id="texture"><span class="annot"><span class="annottext">texture :: forall {k} (e :: k).
+Expr e Texture -&gt; V2 (Expr e Float) -&gt; V4 (Expr e Float)
+</span><a href="Graphics.Farbe.Expr.html#texture"><span class="hs-identifier hs-var hs-var">texture</span></a></span></span><span> </span><span id="local-6989586621679203379"><span class="annot"><span class="annottext">Expr e Texture
+</span><a href="#local-6989586621679203379"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679203380"><span class="annot"><span class="annottext">V2 (Expr e Float)
+</span><a href="#local-6989586621679203380"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expr e (V4 Float) -&gt; V4 (Expr e Float)
+forall {k} a (v :: * -&gt; *) (e :: k).
+(GLtype a, Vector v) =&gt;
+Expr e (v a) -&gt; v (Expr e a)
+</span><a href="Graphics.Farbe.BuildShader.html#vecParts"><span class="hs-identifier hs-var">vecParts</span></a></span><span> </span><span class="annot"><span class="annottext">(Expr e (V4 Float) -&gt; V4 (Expr e Float))
+-&gt; Expr e (V4 Float) -&gt; V4 (Expr e Float)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e Texture -&gt; Expr e (V2 Float) -&gt; Expr e (V4 Float)
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;texture2D&quot;</span></span><span> </span><span class="annot"><span class="annottext">Expr e Texture
+</span><a href="#local-6989586621679203379"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">V2 (Expr e Float) -&gt; Expr e (V2 Float)
+forall {k} (e :: k) a (v :: * -&gt; *).
+(GLtype a, Vector v, GLtype (v a)) =&gt;
+v (Expr e a) -&gt; Expr e (v a)
+</span><a href="Graphics.Farbe.BuildShader.html#exprVec"><span class="hs-identifier hs-var">exprVec</span></a></span><span> </span><span class="annot"><span class="annottext">V2 (Expr e Float)
+</span><a href="#local-6989586621679203380"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span id="local-6989586621679203074"><span id="local-6989586621679203075"><span id="local-6989586621679203076"><span class="annot"><a href="Graphics.Farbe.Expr.html#arr"><span class="hs-identifier hs-type">arr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203074"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203075"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Array.html#Arr"><span class="hs-identifier hs-type">Arr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203076"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203074"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203075"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203074"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-74"></span><span id="arr"><span class="annot"><span class="annottext">arr :: forall {k} a (e :: k) (s :: Nat).
+GLtype a =&gt;
+Expr e (Arr s a) -&gt; Int32 -&gt; Expr e a
+</span><a href="Graphics.Farbe.Expr.html#arr"><span class="hs-identifier hs-var hs-var">arr</span></a></span></span><span> </span><span id="local-6989586621679203385"><span class="annot"><span class="annottext">Expr e (Arr s a)
+</span><a href="#local-6989586621679203385"><span class="hs-identifier hs-var">e'</span></a></span></span><span> </span><span id="local-6989586621679203386"><span class="annot"><span class="annottext">Int32
+</span><a href="#local-6989586621679203386"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e (Arr s a) -&gt; Expr e Int32 -&gt; Expr e a
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;[]&quot;</span></span><span> </span><span class="annot"><span class="annottext">Expr e (Arr s a)
+</span><a href="#local-6989586621679203385"><span class="hs-identifier hs-var">e'</span></a></span><span> </span><span class="annot"><span class="annottext">(Expr e Int32 -&gt; Expr e a) -&gt; Expr e Int32 -&gt; Expr e a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679203387"><span class="annot"><span class="annottext">Int32 -&gt; Expr e Int32
+forall {k} b a (e :: k). (Show b, GLtype a) =&gt; b -&gt; Expr e a
+</span><a href="Graphics.Farbe.BuildShader.html#expr"><span class="hs-identifier hs-var">expr</span></a></span><span> </span><span class="annot"><span class="annottext">Int32
+</span><a href="#local-6989586621679203386"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203387"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- | @arr'@ is ignoring constant expression requirement.</span><span>
+</span><span id="line-77"></span><span class="hs-comment">--   May not work with some implementations.</span><span>
+</span><span id="line-78"></span><span id="local-6989586621679203088"><span id="local-6989586621679203089"><span id="local-6989586621679203090"><span class="annot"><a href="Graphics.Farbe.Expr.html#arr%27"><span class="hs-identifier hs-type">arr'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203088"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203089"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.Array.html#Arr"><span class="hs-identifier hs-type">Arr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203090"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203088"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203089"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203089"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203088"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-79"></span><span id="arr%27"><span class="annot"><span class="annottext">arr' :: forall {k} a (e :: k) (s :: Nat).
+GLtype a =&gt;
+Expr e (Arr s a) -&gt; Expr e Int32 -&gt; Expr e a
+</span><a href="Graphics.Farbe.Expr.html#arr%27"><span class="hs-identifier hs-var hs-var">arr'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e (Arr s a) -&gt; Expr e Int32 -&gt; Expr e a
+forall {k1} {k2} {k3} a3 (e :: k1) (a1 :: k2) (a2 :: k3).
+GLtype a3 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3
+</span><a href="Graphics.Farbe.BuildShader.html#liftE2"><span class="hs-identifier hs-var">liftE2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;[]&quot;</span></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span id="local-6989586621679203096"><span id="local-6989586621679203097"><span class="annot"><a href="Graphics.Farbe.Expr.html#if%27"><span class="hs-identifier hs-type">if'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.GL.html#GLtype"><span class="hs-identifier hs-type">GLtype</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203096"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203097"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203097"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203096"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203097"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203096"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.BuildShader.html#Expr"><span class="hs-identifier hs-type">Expr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203097"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679203096"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-82"></span><span id="if%27"><span class="annot"><span class="annottext">if' :: forall {k} a (e :: k).
+GLtype a =&gt;
+Expr e Bool -&gt; Expr e a -&gt; Expr e a -&gt; Expr e a
+</span><a href="Graphics.Farbe.Expr.html#if%27"><span class="hs-identifier hs-var hs-var">if'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Expr e Bool -&gt; Expr e a -&gt; Expr e a -&gt; Expr e a
+forall {k1} {k2} {k3} {k4} a4 (e :: k1) (a1 :: k2) (a2 :: k3)
+       (a3 :: k4).
+GLtype a4 =&gt;
+String -&gt; Expr e a1 -&gt; Expr e a2 -&gt; Expr e a3 -&gt; Expr e a4
+</span><a href="Graphics.Farbe.BuildShader.html#liftE3"><span class="hs-identifier hs-var">liftE3</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;if&quot;</span></span><span>
+</span><span id="line-83"></span></pre></body></html>

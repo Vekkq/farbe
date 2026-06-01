@@ -1,0 +1,489 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-tabs #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-type-defaults #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-unused-do-bind #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE FunctionalDependencies #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html"><span class="hs-identifier">Graphics.Farbe.ShaderEnv</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html"><span class="hs-identifier">Graphics.Farbe.State</span></a></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">void</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.html"><span class="hs-identifier">Graphics.GL</span></a></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Reader</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.State.Strict</span></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">data</span><span> </span><span id="ShaderData"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-var">ShaderData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ShaderData"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-var">ShaderData</span></a></span></span><span>
+</span><span id="line-22"></span><span>	</span><span class="hs-special">{</span><span> </span><span id="byteCount"><span class="annot"><span class="annottext">ShaderData -&gt; Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#byteCount"><span class="hs-identifier hs-var hs-var">byteCount</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-23"></span><span>	</span><span class="hs-special">,</span><span> </span><span id="byteMax"><span class="annot"><span class="annottext">ShaderData -&gt; Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#byteMax"><span class="hs-identifier hs-var hs-var">byteMax</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-24"></span><span>	</span><span class="hs-special">,</span><span> </span><span id="shaderId"><span class="annot"><span class="annottext">ShaderData -&gt; ShaderId
+</span><a href="Graphics.Farbe.ShaderEnv.html#shaderId"><span class="hs-identifier hs-var hs-var">shaderId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#ShaderId"><span class="hs-identifier hs-type">ShaderId</span></a></span><span>
+</span><span id="line-25"></span><span>	</span><span class="hs-special">,</span><span> </span><span id="subShaderId"><span class="annot"><span class="annottext">ShaderData -&gt; [ShaderId]
+</span><a href="Graphics.Farbe.ShaderEnv.html#subShaderId"><span class="hs-identifier hs-var hs-var">subShaderId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Graphics.Farbe.State.html#ShaderId"><span class="hs-identifier hs-type">ShaderId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-26"></span><span>	</span><span class="hs-special">,</span><span> </span><span id="postShaderM"><span class="annot"><span class="annottext">ShaderData -&gt; ShaderEnvT (FarbeT IO) ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#postShaderM"><span class="hs-identifier hs-var hs-var">postShaderM</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.State.html#FarbeT"><span class="hs-identifier hs-type">FarbeT</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span>	</span><span class="hs-special">,</span><span> </span><span id="preRenderM"><span class="annot"><span class="annottext">ShaderData -&gt; [FarbeT IO Bool]
+</span><a href="Graphics.Farbe.ShaderEnv.html#preRenderM"><span class="hs-identifier hs-var hs-var">preRenderM</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Graphics.Farbe.State.html#FarbeT"><span class="hs-identifier hs-type">FarbeT</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">]</span><span>
+</span><span id="line-28"></span><span>	</span><span class="hs-special">,</span><span> </span><span id="buildSubShader"><span class="annot"><span class="annottext">ShaderData -&gt; [IO ()]
+</span><a href="Graphics.Farbe.ShaderEnv.html#buildSubShader"><span class="hs-identifier hs-var hs-var">buildSubShader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-29"></span><span>	</span><span class="hs-special">}</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#emptyShaderData"><span class="hs-identifier hs-type">emptyShaderData</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span>
+</span><span id="line-32"></span><span id="emptyShaderData"><span class="annot"><span class="annottext">emptyShaderData :: ShaderData
+</span><a href="Graphics.Farbe.ShaderEnv.html#emptyShaderData"><span class="hs-identifier hs-var hs-var">emptyShaderData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span>
+</span><span id="line-33"></span><span>	</span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">byteCount :: Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#byteCount"><span class="hs-identifier hs-var">byteCount</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-34"></span><span>	</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">byteMax :: Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#byteMax"><span class="hs-identifier hs-var">byteMax</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; Int
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><span class="hs-string">&quot;unset byte max&quot;</span></span><span>
+</span><span id="line-35"></span><span>	</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">shaderId :: ShaderId
+</span><a href="Graphics.Farbe.ShaderEnv.html#shaderId"><span class="hs-identifier hs-var">shaderId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; ShaderId
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><span class="hs-string">&quot;unset shader id&quot;</span></span><span>
+</span><span id="line-36"></span><span>	</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">subShaderId :: [ShaderId]
+</span><a href="Graphics.Farbe.ShaderEnv.html#subShaderId"><span class="hs-identifier hs-var">subShaderId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-37"></span><span>	</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">postShaderM :: ShaderEnvT (FarbeT IO) ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#postShaderM"><span class="hs-identifier hs-var">postShaderM</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; ShaderEnvT (FarbeT IO) ()
+forall a. a -&gt; ShaderEnvT (FarbeT IO) a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>	</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">preRenderM :: [FarbeT IO Bool]
+</span><a href="Graphics.Farbe.ShaderEnv.html#preRenderM"><span class="hs-identifier hs-var">preRenderM</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-39"></span><span>	</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">buildSubShader :: [IO ()]
+</span><a href="Graphics.Farbe.ShaderEnv.html#buildSubShader"><span class="hs-identifier hs-var">buildSubShader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-40"></span><span>	</span><span class="hs-special">}</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">newtype</span><span> </span><span id="ShaderEnvT"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-var">ShaderEnvT</span></a></span></span><span> </span><span id="local-6989586621679200364"><span class="annot"><a href="#local-6989586621679200364"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679200365"><span class="annot"><a href="#local-6989586621679200365"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ShaderEnvT"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-var">ShaderEnvT</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unShaderEnvT"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) a. ShaderEnvT m a -&gt; StateT ShaderData m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#unShaderEnvT"><span class="hs-identifier hs-var hs-var">unShaderEnvT</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateT</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200364"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200365"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-44"></span><span>	</span><span class="hs-keyword">deriving</span><span>
+</span><span id="line-45"></span><span>		</span><span class="hs-special">(</span><span id="local-6989586621679200543"><span id="local-6989586621679200548"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b)
+-&gt; (forall a b. a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a)
+-&gt; Functor (ShaderEnvT m)
+forall a b. a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+forall a b. (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+$cfmap :: forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+fmap :: forall a b. (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+$c&lt;$ :: forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+&lt;$ :: forall a b. a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679200559"><span id="local-6989586621679200564"><span id="local-6989586621679200568"><span id="local-6989586621679200572"><span id="local-6989586621679200576"><span class="annot"><span class="annottext">Functor (ShaderEnvT m)
+Functor (ShaderEnvT m) =&gt;
+(forall a. a -&gt; ShaderEnvT m a)
+-&gt; (forall a b.
+    ShaderEnvT m (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m c)
+-&gt; (forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b)
+-&gt; (forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a)
+-&gt; Applicative (ShaderEnvT m)
+forall a. a -&gt; ShaderEnvT m a
+forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+forall a b.
+ShaderEnvT m (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+forall a b c.
+(a -&gt; b -&gt; c) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m c
+forall (m :: * -&gt; *). Monad m =&gt; Functor (ShaderEnvT m)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; c) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a. a -&gt; f a)
+-&gt; (forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; Applicative f
+$cpure :: forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; ShaderEnvT m a
+pure :: forall a. a -&gt; ShaderEnvT m a
+$c&lt;*&gt; :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+&lt;*&gt; :: forall a b.
+ShaderEnvT m (a -&gt; b) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b
+$cliftA2 :: forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; c) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m c
+liftA2 :: forall a b c.
+(a -&gt; b -&gt; c) -&gt; ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m c
+$c*&gt; :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+*&gt; :: forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+$c&lt;* :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+&lt;* :: forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679200590"><span id="local-6989586621679200595"><span id="local-6989586621679200599"><span class="annot"><span class="annottext">Applicative (ShaderEnvT m)
+Applicative (ShaderEnvT m) =&gt;
+(forall a b.
+ ShaderEnvT m a -&gt; (a -&gt; ShaderEnvT m b) -&gt; ShaderEnvT m b)
+-&gt; (forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b)
+-&gt; (forall a. a -&gt; ShaderEnvT m a)
+-&gt; Monad (ShaderEnvT m)
+forall a. a -&gt; ShaderEnvT m a
+forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+forall a b.
+ShaderEnvT m a -&gt; (a -&gt; ShaderEnvT m b) -&gt; ShaderEnvT m b
+forall (m :: * -&gt; *). Monad m =&gt; Applicative (ShaderEnvT m)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; (a -&gt; ShaderEnvT m b) -&gt; ShaderEnvT m b
+forall (m :: * -&gt; *).
+Applicative m =&gt;
+(forall a b. m a -&gt; (a -&gt; m b) -&gt; m b)
+-&gt; (forall a b. m a -&gt; m b -&gt; m b)
+-&gt; (forall a. a -&gt; m a)
+-&gt; Monad m
+$c&gt;&gt;= :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; (a -&gt; ShaderEnvT m b) -&gt; ShaderEnvT m b
+&gt;&gt;= :: forall a b.
+ShaderEnvT m a -&gt; (a -&gt; ShaderEnvT m b) -&gt; ShaderEnvT m b
+$c&gt;&gt; :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+&gt;&gt; :: forall a b. ShaderEnvT m a -&gt; ShaderEnvT m b -&gt; ShaderEnvT m b
+$creturn :: forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; ShaderEnvT m a
+return :: forall a. a -&gt; ShaderEnvT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679200608"><span class="annot"><span class="annottext">Monad (ShaderEnvT m)
+Monad (ShaderEnvT m) =&gt;
+(forall a. IO a -&gt; ShaderEnvT m a) -&gt; MonadIO (ShaderEnvT m)
+forall a. IO a -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(forall a. IO a -&gt; m a) -&gt; MonadIO m
+forall (m :: * -&gt; *). MonadIO m =&gt; Monad (ShaderEnvT m)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; ShaderEnvT m a
+$cliftIO :: forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; ShaderEnvT m a
+liftIO :: forall a. IO a -&gt; ShaderEnvT m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679200621"><span id="local-6989586621679200627"><span id="local-6989586621679200631"><span id="local-6989586621679200635"><span id="local-6989586621679200639"><span class="annot"><span class="annottext">MonadIO (ShaderEnvT m)
+ShaderEnvT m FarbeState
+MonadIO (ShaderEnvT m) =&gt;
+(forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; ShaderEnvT m a)
+-&gt; (forall a. (FarbeState -&gt; a) -&gt; ShaderEnvT m a)
+-&gt; ShaderEnvT m FarbeState
+-&gt; (FarbeState -&gt; ShaderEnvT m ())
+-&gt; ((FarbeState -&gt; FarbeState) -&gt; ShaderEnvT m ())
+-&gt; Farbe (ShaderEnvT m)
+FarbeState -&gt; ShaderEnvT m ()
+(FarbeState -&gt; FarbeState) -&gt; ShaderEnvT m ()
+forall a. (FarbeState -&gt; a) -&gt; ShaderEnvT m a
+forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+(forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; m a)
+-&gt; (forall a. (FarbeState -&gt; a) -&gt; m a)
+-&gt; m FarbeState
+-&gt; (FarbeState -&gt; m ())
+-&gt; ((FarbeState -&gt; FarbeState) -&gt; m ())
+-&gt; Farbe m
+forall (m :: * -&gt; *). Farbe m =&gt; MonadIO (ShaderEnvT m)
+forall (m :: * -&gt; *). Farbe m =&gt; ShaderEnvT m FarbeState
+forall (m :: * -&gt; *). Farbe m =&gt; FarbeState -&gt; ShaderEnvT m ()
+forall (m :: * -&gt; *).
+Farbe m =&gt;
+(FarbeState -&gt; FarbeState) -&gt; ShaderEnvT m ()
+forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; a) -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; (a, FarbeState)) -&gt; ShaderEnvT m a
+$cstateFarbe :: forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; (a, FarbeState)) -&gt; ShaderEnvT m a
+stateFarbe :: forall a. (FarbeState -&gt; (a, FarbeState)) -&gt; ShaderEnvT m a
+$cgetsFarbe :: forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+(FarbeState -&gt; a) -&gt; ShaderEnvT m a
+getsFarbe :: forall a. (FarbeState -&gt; a) -&gt; ShaderEnvT m a
+$cgetFarbe :: forall (m :: * -&gt; *). Farbe m =&gt; ShaderEnvT m FarbeState
+getFarbe :: ShaderEnvT m FarbeState
+$cputFarbe :: forall (m :: * -&gt; *). Farbe m =&gt; FarbeState -&gt; ShaderEnvT m ()
+putFarbe :: FarbeState -&gt; ShaderEnvT m ()
+$cmodifyFarbe :: forall (m :: * -&gt; *).
+Farbe m =&gt;
+(FarbeState -&gt; FarbeState) -&gt; ShaderEnvT m ()
+modifyFarbe :: (FarbeState -&gt; FarbeState) -&gt; ShaderEnvT m ()
+</span><a href="Graphics.Farbe.State.html#Farbe"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Farbe</span></a></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTrans</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-48"></span><span>	</span><span id="local-6989586621679200659"><span class="annot"><span class="annottext">lift :: forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; ShaderEnvT m a
+</span><a href="#local-6989586621679200659"><span class="hs-identifier hs-var hs-var hs-var">lift</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT ShaderData m a -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a. StateT ShaderData m a -&gt; ShaderEnvT m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-var">ShaderEnvT</span></a></span><span> </span><span class="annot"><span class="annottext">(StateT ShaderData m a -&gt; ShaderEnvT m a)
+-&gt; (m a -&gt; StateT ShaderData m a) -&gt; m a -&gt; ShaderEnvT m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">m a -&gt; StateT ShaderData m a
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; StateT ShaderData m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679200457"><span id="local-6989586621679200458"><span id="local-6989586621679200667"><span id="local-6989586621679200671"><span class="annot"><span class="hs-identifier hs-type">MonadState</span></span><span> </span><span class="annot"><a href="#local-6989586621679200457"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200458"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadState</span></span><span> </span><span class="annot"><a href="#local-6989586621679200457"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200458"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-51"></span><span>	</span><span id="local-6989586621679200679"><span class="annot"><span class="annottext">state :: forall a. (s -&gt; (a, s)) -&gt; ShaderEnvT m a
+</span><a href="#local-6989586621679200679"><span class="hs-identifier hs-var hs-var hs-var">state</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; ShaderEnvT m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(m a -&gt; ShaderEnvT m a)
+-&gt; ((s -&gt; (a, s)) -&gt; m a) -&gt; (s -&gt; (a, s)) -&gt; ShaderEnvT m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(s -&gt; (a, s)) -&gt; m a
+forall a. (s -&gt; (a, s)) -&gt; m a
+forall s (m :: * -&gt; *) a. MonadState s m =&gt; (s -&gt; (a, s)) -&gt; m a
+</span><span class="hs-identifier hs-var">state</span></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">class</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679200460"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="ShaderEnv"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-var">ShaderEnv</span></a></span></span><span> </span><span id="local-6989586621679200460"><span class="annot"><a href="#local-6989586621679200460"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-55"></span><span>	</span><span id="stateShader"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#stateShader"><span class="hs-identifier hs-type">stateShader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679200462"><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679200462"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200460"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200462"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span>	</span><span id="modifyShader"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#modifyShader"><span class="hs-identifier hs-type">modifyShader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200460"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>	</span><span id="local-6989586621679200685"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#modifyShader"><span class="hs-identifier hs-var hs-var">modifyShader</span></a></span><span> </span><span id="local-6989586621679200687"><span class="annot"><span class="annottext">ShaderData -&gt; ShaderData
+</span><a href="#local-6989586621679200687"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ((), ShaderData)) -&gt; m ()
+forall a. (ShaderData -&gt; (a, ShaderData)) -&gt; m a
+forall (m :: * -&gt; *) a.
+ShaderEnv m =&gt;
+(ShaderData -&gt; (a, ShaderData)) -&gt; m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#stateShader"><span class="hs-identifier hs-var">stateShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679200688"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200688"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ShaderData -&gt; ShaderData
+</span><a href="#local-6989586621679200687"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200688"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span>	</span><span id="getsShader"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getsShader"><span class="hs-identifier hs-type">getsShader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679200463"><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200463"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200460"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200463"><span class="hs-identifier hs-type">r</span></a></span></span><span>
+</span><span id="line-61"></span><span>	</span><span id="local-6989586621679200690"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getsShader"><span class="hs-identifier hs-var hs-var">getsShader</span></a></span><span> </span><span id="local-6989586621679200694"><span class="annot"><span class="annottext">ShaderData -&gt; r
+</span><a href="#local-6989586621679200694"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShaderData -&gt; r
+</span><a href="#local-6989586621679200694"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; r) -&gt; m ShaderData -&gt; m r
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">m ShaderData
+forall (m :: * -&gt; *). ShaderEnv m =&gt; m ShaderData
+</span><a href="Graphics.Farbe.ShaderEnv.html#getShader"><span class="hs-identifier hs-var">getShader</span></a></span></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>	</span><span id="getShader"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getShader"><span class="hs-identifier hs-type">getShader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679200460"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>	</span><span id="local-6989586621679200697"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getShader"><span class="hs-identifier hs-var hs-var">getShader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; (ShaderData, ShaderData)) -&gt; m ShaderData
+forall a. (ShaderData -&gt; (a, ShaderData)) -&gt; m a
+forall (m :: * -&gt; *) a.
+ShaderEnv m =&gt;
+(ShaderData -&gt; (a, ShaderData)) -&gt; m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#stateShader"><span class="hs-identifier hs-var">stateShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679200699"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200699"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200699"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200699"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span>	</span><span id="putShader"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#putShader"><span class="hs-identifier hs-type">putShader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200460"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>	</span><span id="local-6989586621679200701"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#putShader"><span class="hs-identifier hs-var hs-var">putShader</span></a></span><span> </span><span id="local-6989586621679200703"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200703"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ((), ShaderData)) -&gt; m ()
+forall a. (ShaderData -&gt; (a, ShaderData)) -&gt; m a
+forall (m :: * -&gt; *) a.
+ShaderEnv m =&gt;
+(ShaderData -&gt; (a, ShaderData)) -&gt; m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#stateShader"><span class="hs-identifier hs-var">stateShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">ShaderData
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200703"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679200469"><span id="local-6989586621679200710"><span id="local-6989586621679200714"><span id="local-6989586621679200717"><span id="local-6989586621679200720"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679200469"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200469"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-70"></span><span>	</span><span id="local-6989586621679200726"><span class="annot"><span class="annottext">stateShader :: forall a. (ShaderData -&gt; (a, ShaderData)) -&gt; ShaderEnvT m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#stateShader"><span class="hs-identifier hs-var hs-var hs-var">stateShader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT ShaderData m a -&gt; ShaderEnvT m a
+forall (m :: * -&gt; *) a. StateT ShaderData m a -&gt; ShaderEnvT m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-var">ShaderEnvT</span></a></span><span> </span><span class="annot"><span class="annottext">(StateT ShaderData m a -&gt; ShaderEnvT m a)
+-&gt; ((ShaderData -&gt; (a, ShaderData)) -&gt; StateT ShaderData m a)
+-&gt; (ShaderData -&gt; (a, ShaderData))
+-&gt; ShaderEnvT m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; (a, ShaderData)) -&gt; StateT ShaderData m a
+forall a. (ShaderData -&gt; (a, ShaderData)) -&gt; StateT ShaderData m a
+forall s (m :: * -&gt; *) a. MonadState s m =&gt; (s -&gt; (a, s)) -&gt; m a
+</span><span class="hs-identifier hs-var">state</span></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span id="local-6989586621679200473"><span id="local-6989586621679200474"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#runShaderEnvT"><span class="hs-identifier hs-type">runShaderEnvT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679200473"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200473"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200474"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200473"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679200474"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-74"></span><span id="runShaderEnvT"><span class="annot"><span class="annottext">runShaderEnvT :: forall (m :: * -&gt; *) a.
+Monad m =&gt;
+ShaderEnvT m a -&gt; m (a, ShaderData)
+</span><a href="Graphics.Farbe.ShaderEnv.html#runShaderEnvT"><span class="hs-identifier hs-var hs-var">runShaderEnvT</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span id="local-6989586621679200729"><span class="annot"><span class="annottext">StateT ShaderData m a
+</span><a href="#local-6989586621679200729"><span class="hs-identifier hs-var">ms</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT ShaderData m a -&gt; ShaderData -&gt; m (a, ShaderData)
+forall s (m :: * -&gt; *) a. StateT s m a -&gt; s -&gt; m (a, s)
+</span><span class="hs-identifier hs-var">runStateT</span></span><span> </span><span class="annot"><span class="annottext">StateT ShaderData m a
+</span><a href="#local-6989586621679200729"><span class="hs-identifier hs-var">ms</span></a></span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="Graphics.Farbe.ShaderEnv.html#emptyShaderData"><span class="hs-identifier hs-var">emptyShaderData</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span id="local-6989586621679200480"><span id="local-6989586621679200481"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#createShader"><span class="hs-identifier hs-type">createShader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#Farbe"><span class="hs-identifier hs-type">Farbe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200480"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.State.html#FarbeT"><span class="hs-identifier hs-type">FarbeT</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679200481"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200480"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679200481"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderData"><span class="hs-identifier hs-type">ShaderData</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-78"></span><span id="createShader"><span class="annot"><span class="annottext">createShader :: forall (m :: * -&gt; *) a.
+Farbe m =&gt;
+ShaderEnvT (FarbeT IO) a -&gt; m (a, ShaderData)
+</span><a href="Graphics.Farbe.ShaderEnv.html#createShader"><span class="hs-identifier hs-var hs-var">createShader</span></a></span></span><span> </span><span id="local-6989586621679200757"><span class="annot"><span class="annottext">ShaderEnvT (FarbeT IO) a
+</span><a href="#local-6989586621679200757"><span class="hs-identifier hs-var">ms</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-79"></span><span>	</span><span id="local-6989586621679200758"><span class="annot"><a href="#local-6989586621679200758"><span class="hs-identifier hs-var">sp</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m ShaderId
+forall (m :: * -&gt; *). MonadIO m =&gt; m ShaderId
+</span><a href="file://C:\cabal\store\ghc-9.12.1-a432\gl-0.9.1-20c88a24f6036f39c9fa2b09d0e138fba18303d0\share\doc\html\src/Graphics.GL.Internal.Shared.html#glCreateProgram"><span class="hs-identifier hs-var">glCreateProgram</span></a></span><span>
+</span><span id="line-80"></span><span>	</span><span id="local-6989586621679200760"><span class="annot"><a href="#local-6989586621679200760"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#getFarbe"><span class="hs-identifier hs-type">getFarbe</span></a></span><span>
+</span><span id="line-81"></span><span>	</span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679200761"><span class="annot"><a href="#local-6989586621679200761"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679200762"><span class="annot"><a href="#local-6989586621679200762"><span class="hs-identifier hs-var">sd</span></a></span></span><span class="hs-special">)</span><span class="hs-special">,</span><span id="local-6989586621679200763"><span class="annot"><a href="#local-6989586621679200763"><span class="hs-identifier hs-var">s'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">liftIO</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#runFarbeT%27"><span class="hs-identifier hs-type">runFarbeT'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200760"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#runShaderEnvT"><span class="hs-identifier hs-type">runShaderEnvT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-82"></span><span>		</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#setShaderId"><span class="hs-identifier hs-type">setShaderId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200758"><span class="hs-identifier hs-type">sp</span></a></span><span>
+</span><span id="line-83"></span><span>		</span><span id="local-6989586621679200766"><span class="annot"><a href="#local-6989586621679200766"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="#local-6989586621679200757"><span class="hs-identifier hs-type">ms</span></a></span><span>
+</span><span id="line-84"></span><span>		</span><span class="annot"><span class="hs-identifier hs-type">join</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getsShader"><span class="hs-identifier hs-type">getsShader</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#postShaderM"><span class="hs-identifier hs-var">postShaderM</span></a></span><span>
+</span><span id="line-85"></span><span>		</span><span id="local-6989586621679200767"><span class="annot"><a href="#local-6989586621679200767"><span class="hs-identifier hs-var">sd</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getShader"><span class="hs-identifier hs-type">getShader</span></a></span><span>
+</span><span id="line-86"></span><span>		</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#putShader"><span class="hs-identifier hs-type">putShader</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="#local-6989586621679200767"><span class="hs-identifier hs-type">sd</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#postShaderM"><span class="hs-identifier hs-var">postShaderM</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-87"></span><span>		</span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><a href="#local-6989586621679200766"><span class="hs-identifier hs-type">r</span></a></span><span>
+</span><span id="line-88"></span><span>	</span><span class="annot"><a href="Graphics.Farbe.State.html#putFarbe"><span class="hs-identifier hs-type">putFarbe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200763"><span class="hs-identifier hs-type">s'</span></a></span><span>
+</span><span id="line-89"></span><span>	</span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679200761"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679200762"><span class="hs-identifier hs-type">sd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span id="local-6989586621679200494"><span id="local-6989586621679200495"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#liftFarbe"><span class="hs-identifier hs-type">liftFarbe</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.State.html#Farbe"><span class="hs-identifier hs-type">Farbe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200494"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679200494"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#FarbeT"><span class="hs-identifier hs-type">FarbeT</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679200495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200494"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200495"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-93"></span><span id="liftFarbe"><span class="annot"><span class="annottext">liftFarbe :: forall (m :: * -&gt; *) a. (Farbe m, MonadIO m) =&gt; FarbeT IO a -&gt; m a
+</span><a href="Graphics.Farbe.ShaderEnv.html#liftFarbe"><span class="hs-identifier hs-var hs-var">liftFarbe</span></a></span></span><span> </span><span id="local-6989586621679200779"><span class="annot"><span class="annottext">FarbeT IO a
+</span><a href="#local-6989586621679200779"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-94"></span><span>	</span><span id="local-6989586621679200780"><span class="annot"><a href="#local-6989586621679200780"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m FarbeState
+forall (m :: * -&gt; *). Farbe m =&gt; m FarbeState
+</span><a href="Graphics.Farbe.State.html#getFarbe"><span class="hs-identifier hs-var">getFarbe</span></a></span><span>
+</span><span id="line-95"></span><span>	</span><span class="hs-special">(</span><span id="local-6989586621679200781"><span class="annot"><a href="#local-6989586621679200781"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679200782"><span class="annot"><a href="#local-6989586621679200782"><span class="hs-identifier hs-var">fd'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">liftIO</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#runFarbeT%27"><span class="hs-identifier hs-type">runFarbeT'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200780"><span class="hs-identifier hs-type">fd</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200779"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-96"></span><span>	</span><span class="annot"><a href="Graphics.Farbe.State.html#putFarbe"><span class="hs-identifier hs-type">putFarbe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200782"><span class="hs-identifier hs-type">fd'</span></a></span><span>
+</span><span id="line-97"></span><span>	</span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><a href="#local-6989586621679200781"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- ~ liftShaderFarbeIO :: (Farbe m, MonadIO m, ShaderEnv (FarbeT IO) m)</span><span>
+</span><span id="line-101"></span><span>	</span><span class="hs-comment">-- ~ =&gt; ShaderEnvT (FarbeT IO) a -&gt; m (a, m ())</span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- ~ liftShaderFarbeIO ms = do</span><span>
+</span><span id="line-103"></span><span>	</span><span class="hs-comment">-- ~ fd &lt;- getFarbe</span><span>
+</span><span id="line-104"></span><span>	</span><span class="hs-comment">-- ~ sd &lt;- getShader</span><span>
+</span><span id="line-105"></span><span>	</span><span class="hs-comment">-- ~ (a, exec) &lt;- liftFarbe $ runShaderEnvT $ putFarbe fd &gt;&gt; putShader sd &gt;&gt; ms</span><span>
+</span><span id="line-106"></span><span>	</span><span class="hs-comment">-- ~ let exec' = liftFarbe exec</span><span>
+</span><span id="line-107"></span><span>	</span><span class="hs-comment">-- ~ return $ (a, exec')</span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span id="local-6989586621679200498"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#postShader"><span class="hs-identifier hs-type">postShader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200498"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnvT"><span class="hs-identifier hs-type">ShaderEnvT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.State.html#FarbeT"><span class="hs-identifier hs-type">FarbeT</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200498"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-111"></span><span id="postShader"><span class="annot"><span class="annottext">postShader :: forall (m :: * -&gt; *).
+ShaderEnv m =&gt;
+ShaderEnvT (FarbeT IO) () -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#postShader"><span class="hs-identifier hs-var hs-var">postShader</span></a></span></span><span> </span><span id="local-6989586621679200787"><span class="annot"><span class="annottext">ShaderEnvT (FarbeT IO) ()
+</span><a href="#local-6989586621679200787"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ShaderData) -&gt; m ()
+forall (m :: * -&gt; *).
+ShaderEnv m =&gt;
+(ShaderData -&gt; ShaderData) -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#modifyShader"><span class="hs-identifier hs-var">modifyShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679200788"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200788"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200788"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#postShaderM"><span class="hs-identifier hs-var">postShaderM</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#postShaderM"><span class="hs-identifier hs-var">postShaderM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200788"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&gt;&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621679200787"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">}</span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span id="local-6989586621679200500"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#preRender"><span class="hs-identifier hs-type">preRender</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200500"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#FarbeT"><span class="hs-identifier hs-type">FarbeT</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200500"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-114"></span><span id="preRender"><span class="annot"><span class="annottext">preRender :: forall (m :: * -&gt; *). ShaderEnv m =&gt; FarbeT IO Bool -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#preRender"><span class="hs-identifier hs-var hs-var">preRender</span></a></span></span><span> </span><span id="local-6989586621679200792"><span class="annot"><span class="annottext">FarbeT IO Bool
+</span><a href="#local-6989586621679200792"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ShaderData) -&gt; m ()
+forall (m :: * -&gt; *).
+ShaderEnv m =&gt;
+(ShaderData -&gt; ShaderData) -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#modifyShader"><span class="hs-identifier hs-var">modifyShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679200793"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200793"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200793"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#preRenderM"><span class="hs-identifier hs-var">preRenderM</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679200792"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#preRenderM"><span class="hs-identifier hs-var">preRenderM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200793"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">}</span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span id="local-6989586621679200502"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#modifyByteCount"><span class="hs-identifier hs-type">modifyByteCount</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200502"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200502"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-117"></span><span id="modifyByteCount"><span class="annot"><span class="annottext">modifyByteCount :: forall (m :: * -&gt; *). ShaderEnv m =&gt; (Int -&gt; Int) -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#modifyByteCount"><span class="hs-identifier hs-var hs-var">modifyByteCount</span></a></span></span><span> </span><span id="local-6989586621679200797"><span class="annot"><span class="annottext">Int -&gt; Int
+</span><a href="#local-6989586621679200797"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ShaderData) -&gt; m ()
+forall (m :: * -&gt; *).
+ShaderEnv m =&gt;
+(ShaderData -&gt; ShaderData) -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#modifyShader"><span class="hs-identifier hs-var">modifyShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679200798"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200798"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200798"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#byteCount"><span class="hs-identifier hs-var">byteCount</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679200797"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#byteCount"><span class="hs-identifier hs-var">byteCount</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200798"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">}</span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span id="local-6989586621679200504"><span id="local-6989586621679200505"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#advanceBy"><span class="hs-identifier hs-type">advanceBy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679200504"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200504"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679200505"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200505"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200504"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span></span><span>
+</span><span id="line-120"></span><span id="advanceBy"><span class="annot"><span class="annottext">advanceBy :: forall (m :: * -&gt; *) s.
+(Monad m, ShaderEnv m, Storable s) =&gt;
+s -&gt; m Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#advanceBy"><span class="hs-identifier hs-var hs-var">advanceBy</span></a></span></span><span> </span><span id="local-6989586621679200811"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679200811"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-121"></span><span>	</span><span id="local-6989586621679200812"><span class="annot"><a href="#local-6989586621679200812"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; Int) -&gt; m Int
+forall r. (ShaderData -&gt; r) -&gt; m r
+forall (m :: * -&gt; *) r. ShaderEnv m =&gt; (ShaderData -&gt; r) -&gt; m r
+</span><a href="Graphics.Farbe.ShaderEnv.html#getsShader"><span class="hs-identifier hs-var">getsShader</span></a></span><span> </span><span class="annot"><span class="annottext">ShaderData -&gt; Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#byteCount"><span class="hs-identifier hs-var">byteCount</span></a></span><span>
+</span><span id="line-122"></span><span>	</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#modifyByteCount"><span class="hs-identifier hs-type">modifyByteCount</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">sizeOf</span></span><span> </span><span class="annot"><span class="hs-identifier">a</span></span><span> </span><span class="annot"><span class="hs-operator">+</span></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>	</span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><a href="#local-6989586621679200812"><span class="hs-identifier hs-type">i</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span id="local-6989586621679200511"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#setByteMax"><span class="hs-identifier hs-type">setByteMax</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200511"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200511"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-126"></span><span id="setByteMax"><span class="annot"><span class="annottext">setByteMax :: forall (m :: * -&gt; *). ShaderEnv m =&gt; Int -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#setByteMax"><span class="hs-identifier hs-var hs-var">setByteMax</span></a></span></span><span> </span><span id="local-6989586621679200818"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679200818"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ShaderData) -&gt; m ()
+forall (m :: * -&gt; *).
+ShaderEnv m =&gt;
+(ShaderData -&gt; ShaderData) -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#modifyShader"><span class="hs-identifier hs-var">modifyShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679200819"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200819"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200819"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#byteMax"><span class="hs-identifier hs-var">byteMax</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679200818"><span class="hs-identifier hs-type">i</span></a></span><span> </span><span class="hs-special">}</span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span id="local-6989586621679200513"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getByteMax"><span class="hs-identifier hs-type">getByteMax</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200513"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200513"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span>
+</span><span id="line-129"></span><span id="getByteMax"><span class="annot"><span class="annottext">getByteMax :: forall (m :: * -&gt; *). ShaderEnv m =&gt; m Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#getByteMax"><span class="hs-identifier hs-var hs-var">getByteMax</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; Int) -&gt; m Int
+forall r. (ShaderData -&gt; r) -&gt; m r
+forall (m :: * -&gt; *) r. ShaderEnv m =&gt; (ShaderData -&gt; r) -&gt; m r
+</span><a href="Graphics.Farbe.ShaderEnv.html#getsShader"><span class="hs-identifier hs-var">getsShader</span></a></span><span> </span><span class="annot"><span class="annottext">ShaderData -&gt; Int
+</span><a href="Graphics.Farbe.ShaderEnv.html#byteMax"><span class="hs-identifier hs-var">byteMax</span></a></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span id="local-6989586621679200491"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#setShaderId"><span class="hs-identifier hs-type">setShaderId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200491"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#ShaderId"><span class="hs-identifier hs-type">ShaderId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200491"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-132"></span><span id="setShaderId"><span class="annot"><span class="annottext">setShaderId :: forall (m :: * -&gt; *). ShaderEnv m =&gt; ShaderId -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#setShaderId"><span class="hs-identifier hs-var hs-var">setShaderId</span></a></span></span><span> </span><span id="local-6989586621679200825"><span class="annot"><span class="annottext">ShaderId
+</span><a href="#local-6989586621679200825"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ShaderData) -&gt; m ()
+forall (m :: * -&gt; *).
+ShaderEnv m =&gt;
+(ShaderData -&gt; ShaderData) -&gt; m ()
+</span><a href="Graphics.Farbe.ShaderEnv.html#modifyShader"><span class="hs-identifier hs-var">modifyShader</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679200826"><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200826"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShaderData
+</span><a href="#local-6989586621679200826"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#shaderId"><span class="hs-identifier hs-var">shaderId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679200825"><span class="hs-identifier hs-type">i</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span id="local-6989586621679200516"><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#getShaderId"><span class="hs-identifier hs-type">getShaderId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Farbe.ShaderEnv.html#ShaderEnv"><span class="hs-identifier hs-type">ShaderEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679200516"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679200516"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Graphics.Farbe.State.html#ShaderId"><span class="hs-identifier hs-type">ShaderId</span></a></span></span><span>
+</span><span id="line-135"></span><span id="getShaderId"><span class="annot"><span class="annottext">getShaderId :: forall (m :: * -&gt; *). ShaderEnv m =&gt; m ShaderId
+</span><a href="Graphics.Farbe.ShaderEnv.html#getShaderId"><span class="hs-identifier hs-var hs-var">getShaderId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ShaderData -&gt; ShaderId) -&gt; m ShaderId
+forall r. (ShaderData -&gt; r) -&gt; m r
+forall (m :: * -&gt; *) r. ShaderEnv m =&gt; (ShaderData -&gt; r) -&gt; m r
+</span><a href="Graphics.Farbe.ShaderEnv.html#getsShader"><span class="hs-identifier hs-var">getsShader</span></a></span><span> </span><span class="annot"><span class="annottext">ShaderData -&gt; ShaderId
+</span><a href="Graphics.Farbe.ShaderEnv.html#shaderId"><span class="hs-identifier hs-var">shaderId</span></a></span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- ~ addSubShader :: ShaderEnv m =&gt; GLenum -&gt; IO () -&gt; m ()</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- ~ addSubShader e io = modifyShader $</span><span>
+</span><span id="line-139"></span><span>	</span><span class="hs-comment">-- ~ \s -&gt; s { buildSubShader = buildSubShader s ++ [io] }</span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span></pre></body></html>

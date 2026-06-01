@@ -11,7 +11,7 @@
 {-|
 Module      : Graphics.Farbe
 Copyright   : (c) vekkq, 2026
-License     : CC0
+License     : BSD-3-Clause
 Maintainer  : vekkq@vivaldi.net
 Stability   : experimental
 
