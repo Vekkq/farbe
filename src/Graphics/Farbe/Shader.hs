@@ -204,7 +204,7 @@ transfer1 e = do
 	n <- name "t" a
 	lift $ addExpr n e
 	addHeader "varying" a n
-	defer $ void $ addHeader "in" a n
+	defer $ void $ addHeader "varying" a n
 	return $ liftExprShdr' $ return n
 
 

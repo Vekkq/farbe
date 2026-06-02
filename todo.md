@@ -62,6 +62,8 @@
 * try alternative window creation, if creation fails.
 	see ContextCreationAPI - GLFW_OSMESA_CONTEXT_API
 
+* write generic windows class, for the functions used in Farbe
+	-> reverse dependency
 
 
 info:
