@@ -48,7 +48,7 @@ setupAttribute1 a = do
 	o <- advanceBy a
 	postShader $ withString n $ \c -> do
 		p <- fromIntegral <$> glGetAttribLocation s c
-		when (p < 2^8) $ do
+		when (p < 2^15-1) $ do
 			glVertexAttribPointer p
 				(glComponents a)
 				(glType a)
@@ -56,7 +56,7 @@ setupAttribute1 a = do
 				(itoi $ maxSize)
 				(intPtrToPtr $ IntPtr o)
 			glEnableVertexAttribArray p
-		-- ~ liftIO $ putStrLn $ "sl pos: " ++ show p ++ "\t arr pos: " ++ show o ++ "\t stride: " ++ (show $ itoi $ entireSize - sizeOf a) ++ "\t components: " ++ (show $ glComponents a)
+		-- ~ liftIO $ putStrLn $ "sl pos: " ++ show p ++ "\t arr pos: " ++ show o ++ "\t stride: " ++ (show $ itoi $ maxSize - sizeOf a) ++ "\t components: " ++ (show $ glComponents a)
 	return $ liftExprShdr' $ do
 		addHeader "attribute" a n
 		return n
@@ -102,10 +102,9 @@ instance (AttrType a x, AttrType b y, AttrType c z, AttrType d w) =>
 		-- ~ (setAttribute (bottom :: d))
 		-- ~ (setAttribute (bottom :: e))
 
-attribPartsVec
-	:: ( Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a
-		 , GLtype a, GLtype (v a), Storable a, Storable (v a), Vector v
-		 )
+attribPartsVec ::
+	( Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a
+	, GLtype a, GLtype (v a), Storable a, Storable (v a), Vector v)
 	=> v a -> m (v (Expr V a))
 attribPartsVec a = vecParts <$> setupAttribute1 a
 
