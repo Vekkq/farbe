@@ -69,11 +69,12 @@ instance AttrType Bool (Expr V Bool) where setAttribute = setupAttribute1
 instance AttrType Int32 (Expr V Int32) where setAttribute = setupAttribute1
 instance AttrType Float (Expr V Float) where setAttribute = setupAttribute1
 
-instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
-	setAttribute a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 a
-		where
-		fmap2 :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
-		fmap2 f = fmap (fmap f)
+-- not working that well and probably not necessary
+-- ~ instance AttrType (Normalized Float) (Normalized (Expr V Float)) where
+	-- ~ setAttribute a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 a
+		-- ~ where
+		-- ~ fmap2 :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
+		-- ~ fmap2 f = fmap (fmap f)
 
 
 instance (AttrType a c, AttrType b d) => AttrType (a,b) (c,d) where
@@ -121,22 +122,23 @@ instance AttrType (V4 Float) (V4 (Expr V Float)) where setAttribute = attribPart
 instance AttrType (V4 Int32) (V4 (Expr V Int32)) where setAttribute = attribPartsVec
 instance AttrType (V4 Bool)  (V4 (Expr V Bool)) where setAttribute = attribPartsVec
 
+-- apparently, matrices as attributes are not outright supported in ES 2 .
+-- would need to upload several vertices separately and combine them back in shader.
+-- ~ attribPartsMat
+	-- ~ :: ( Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a
+		 -- ~ , GLtype (v (v a)), GLtype (v a), GLtype a, Storable (v (v a)), Vector v
+		 -- ~ )
+	-- ~ => v (v a) -> m (v (v (Expr V a)))
+-- ~ attribPartsMat a = (fmap vecParts . vecParts) <$> setupAttribute1 a
 
-attribPartsMat
-	:: ( Farbe m, ShaderEnv m, Monad m, GLtype a, Storable a
-		 , GLtype (v (v a)), GLtype (v a), GLtype a, Storable (v (v a)), Vector v
-		 )
-	=> v (v a) -> m (v (v (Expr V a)))
-attribPartsMat a = (fmap vecParts . vecParts) <$> setupAttribute1 a
+-- ~ instance AttrType (V2 (V2 Float)) (V2 (V2 (Expr V Float))) where
+	-- ~ setAttribute = attribPartsMat
 
-instance AttrType (V2 (V2 Float)) (V2 (V2 (Expr V Float))) where
-	setAttribute = attribPartsMat
+-- ~ instance AttrType (V3 (V3 Float)) (V3 (V3 (Expr V Float))) where
+	-- ~ setAttribute = attribPartsMat
 
-instance AttrType (V3 (V3 Float)) (V3 (V3 (Expr V Float))) where
-	setAttribute = attribPartsMat
-
-instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where
-	setAttribute = attribPartsMat
+-- ~ instance AttrType (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where
+	-- ~ setAttribute = attribPartsMat
 
 
 -- "disallowed by spec"

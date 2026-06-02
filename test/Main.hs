@@ -13,6 +13,23 @@ import Data.Maybe
 import Data.Function
 
 
+frameShader :: Farbe m => [VArray (V2 Float)] -> m ()
+frameShader = shader $ \(V2 x y) -> do
+	-- ~ return (up 1 v', up 1 n' + texture (use t) (V2 1 (-1) * down fragCoord / 512))
+	return (V4 x y 0.1 1, textureIO "test-resources/fish_red.jpg" (down fragCoord / 256))
+
+
+renderFrame r = do
+	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
+
+	fix $ \loop -> processEvents $ \es -> do
+		updateRotate es r
+		frameShader [frame]
+		anyMouseClick es $ renderobj r
+		loop
+
+
+
 basicShader :: Farbe m => Var Texture -> Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
 basicShader t r = shader $ \(n,v) -> do
 	let v' = use r **| v
@@ -33,9 +50,8 @@ renderbasic r = do
 		loop
 
 
-
-shaderobj :: Farbe m => Var (Mat V3 V3 Float) -> [VArray OBJPoint] -> m ()
-shaderobj r = shader $ \(OBJPointE v n t) -> do
+shaderobj :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float, V3 Float)] -> m ()
+shaderobj r = shader $ \(v, t, n) -> do
 	let v' = use r **| v
 	t' <- transfer $ down t
 	return (up 1 v', textureIO "test-resources/fish_red.jpg" t')
@@ -43,7 +59,7 @@ shaderobj r = shader $ \(OBJPointE v n t) -> do
 
 renderobj r = do
 	fishv <- loadOBJ "test-resources/fish_red.obj"
-	fish <- newVArray $ map (\op -> op { oCoord = 0.1 * oCoord op }) fishv
+	fish <- newVArray $ map (\(OBJPoint v t n) -> (0.1 * v, t, n)) fishv
 	fix $ \loop -> processEvents $ \es -> do
 		shaderobj r [fish]
 		updateRotate es r
