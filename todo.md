@@ -65,6 +65,11 @@
 * write generic windows class, for the functions used in Farbe
 	-> reverse dependency
 
+* plug mvar blocked holes on exit with catching the exception.
+
+
+
+
 
 info:
 new framebuffers need a depth buffer in order to render in respect to depth.

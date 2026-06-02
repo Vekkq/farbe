@@ -23,8 +23,8 @@ import Debug.Trace
 
 data OBJPoint = OBJPoint
 	{ oCoord :: V3 Float
-	, oNormal :: V3 Float
 	, oTexco :: V3 Float
+	, oNormal :: V3 Float
 	} deriving (Read, Show, Eq)
 
 
@@ -79,9 +79,10 @@ triangulize _ = []
 fromFaceIndex :: WavefrontOBJ -> FaceIndex -> OBJPoint
 fromFaceIndex wave (FaceIndex ic mit min) = let
 	c = maybe (V3 0 0 0) lToVec $ objLocations wave !? (pred ic)
-	t = maybe (V3 0 0 0) tToVec $ objTexCoords wave !?! (fmap pred mit)
-	n = maybe (V3 0 0 0) nToVec $ objNormals wave !?! (fmap pred min)
-	in OBJPoint c n t
+	t = maybe (V3 0 0 0) tToVec $ objTexCoords wave !?! (pred <$> mit)
+	n = maybe (V3 0 0 0) nToVec $ objNormals wave !?! (pred <$> min)
+	in OBJPoint c t n
+
 
 v !?! (Just i) = v !? i
 v !?! Nothing = Nothing
