@@ -66,8 +66,9 @@ textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
 
 
 sani :: [Char] -> [Char]
-sani = filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])
-     . replace (\a -> if elem a "\\/.-" then '_' else a)
+sani = ("t_"++)
+	. filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])
+	. replace (\a -> if elem a "\\/.-" then '_' else a)
 
 
 replace :: (a -> b) -> [a] -> [b]
