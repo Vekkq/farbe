@@ -64,8 +64,9 @@ module Graphics.Farbe
 	, makeVarM3
 	, makeVarM4
 	, makeVarT
-	, texture
 	, Texture
+	, texture
+	, texture'
 	, loadTexture
 	, Var (..)
 	, swapVar

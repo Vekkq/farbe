@@ -67,8 +67,15 @@ emod = liftE2 "mod"
 fragCoord :: V4 (Expr F Float)
 fragCoord = vecParts $ liftE0 "gl_FragCoord"
 
+-- | Access values of a texture based on given coordinates.
 texture :: Expr e Texture -> V2 (Expr e Float) -> V4 (Expr e Float)
-texture t v = vecParts $ liftE2 "texture2D" t (exprVec v)
+texture t v = texture' t (mapy (1-) v)
+
+
+-- | Original unflipped texture variables.
+texture' :: Expr e Texture -> V2 (Expr e Float) -> V4 (Expr e Float)
+texture' t v = vecParts $ liftE2 "texture2D" t (exprVec v)
+
 
 arr :: GLtype a => Expr e (Arr s a) -> Int32 -> Expr e a
 arr e' n = liftE2 "[]" e' $ (expr n :: Expr e Int32)
