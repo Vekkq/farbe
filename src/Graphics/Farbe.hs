@@ -27,6 +27,7 @@ module Graphics.Farbe
 	, W.KeyState (..)
 	-- * Shader definition
 	, shader
+	, ShaderDefi
 	, isShaderCompiled
 	, module Graphics.Farbe.Vec
 	-- * Vertex array

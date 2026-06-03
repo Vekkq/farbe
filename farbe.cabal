@@ -47,7 +47,7 @@ library
                  , Graphics.Farbe.Expr
 
 
-    build-depends: base ^>=4.18
+    build-depends: base >=4.18
                  , containers^>=0.7
                  , mtl^>=2.3
                  , gl^>=0.9
@@ -81,7 +81,7 @@ test-suite farbe-test
 
     main-is:          Main.hs
 
-    build-depends: base ^>=4.18
+    build-depends: base >=4.18
                  , farbe
                  , gl^>=0.9
                  , bytestring^>=0.12
