@@ -63,6 +63,10 @@ module Graphics.Farbe.Vec
 	, GetY (..)
 	, GetZ (..)
 	, GetW (..)
+	, MapX (..)
+	, MapY (..)
+	, MapZ (..)
+	, mapw
 	, Fit (..)
 	, fit0
 	, fit1
@@ -382,6 +386,24 @@ instance GetZ V4 where getz (V4 _ _ z _) = z
 
 class GetW v where getw :: v a -> a
 instance GetW V4 where getw (V4 _ _ _ w) = w
+
+class MapX v where mapx :: (a -> a) -> v a -> v a
+instance MapX V1 where mapx f (V1 x) = (V1 (f x))
+instance MapX V2 where mapx f (V2 x y) = (V2 (f x) y)
+instance MapX V3 where mapx f (V3 x y z) = (V3 (f x) y z)
+instance MapX V4 where mapx f (V4 x y z w) = (V4 (f x) y z w)
+
+class MapY v where mapy :: (a -> a) -> v a -> v a
+instance MapY V2 where mapy f (V2 x y) = (V2 x (f y))
+instance MapY V3 where mapy f (V3 x y z) = (V3 x (f y) z)
+instance MapY V4 where mapy f (V4 x y z w) = (V4 x (f y) z w)
+
+class MapZ v where mapz :: (a -> a) -> v a -> v a
+instance MapZ V3 where mapz f (V3 x y z) = (V3 x y (f z))
+instance MapZ V4 where mapz f (V4 x y z w) = (V4 x y (f z) w)
+
+mapw :: (a -> a) -> V4 a -> V4 a
+mapw f (V4 x y z w) = (V4 x y z (f w))
 
 
 
