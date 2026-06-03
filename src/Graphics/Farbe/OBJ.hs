@@ -81,7 +81,7 @@ fromFaceIndex wave (FaceIndex ic mit min) = let
 	c = maybe (V3 0 0 0) lToVec $ objLocations wave !? (pred ic)
 	t = maybe (V3 0 0 0) tToVec $ objTexCoords wave !?! (pred <$> mit)
 	n = maybe (V3 0 0 0) nToVec $ objNormals wave !?! (pred <$> min)
-	in OBJPoint c t n
+	in OBJPoint c (V3 0 1 0 - t) n
 
 
 v !?! (Just i) = v !? i
