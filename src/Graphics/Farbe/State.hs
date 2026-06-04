@@ -21,7 +21,9 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
+import Control.Exception
 import GHC.Stack
+
 
 import qualified Data.IntMap.Strict as M
 
@@ -188,14 +190,12 @@ logTime = do
 delay :: Farbe m => FarbeT IO () -> m ()
 delay m = do --modifyFarbe $ \s -> s { delayed = delayed s Seq.|> m }
 		d <- getsFarbe delayed
-		liftIO $ putMVar d m
+		liftIO $ catchMVarBlocked $ putMVar d m
 
 delayFun :: (Farbe m) => m (IO () -> IO ())
 delayFun = do
 	d <- getsFarbe delayed
-	return $ putMVar d . lift
-
-
+	return $ catchMVarBlocked . putMVar d . lift
 
 getThisLine :: HasCallStack => Int
 getThisLine = case reverse $ getCallStack callStack of

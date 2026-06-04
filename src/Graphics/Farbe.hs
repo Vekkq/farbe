@@ -114,7 +114,8 @@ import System.Mem
 import Foreign.Ptr
 import Data.Bits
 import Graphics.GL
-import Control.Concurrent.MVar
+import Control.Concurrent
+-- ~ import Control.Concurrent.MVar
 
 
 
@@ -128,13 +129,7 @@ instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
 -- | The environment to do draw operations.
 --   It spawns a window with the render context.
 runFarbeT :: MonadIO m => String -> W.Display -> S.FarbeT (W.WindowT m) a -> m a
-runFarbeT s d f = fmap fst . W.runWindowT s d . S.runFarbeT $ do
-	glClearColor 0.1 0.1 0.1 1
-	glEnable GL_DEPTH_TEST
-	glPixelStorei GL_UNPACK_ALIGNMENT 1
-	f
-	where
-	 err = error "Farbe state not initialized yet"
+runFarbeT s d = W.runWindowT s d . runFarbeT'
 
 
 runFarbeT' :: MonadIO m => S.FarbeT m a -> m a
@@ -142,7 +137,10 @@ runFarbeT' f = fmap fst . S.runFarbeT $ do
 	glClearColor 0.1 0.1 0.1 1
 	glEnable GL_DEPTH_TEST
 	glPixelStorei GL_UNPACK_ALIGNMENT 1
-	f
+	a <- f
+	-- ~ liftIO $ yield
+	-- ~ runDelayed
+	return a
 	where
 	 err = error "Farbe state not initialized yet"
 

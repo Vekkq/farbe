@@ -19,6 +19,7 @@ frameShader = shader $ \(V2 x y) -> do
 	return (V4 x y 0.1 1, textureIO "test-resources/fish_red.jpg" (down fragCoord / 256))
 
 
+
 renderFrame r = do
 	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
 
@@ -46,7 +47,7 @@ renderbasic r = do
 	fix $ \loop -> processEvents $ \es -> do
 		updateRotate es r
 		basicShader t r [cube, teapot]
-		anyMouseClick es $ renderobj r
+		anyMouseClick es $ renderFrame r
 		loop
 
 
@@ -66,10 +67,10 @@ renderobj r = do
 		anyMouseClick es $ renderbasic r
 		loop
 
+
 anyMouseClick es f = case es of
 	[(EventMouseKey _ _ Down, _)] -> f
 	_ -> return ()
-
 
 updateRotate es r = case es of
 	[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)

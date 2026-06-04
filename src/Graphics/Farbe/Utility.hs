@@ -35,6 +35,9 @@ generateName :: (Counter m, Functor m) => String -> m String
 generateName s = (s++) . ("_"++) . show <$> count
 
 
+catchMVarBlocked :: IO () -> IO ()
+catchMVarBlocked = handle (\BlockedIndefinitelyOnMVar -> putStrLn "MVar got blocked")
+
 
 -- RunOnce -------------------------------------------------------------------------------
 

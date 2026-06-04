@@ -225,10 +225,14 @@ toEventContext :: MonadWindow m => [Event] -> m [(Event, EventContext)]
 toEventContext [] = return []
 toEventContext es = do
 	mc <- wsEventContext <$> windowState
-	c <- liftIO $ readMVar mc
+	c <- liftIO $ catchMVarBlocked 1 $ readMVar mc
 	cs <- scanM toEventContext1 c es
 	liftIO $ void $ swapMVar mc $ last $ cs
 	return $ zip es cs
+
+
+catchMVarBlocked :: Int -> IO a -> IO a
+catchMVarBlocked i = handle (\BlockedIndefinitelyOnMVar -> print i >> undefined)
 
 -- | Process and fetch events.
 processEvents :: MonadWindow m => m [(Event, EventContext)]
@@ -292,7 +296,7 @@ eventsOnLocked es = do
 		m <- getCursorMode
 		case (m, e) of
 			(CursorLocked, EventMouseMove (x1,y1)) -> do
-				(x0,y0) <- liftIO . readMVar =<< wsLastCoord <$> windowState
+				(x0,y0) <- liftIO . catchMVarBlocked 2 . readMVar =<< wsLastCoord <$> windowState
 				return $ EventMouseMoveLocked (x1 - x0, y1 - y0)
 			(CursorLocked, EventMouseKey _ k ks) -> return $ EventMouseKeyLocked k ks
 			_ -> return e
@@ -302,7 +306,7 @@ eventsOnLocked es = do
 		w <- glfwWindow
 		(x,y) <- liftIO $ W.getCursorPos w
 		mxy <- wsLastCoord <$> windowState
-		liftIO $ modifyMVar_ mxy (return . const (d2f x, d2f y))
+		liftIO $ catchMVarBlocked 5 $ modifyMVar_ mxy (return . const (d2f x, d2f y))
 -- getting the last coord from glfw instead of the last event could probably cause inaccuracies.
 -- it seems flawed. needs fix. TODO
 -- probably just move the coord update into the case statement
@@ -515,11 +519,11 @@ toBeRun a = liftIO $ do
 
 -- | Add to MVar list.
 mlAdd :: MonadIO m => MVar [a] -> a -> m ()
-mlAdd m a = liftIO $ modifyMVar_ m (return . (a:))
+mlAdd m a = liftIO $ catchMVarBlocked 3 $ modifyMVar_ m (return . (a:))
 
 -- | Remove from MVar list.
 mlRemove :: MonadIO m => MVar [a] -> (a -> Bool) -> m [a]
-mlRemove m p = liftIO $ modifyMVar m (\xs -> return $ (filter (not . p) xs, filter p xs))
+mlRemove m p = liftIO $ catchMVarBlocked 4 $ modifyMVar m (\xs -> return $ (filter (not . p) xs, filter p xs))
 
 mlRemoveAll :: MonadIO m => MVar [a] -> m [a]
 mlRemoveAll m = mlRemove m (const True)

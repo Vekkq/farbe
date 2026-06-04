@@ -230,7 +230,8 @@ newVArray xs = do
 	va <- newVArrayF xs
 	mva <- liftIO $ newMVar va
 	mvbo <- getVBOMVar
-	liftIO $ mkWeakMVar mva $ modifyMVarMasked_ mvbo $ execStateT (removeVArrayF va)
+	liftIO $ mkWeakMVar mva $ catchMVarBlocked $
+		modifyMVar_ mvbo $ execStateT (removeVArrayF va)
 	return $ VArray mva
 
 

@@ -67,6 +67,7 @@
 
 * plug mvar blocked holes on exit with catching the exception.
 
+* add OBJ type that loads and holds mvar with the data. it allows for checks if it is loaded. extend generic vertexarray for those checks
 
 
 
