@@ -100,7 +100,7 @@ data Display
 
 
 
--- Lift this entire pack into a failable monad. ErrGLFWInitFailed often drops when starting from a different thread than main. TODO
+-- TODO Lift this entire pack into a failable monad. ErrGLFWInitFailed often drops when starting from a different thread than main. TODO
 createWindow :: MonadIO m => String -> Display -> m WindowState
 createWindow st d = do
 	setErrorCallback $ Just $ \e s' -> throwIO $ toErr (e,s')
@@ -232,7 +232,7 @@ toEventContext es = do
 
 
 catchMVarBlocked :: Int -> IO a -> IO a
-catchMVarBlocked i = handle (\BlockedIndefinitelyOnMVar -> print i >> undefined)
+catchMVarBlocked i = handle (\BlockedIndefinitelyOnMVar -> error $ show i)
 
 -- | Process and fetch events.
 processEvents :: MonadWindow m => m [(Event, EventContext)]
