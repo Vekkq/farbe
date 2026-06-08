@@ -60,48 +60,45 @@ data TextureBase = TextureBase
 	-- ~ , changeTokenT :: Int
 	, format :: TextureFormat
 	, path :: String
-	} deriving Eq
+	}
+
+data TextureFormat = L | LA | RGB | RGBA | D | TextureFormat
+	{ internalFormat :: GLint
+	, texFormat :: GLenum
+	, texelType :: GLenum
+	, postOps :: IO ()
+	}
+
+toFormatDef L = TextureFormat GL_LUMINANCE GL_LUMINANCE GL_UNSIGNED_BYTE genMipmap
+toFormatDef LA = TextureFormat GL_LUMINANCE_ALPHA GL_LUMINANCE_ALPHA GL_UNSIGNED_BYTE genMipmap
+toFormatDef RGB = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE genMipmap
+toFormatDef RGBA = TextureFormat GL_RGBA GL_RGBA GL_UNSIGNED_BYTE genMipmap
+toFormatDef D = TextureFormat GL_DEPTH_COMPONENT GL_DEPTH_COMPONENT GL_UNSIGNED_BYTE (return ())
+toFormatDef tf = tf
+
+genMipmap = do
+	glGenerateMipmap GL_TEXTURE_2D
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR_MIPMAP_LINEAR
 
 
-data TextureFormat = L | LA | RGB | RGBA | D deriving (Eq,Show,Read)
+glInTex :: TextureFormat -> GLint
+glInTex (TextureFormat i _ _ _) = i
+glInTex a = glInTex $ toFormatDef a
 
-glTex :: (Eq a, Num a) => TextureFormat -> a
-glTex L = GL_LUMINANCE
-glTex LA = GL_LUMINANCE_ALPHA
-glTex RGB = GL_RGB
-glTex RGBA = GL_RGBA
-glTex D = GL_DEPTH_COMPONENT
-
-glInTex :: (Eq a, Num a) => TextureFormat -> a
-glInTex L = GL_ALPHA
-glInTex LA = GL_LUMINANCE_ALPHA
-glInTex RGB = GL_RGB
-glInTex RGBA = GL_RGBA
-glInTex D = GL_DEPTH_COMPONENT
+glTex :: TextureFormat -> GLenum
+glTex (TextureFormat _ f _ _) = f
+glTex a = glTex $ toFormatDef a
 
 -- ~ texType D = GL_UNSIGNED_SHORT -- only supports Byte according to dev.gl
-texType :: (Eq a, Num a) => p -> a
-texType _ = GL_UNSIGNED_BYTE
+texType :: TextureFormat -> GLenum
+texType (TextureFormat _ _ b _) = b
+texType a = texType $ toFormatDef a
 
-texSetup :: (MonadIO m) => TextureFormat -> m ()
-texSetup D = return ()
-texSetup _ = glGenerateMipmap GL_TEXTURE_2D
+texSetup :: TextureFormat -> IO ()
+texSetup (TextureFormat _ _ _ io) = io
+texSetup a = texSetup $ toFormatDef a
 
--- ~ loadTexture :: forall m t a . (MonadIO m, HandTex m)
-	-- ~ => IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
--- ~ loadTexture io = do
-	-- ~ delay <- getDelayFun
-	-- ~ m <- liftIO newEmptyMVar
-	-- ~ liftIO $ forkIO $ do
-		-- ~ (t, V2 w h, p) <- io
-		-- ~ tex <- liftIO $ withPtr_ $ glGenTextures 1
-		-- ~ glActiveTexture GL_TEXTURE0
-		-- ~ glBindTexture GL_TEXTURE_2D tex
-		-- ~ glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
-		-- ~ texSetup t
-		-- ~ putMVar m $ TextureBase tex 0 t ""
-		-- ~ void $ mkWeakMVar m (delay $ print "tex del" >> (with tex $ glDeleteTextures 1))
-	-- ~ return $ Texture m
+
 
 loadTexture :: forall m a . (MonadIO m, HandTex m)
 	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
@@ -128,7 +125,7 @@ newTexture' t (V2 w h) p = do
 	glActiveTexture GL_TEXTURE0
 	glBindTexture GL_TEXTURE_2D tex
 	glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
-	texSetup t
+	liftIO $ texSetup t
 	return tex
 
 
@@ -140,33 +137,6 @@ newTexture t p ptr = do
 	delay <- getDelayFun
 	liftIO $ mkWeakMVar m (delay $ with i $ glDeleteTextures 1)
 	return $ Texture m
-
-	-- ~ return $ Texture tex m w h ""
-
-
--- ~ assignTexUnit' :: (MonadIO m, HandTex m, Num n) => GLuint -> GLenum -> m n
--- ~ assignTexUnit' i u = do
-	-- ~ TexState l ts <- getTex
-	-- ~ i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-	-- ~ if (i /= i') then do
-		-- ~ glActiveTexture $ GL_TEXTURE0 + l
-		-- ~ glBindTexture GL_TEXTURE_2D i
-		-- ~ liftIO $ writeArray ts l i
-		-- ~ l' <- succU ts l
-		-- ~ setTex $ TexState l' ts
-		-- ~ return $ itoi l
-	-- ~ else return $ itoi u
-	-- ~ where
-	-- ~ succU ts x = do
-		-- ~ let x' = succ x
-		-- ~ (a,b) <- liftIO $ getBounds ts
-		-- ~ return $ if x' >= b then a else x'
-
--- ~ assignTexUnit :: (MonadIO m, HandTex m) => Texture -> m ()
--- ~ assignTexUnit (Texture mtb) = do
-	-- ~ tb@(TextureBase i u _ _) <- liftIO $ takeMVar mtb
-	-- ~ u' <- assignTexUnit' i u
-	-- ~ liftIO $ putMVar mtb $ tb { texLastUnit = u' }
 
 
 texUpload :: (MonadIO m, HandTex m) => GLint -> Texture -> m ()
@@ -180,7 +150,7 @@ texUpload l (Texture t) = do
 			glActiveTexture $ GL_TEXTURE0 + u'
 			glBindTexture GL_TEXTURE_2D i
 			glUniform1i l $ itoi u'
-			liftIO $ swapMVar t $ tb { texLastUnit = u'}
+			liftIO $ catchMVarBlocked 7 $ swapMVar t $ tb { texLastUnit = u'}
 			liftIO $ writeArray ts u' i
 			u'' <- succU ts u'
 			setTex $ TexState u'' ts

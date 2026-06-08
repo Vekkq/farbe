@@ -190,12 +190,12 @@ logTime = do
 delay :: Farbe m => FarbeT IO () -> m ()
 delay m = do --modifyFarbe $ \s -> s { delayed = delayed s Seq.|> m }
 		d <- getsFarbe delayed
-		liftIO $ catchMVarBlocked $ putMVar d m
+		liftIO $ catchMVarBlocked 8 $ putMVar d m
 
 delayFun :: (Farbe m) => m (IO () -> IO ())
 delayFun = do
 	d <- getsFarbe delayed
-	return $ catchMVarBlocked . putMVar d . lift
+	return $ catchMVarBlocked 9 . putMVar d . lift
 
 getThisLine :: HasCallStack => Int
 getThisLine = case reverse $ getCallStack callStack of

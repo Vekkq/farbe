@@ -9,6 +9,7 @@ import Codec.Picture
 import Codec.Picture.Types
 
 import Graphics.Farbe
+import Graphics.Farbe.State
 import Graphics.Farbe.Vec ()
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
@@ -28,14 +29,17 @@ import Data.Either
 import Control.Monad
 
 
-
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
 loadImage s = loadTexture $ do
 		ei <- readImage s
 		let (format, (dim,ptr)) = toGLImage $ fromRight (ImageRGB8 errorTexture) ei
-		either print (void . return) ei -- add debug command
-		return (format, dim, ptr)
-
+		-- ~ either debug (\_ -> return ()) ei -- add debug command
+		let format' = if isRight ei then format else errFormat
+		return (format', dim, ptr)
+	where
+		errFormat = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE $ do
+			glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
+			glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 
 errorTexture :: Image PixelRGB8
 errorTexture = generateImage f 8 8
