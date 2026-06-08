@@ -32,14 +32,19 @@ import Control.Monad
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
 loadImage s = loadTexture $ do
 		ei <- readImage s
-		let (format, (dim,ptr)) = toGLImage $ fromRight (ImageRGB8 errorTexture) ei
-		-- ~ either debug (\_ -> return ()) ei -- add debug command
-		let format' = if isRight ei then format else errFormat
-		return (format', dim, ptr)
+		case ei of
+			Right i -> do
+				let (format, (dim,ptr)) = toGLImage i
+				return (format, dim, ptr)
+			Left s -> do
+				putStrLn s
+				let (_, (dim,ptr)) = toGLImage $ ImageRGB8 errorTexture
+				return (errFormat, dim, ptr)
 	where
 		errFormat = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE $ do
 			glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 			glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
+
 
 errorTexture :: Image PixelRGB8
 errorTexture = generateImage f 8 8
