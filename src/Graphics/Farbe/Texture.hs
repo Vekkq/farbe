@@ -69,16 +69,25 @@ data TextureFormat = L | LA | RGB | RGBA | D | TextureFormat
 	, postOps :: IO ()
 	}
 
-toFormatDef L = TextureFormat GL_LUMINANCE GL_LUMINANCE GL_UNSIGNED_BYTE genMipmap
-toFormatDef LA = TextureFormat GL_LUMINANCE_ALPHA GL_LUMINANCE_ALPHA GL_UNSIGNED_BYTE genMipmap
-toFormatDef RGB = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE genMipmap
-toFormatDef RGBA = TextureFormat GL_RGBA GL_RGBA GL_UNSIGNED_BYTE genMipmap
+toFormatDef :: TextureFormat -> TextureFormat
+toFormatDef L = TextureFormat GL_LUMINANCE GL_LUMINANCE GL_UNSIGNED_BYTE setMipmap
+toFormatDef LA = TextureFormat GL_LUMINANCE_ALPHA GL_LUMINANCE_ALPHA GL_UNSIGNED_BYTE setMipmap
+toFormatDef RGB = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE setMipmap
+toFormatDef RGBA = TextureFormat GL_RGBA GL_RGBA GL_UNSIGNED_BYTE setMipmap
 toFormatDef D = TextureFormat GL_DEPTH_COMPONENT GL_DEPTH_COMPONENT GL_UNSIGNED_BYTE (return ())
 toFormatDef tf = tf
 
-genMipmap = do
+type TextureSettings = IO ()
+
+setMipmap :: TextureSettings
+setMipmap = do
 	glGenerateMipmap GL_TEXTURE_2D
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR_MIPMAP_LINEAR
+
+setPixelated :: TextureSettings
+setPixelated = do
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
+	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 
 
 glInTex :: TextureFormat -> GLint
@@ -98,6 +107,12 @@ texSetup :: TextureFormat -> IO ()
 texSetup (TextureFormat _ _ _ io) = io
 texSetup a = texSetup $ toFormatDef a
 
+formatL, formatLA, formatRGB, formatRGBA, formatD :: TextureSettings -> TextureFormat
+formatL = TextureFormat GL_LUMINANCE GL_LUMINANCE GL_UNSIGNED_BYTE
+formatLA = TextureFormat GL_LUMINANCE_ALPHA GL_LUMINANCE_ALPHA GL_UNSIGNED_BYTE
+formatRGB = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE
+formatRGBA = TextureFormat GL_RGBA GL_RGBA GL_UNSIGNED_BYTE
+formatD = TextureFormat GL_DEPTH_COMPONENT GL_DEPTH_COMPONENT GL_UNSIGNED_BYTE
 
 
 loadTexture :: forall m a . (MonadIO m, HandTex m)
