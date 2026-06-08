@@ -62,20 +62,12 @@ data TextureBase = TextureBase
 	, path :: String
 	}
 
-data TextureFormat = L | LA | RGB | RGBA | D | TextureFormat
+data TextureFormat = TextureFormat
 	{ internalFormat :: GLint
 	, texFormat :: GLenum
 	, texelType :: GLenum
-	, postOps :: IO ()
+	, texSetup :: IO ()
 	}
-
-toFormatDef :: TextureFormat -> TextureFormat
-toFormatDef L = TextureFormat GL_LUMINANCE GL_LUMINANCE GL_UNSIGNED_BYTE setMipmap
-toFormatDef LA = TextureFormat GL_LUMINANCE_ALPHA GL_LUMINANCE_ALPHA GL_UNSIGNED_BYTE setMipmap
-toFormatDef RGB = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE setMipmap
-toFormatDef RGBA = TextureFormat GL_RGBA GL_RGBA GL_UNSIGNED_BYTE setMipmap
-toFormatDef D = TextureFormat GL_DEPTH_COMPONENT GL_DEPTH_COMPONENT GL_UNSIGNED_BYTE (return ())
-toFormatDef tf = tf
 
 type TextureSettings = IO ()
 
@@ -90,23 +82,6 @@ setPixelated = do
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 
 
-glInTex :: TextureFormat -> GLint
-glInTex (TextureFormat i _ _ _) = i
-glInTex a = glInTex $ toFormatDef a
-
-glTex :: TextureFormat -> GLenum
-glTex (TextureFormat _ f _ _) = f
-glTex a = glTex $ toFormatDef a
-
--- ~ texType D = GL_UNSIGNED_SHORT -- only supports Byte according to dev.gl
-texType :: TextureFormat -> GLenum
-texType (TextureFormat _ _ b _) = b
-texType a = texType $ toFormatDef a
-
-texSetup :: TextureFormat -> IO ()
-texSetup (TextureFormat _ _ _ io) = io
-texSetup a = texSetup $ toFormatDef a
-
 formatL, formatLA, formatRGB, formatRGBA, formatD :: TextureSettings -> TextureFormat
 formatL = TextureFormat GL_LUMINANCE GL_LUMINANCE GL_UNSIGNED_BYTE
 formatLA = TextureFormat GL_LUMINANCE_ALPHA GL_LUMINANCE_ALPHA GL_UNSIGNED_BYTE
@@ -114,6 +89,11 @@ formatRGB = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE
 formatRGBA = TextureFormat GL_RGBA GL_RGBA GL_UNSIGNED_BYTE
 formatD = TextureFormat GL_DEPTH_COMPONENT GL_DEPTH_COMPONENT GL_UNSIGNED_BYTE
 
+defaultL = formatL setMipmap
+defaultLA = formatLA setMipmap
+defaultRGB = formatRGB setMipmap
+defaultRGBA = formatRGBA setMipmap
+defaultD = formatL $ return ()
 
 loadTexture :: forall m a . (MonadIO m, HandTex m)
 	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
@@ -139,7 +119,7 @@ newTexture' t (V2 w h) p = do
 	tex <- liftIO $ withPtr_ $ glGenTextures 1
 	glActiveTexture GL_TEXTURE0
 	glBindTexture GL_TEXTURE_2D tex
-	glTexImage2D GL_TEXTURE_2D 0 (glInTex t) w h 0 (glTex t) (texType t) (castPtr p)
+	glTexImage2D GL_TEXTURE_2D 0 (internalFormat t) w h 0 (texFormat t) (texelType t) (castPtr p)
 	liftIO $ texSetup t
 	return tex
 

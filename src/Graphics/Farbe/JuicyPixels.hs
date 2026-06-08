@@ -85,10 +85,10 @@ replace f xs = foldr (\a ys -> f a : ys) [] xs
 
 toGLImage :: DynamicImage -> (TextureFormat, (V2 GLsizei, Ptr ()))
 toGLImage j = case convertToGLImage j of
-	ImageY8 i -> (L, unpackImage i)
-	ImageYA8 i -> (LA, unpackImage i)
-	ImageRGB8 i -> (RGB, unpackImage i)
-	ImageRGBA8 i -> (RGBA, unpackImage i)
+	ImageY8 i -> (defaultL, unpackImage i)
+	ImageYA8 i -> (defaultLA, unpackImage i)
+	ImageRGB8 i -> (defaultRGB, unpackImage i)
+	ImageRGBA8 i -> (defaultRGBA, unpackImage i)
 	_ -> undefined
 	where
 		unpackImage (Image w h v) = (itoi <$> V2 w h, castPtr $ vecToPtr v)

@@ -157,11 +157,11 @@ drawTexture = do
 	let (w,h) = (itoi w', itoi h')
 	fb <- genFramebuffer
 	bindfb fb
-	texRGB <- newTexture RGB (V2 w h) nullPtr
+	texRGB <- newTexture defaultRGB (V2 w h) nullPtr
 	idRGB <- getTexId texRGB
 	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D idRGB 0
 	-- replace texture with renderbuffer in this function
-	texD <- newTexture D (V2 w h) nullPtr
+	texD <- newTexture defaultD (V2 w h) nullPtr
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
@@ -185,7 +185,7 @@ drawDepth = do
 	let (w,h) = (itoi w', itoi h')
 	fb <- genFramebuffer
 	bindfb fb
-	texD <- newTexture D (V2 w h) nullPtr
+	texD <- newTexture defaultD (V2 w h) nullPtr
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
 	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
 	-- ~ glDepthFunc GL_LEQUAL
