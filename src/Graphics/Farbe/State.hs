@@ -69,9 +69,9 @@ instance (MonadIO m, Farbe m) => Counter m where
 instance (MonadIO m, Farbe m) => HandVBO m where
 	stateVBO f = do
 		m <- getVBOMVar
-		vbo <- liftIO $ takeMVar m
+		vbo <- liftIO $ catchMVarBlocked 10 $ takeMVar m
 		let (a, vbo') = f vbo
-		liftIO $ putMVar m vbo'
+		liftIO $ catchMVarBlocked 11 $ putMVar m vbo'
 		return a
 	--stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
 	getVBOMVar = getsFarbe vboState

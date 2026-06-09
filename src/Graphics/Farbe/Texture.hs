@@ -106,8 +106,8 @@ loadTexture io = do
 		delay $ do
 			tex <- newTexture' t wh p
 			putMVar m2 tex
-		tex <- takeMVar m2
-		putMVar m $ TextureBase tex 0 t ""
+		tex <- catchMVarBlocked 13 $ takeMVar m2
+		catchMVarBlocked 14 $ putMVar m $ TextureBase tex 0 t ""
 		void $ mkWeakMVar m (delay (with tex $ glDeleteTextures 1))
 	return $ Texture m
 
