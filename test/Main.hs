@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# OPTIONS_GHC -fprint-potential-instances #-}
 
 module Main (main) where
 
@@ -38,6 +39,7 @@ basicShader t r = shader $ \(n,v) -> do
 	return (up 1 v', up 1 n' + texture (use t) (V2 1 (-1) * down fragCoord / 512))
 
 
+renderbasic :: (MonadWindow m, Farbe m) => Var (Mat V3 V3 Float) -> m ()
 renderbasic r = do
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 	cube <- readFileBinSTL "test-resources/cube1.stl" >>= newVArray

@@ -16,18 +16,9 @@ import Graphics.Farbe.State hiding (runFarbeT, runFarbeT')
 import qualified Graphics.Farbe.Window as W
 import Graphics.Farbe.Window hiding (processEvents)
 import Graphics.Farbe.Vec
-import Graphics.Farbe.Uniform
-import Graphics.Farbe.Attribute
-import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
-import Graphics.Farbe.Shader
 import Graphics.Farbe.ShaderEnv
-import Graphics.Farbe.BuildShader
-import Graphics.Farbe.Vec
-import Graphics.Farbe.Expr
 import Graphics.Farbe.Utility
-import Graphics.Farbe.GL
-import Graphics.Farbe.Expr
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.IO.Class ()
@@ -40,6 +31,7 @@ import Data.Bits
 import Graphics.GL
 import Control.Concurrent
 -- ~ import Control.Concurrent.MVar
+
 
 
 
@@ -65,8 +57,6 @@ runFarbeT' f = fmap fst . S.runFarbeT $ do
 	-- ~ liftIO $ yield
 	-- ~ runDelayed
 	return a
-	where
-	 err = error "Farbe state not initialized yet"
 
 
 -- | @processEvents@ obtains the events and sends it to a provided function. The function is called, when the program isn't asked to quit. This function also controls the render pipeline (swap buffers).
@@ -79,10 +69,14 @@ processEvents f = do
 	then return ()
 	else f es
 
+
+isEsc :: [(Event, b)] -> Bool
 isEsc es = case es of
 	[(EventKey Key'Escape Down _, _)] -> True
 	_ -> False
 
+
+isAltF4 :: [(W.Event, W.EventContext)] -> Bool
 isAltF4 es = case es of
 	[(EventKey Key'F4 Down _, c)] | member (Right Key'LeftAlt) c -> True
 	_ -> False

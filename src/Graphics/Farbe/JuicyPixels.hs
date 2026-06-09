@@ -30,12 +30,16 @@ import Control.Monad
 
 
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
-loadImage s = loadTexture $ do
+loadImage = loadImage' Nothing
+
+loadImage' :: (MonadIO m, Farbe m) => Maybe TextureSettings -> String -> m Texture
+loadImage' mt s = loadTexture $ do
 		ei <- readImage s
 		case ei of
 			Right i -> do
 				let (format, (dim,ptr)) = toGLImage i
-				return (format, dim, ptr)
+				let format' = maybe format (\t -> format { texSetup = t }) mt
+				return (format', dim, ptr)
 			Left s -> do
 				putStrLn s
 				let (_, (dim,ptr)) = toGLImage $ ImageRGB8 errorTexture

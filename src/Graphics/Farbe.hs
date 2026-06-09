@@ -84,6 +84,7 @@ module Graphics.Farbe
 	, FarbeT
 	, Farbe
 	, runFarbeT'
+	, W.MonadWindow
 	) where
 
 

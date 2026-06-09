@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns -Wno-name-shadowing #-}
 -- ~ {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE CPP #-}
 
@@ -11,11 +12,11 @@ import Foreign.Storable
 import Foreign.Ptr
 
 import Codec.Wavefront
-import Data.Vector ((!?), (!))
+import Data.Vector ((!?))
+import qualified Data.Vector as V
 import Data.Foldable
 import Data.Maybe
 
-import Debug.Trace
 
 #define bottom undefined
 
@@ -39,8 +40,8 @@ uncurry3 f (a,b,c) = f a b c
 
 data OBJPointE = OBJPointE
 	{ coord :: V3 (Expr V Float)
-	, normal :: V3 (Expr V Float)
 	, texco :: V3 (Expr V Float)
+	, normal :: V3 (Expr V Float)
 	}
 
 instance AttrType OBJPoint OBJPointE where
@@ -83,18 +84,25 @@ fromFaceIndex wave (FaceIndex ic mit min) = let
 	n = maybe (V3 0 0 0) nToVec $ objNormals wave !?! (pred <$> min)
 	in OBJPoint c t n
 
-
+(!?!) :: V.Vector a -> Maybe Int -> Maybe a
 v !?! (Just i) = v !? i
-v !?! Nothing = Nothing
+_ !?! Nothing = Nothing
 
 addCalculatedNormal :: V3 (V3 Float) -> OBJPoint -> OBJPoint
 addCalculatedNormal (V3 v1 v2 v3) op = op {
 		oNormal = vcross (v2 - v1) (v3 - v1)
 	}
 
+m000 :: Maybe (V3 Integer) -> V3 Integer
 m000 = fromMaybe (V3 0 0 0)
 
-lToVec (Location f1 f2 f3 f4) = V3 f1 f2 f3
+lToVec :: Location -> V3 Float
+lToVec (Location f1 f2 f3 _) = V3 f1 f2 f3
+
+tToVec :: TexCoord -> V3 Float
 tToVec (TexCoord f1 f2 f3) = V3 f1 f2 f3
+
+nToVec :: Normal -> V3 Float
 nToVec (Normal f1 f2 f3) = V3 f1 f2 f3
+
 
