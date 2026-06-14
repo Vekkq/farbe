@@ -62,6 +62,37 @@ makeVar a = do
 	return $ Var (ExprI r (toTypeS (bottom :: a)) []) m
 
 
+livingExprV :: forall v a e . (GLtype (v a), GLtype a, Upload (v a), Vector v)
+	=> String -> FarbeT IO (v a) -> v (Expr e a)
+livingExprV vname io = vecParts $ Expr $ ExprI shdr (toTypeS (undefined :: v a)) []
+	where
+		shdr = do
+			b <- addHeader "uniform" (undefined :: v a) vname
+			s <- getShaderId
+			when b $ postShader $ do
+				l <- withString vname $ glGetUniformLocation s
+				preRender $ do
+					a <- io
+					upload l a
+					return True
+			return vname
+
+
+livingExpr :: forall v a e . (GLtype a, Upload a)
+	=> String -> FarbeT IO a -> (Expr e a)
+livingExpr vname io = Expr $ ExprI shdr (toTypeS (undefined :: a)) []
+	where
+		shdr = do
+			b <- addHeader "uniform" (undefined :: a) vname
+			s <- getShaderId
+			when b $ postShader $ do
+				l <- withString vname $ glGetUniformLocation s
+				preRender $ do
+					a <- io
+					upload l a
+					return True
+			return vname
+
 class (GLtype a, Eq a) => Upload a where
 	upload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
 	-- TODO: makeUploadFn :: GLint -> a -> m (a -> m ())

@@ -249,12 +249,15 @@ glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
 glBindVertexArray :: MonadIO m => GLuint -> m ()
 glBindVertexArray = glBindVertexArrayOES
 
-
+-- Coordinates of two triangles covering the visible front
 frame :: [V3 Float]
 frame =
   [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
   , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
   ]
+
+floorFrame = map (pitch (pi/2)) frame
+
 
 -- ~ frame :: HandVBO m => m (VArray (V3 Float))
 -- ~ frame = newVArray $

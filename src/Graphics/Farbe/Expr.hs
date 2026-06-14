@@ -35,7 +35,7 @@ instance (GLtype a, Floating a) => Floating (Expr e a) where
 	exp = liftE1 "exp"
 	log = liftE1 "log"
 	sqrt = liftE1 "sqrt"
-	(**) = liftE2 "^"
+	(**) = liftE2 "pow"
 	sin = liftE1 "sin"
 	cos = liftE1 "cos"
 	tan = liftE1 "tan"
@@ -53,8 +53,13 @@ instance (GLtype a, Floating a) => Floating (Expr e a) where
 ln :: Floating a => a -> a
 ln = logBase napier
 
-modf :: Expr e Float -> Expr e Float -> Expr e Float
+modf, log2 :: Expr e Float -> Expr e Float -> Expr e Float
 modf = liftE2 "mod"
+log2 = liftE2 "log2"
+
+efloor :: Expr e Float -> Expr e Float
+efloor = liftE1 "floor"
+
 
 equot, erem, ediv, emod :: Expr e Int32 -> Expr e Int32 -> Expr e Int32
 equot = liftE2 "/"

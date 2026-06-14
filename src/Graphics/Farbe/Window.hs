@@ -43,7 +43,7 @@ module Graphics.Farbe.Window
 	, WindowErr (..)
 	-- * Utility
 	, getTime
-	, windowSize
+	, fbSize
 	, glfwWindow
 	-- ~ -- module re-export
 	-- ~ , module Control.Monad
@@ -80,6 +80,10 @@ import Control.Applicative (Alternative)
 -- ~ import Control.Monad.IO.Class
 
 import Data.Bits
+
+import Graphics.Farbe.Vec
+
+
 
 -- | Creates a fullscreen window, runs your action and terminates window after.
 runWindowT :: MonadIO m => String -> Display -> WindowT m a -> m a
@@ -385,7 +389,6 @@ getTime = do
 
 
 
-
 -- MONAD AND INSTANCES ---------------------------------------------------------
 
 data WindowState = WindowState
@@ -423,8 +426,8 @@ eventQueue :: MonadWindow m => m (MVar [Event])
 eventQueue = wsEventQueue <$> windowState
 
 
-windowSize :: (MonadIO m, MonadWindow m) => m (Int,Int)
-windowSize = glfwWindow >>= liftIO . W.getWindowSize
+fbSize :: (MonadIO m, MonadWindow m) => m (Int,Int)
+fbSize = glfwWindow >>= liftIO . W.getFramebufferSize
 
 
 instance MonadIO m => MonadWindow (WindowT m) where

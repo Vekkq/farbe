@@ -34,6 +34,8 @@ module Graphics.Farbe.Vec
 	, relm
 	, line
 	, curve
+	, reflect
+	, refract
 	-- * Matrix operations
 	, Mat
 	, mtranspose
@@ -51,6 +53,9 @@ module Graphics.Farbe.Vec
 	, roll
 	, pitch
 	, yaw
+	, rollM
+	, pitchM
+	, yawM
 	, rotationMatrix
 	-- * Perspective
 	, perspective
@@ -255,9 +260,16 @@ line v v2 t = rel v (* pure t) v2
 curve :: (Vector v, Num (v a)) => v a -> v a -> v a -> a -> v a
 curve v v2 v3 t = line (line v v2 t) (line v2 v3 t) t
 
+-- | incident vector and surface vector
+reflect :: (Vector v, Fractional (v a), Floating a) => v a -> v a -> v a
+reflect i n | i' <- vnormal i, n' <- vnormal n = i' - (2 * vdot n' i') *| n'
 
-
-
+refract :: (Vector v, Fractional (v a), Floating a, Ord a) => v a -> v a -> a -> v a
+refract i n eta | i' <- vnormal i, n' <- vnormal n = let
+	k = 1.0 - eta * eta * (1.0 - vdot n' i' * vdot n' i')
+	in if (k < 0.0)
+		then 0
+		else eta *| i' - (eta * vdot n' i' + sqrt(k)) *| n
 
 -- ~ -- angle-optimized curve
 -- ~ acurve :: (Vector v, Num a) => a -> v a -> v a -> v a -> [v a]
@@ -318,14 +330,28 @@ rotationMatrix2D a = V2 (V2 (cos a) (negate $ sin a)) (V2 (sin a) (cos a))
 rotate :: Floating a => a -> a -> a -> V3 a -> V3 a
 rotate a b c v = rotationMatrix a b c **| v
 
-roll, pitch, yaw :: Floating a => a -> Mat V3 V3 a
-roll a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
-pitch a = V3 (V3 (cos a) 0 (sin a)) (V3 0 1 0) (V3 (-sin a) 0 (cos a))
-yaw a = V3 (V3 1 0 0) (V3 0 (cos a) (-sin a)) (V3 0 (sin a) (cos a))
+rollM, pitchM, yawM :: Floating a => a -> Mat V3 V3 a
+rollM a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
+pitchM a = V3 (V3 1 0 0) (V3 0 (cos a) (-sin a)) (V3 0 (sin a) (cos a))
+yawM a = V3 (V3 (cos a) 0 (sin a)) (V3 0 1 0) (V3 (-sin a) 0 (cos a))
+
+-- OG
+-- ~ rollM, pitchM, yawM :: Floating a => a -> Mat V3 V3 a
+-- ~ rollM a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
+-- ~ pitchM a = V3 (V3 (cos a) 0 (sin a)) (V3 0 1 0) (V3 (-sin a) 0 (cos a))
+-- ~ yawM a = V3 (V3 1 0 0) (V3 0 (cos a) (-sin a)) (V3 0 (sin a) (cos a))
+
+
+
+roll, pitch, yaw :: Floating a => a -> V3 a -> V3 a
+roll a v = rollM a **| v
+pitch a v = pitchM a **| v
+yaw a v = yawM a **| v
+
 
 -- | Define a multiplication matrix for 3D space.
 rotationMatrix :: Floating a => a -> a -> a -> Mat V3 V3 a
-rotationMatrix a b c = roll a **** pitch b **** yaw c
+rotationMatrix a b c = rollM a **** pitchM b **** yawM c
 
 
 -- | Multiplication matrix for orthogonal to perspective projection.

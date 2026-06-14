@@ -29,26 +29,28 @@ data OBJPoint = OBJPoint
 	} deriving (Read, Show, Eq)
 
 
-instance Storable OBJPoint where
-  sizeOf _ = (3*) $ subSizeOf (bottom :: V3 Float)
-  alignment _ = alignment (bottom :: V3 Float)
-  peek p = uncurry3 OBJPoint <$> peek (castPtr p)
-  poke p (OBJPoint o n t) = poke (castPtr p) (o, n, t)
 
-uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
-uncurry3 f (a,b,c) = f a b c
+-- TODO borked
+-- ~ instance Storable OBJPoint where
+  -- ~ sizeOf _ = (3*) $ subSizeOf (bottom :: V3 Float)
+  -- ~ alignment _ = alignment (bottom :: V3 Float)
+  -- ~ peek p = uncurry3 OBJPoint <$> peek (castPtr p)
+  -- ~ poke p (OBJPoint o n t) = poke (castPtr p) (o, n, t)
 
-data OBJPointE = OBJPointE
-	{ coord :: V3 (Expr V Float)
-	, texco :: V3 (Expr V Float)
-	, normal :: V3 (Expr V Float)
-	}
+-- ~ uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
+-- ~ uncurry3 f (a,b,c) = f a b c
 
-instance AttrType OBJPoint OBJPointE where
-	setAttribute _ = liftM3 OBJPointE
-		(setAttribute (bottom :: V3 Float))
-		(setAttribute (bottom :: V3 Float))
-		(setAttribute (bottom :: V3 Float))
+-- ~ data OBJPointE = OBJPointE
+	-- ~ { coord :: V3 (Expr V Float)
+	-- ~ , texco :: V3 (Expr V Float)
+	-- ~ , normal :: V3 (Expr V Float)
+	-- ~ }
+
+-- ~ instance AttrType OBJPoint OBJPointE where
+	-- ~ setAttribute _ = liftM3 OBJPointE
+		-- ~ (setAttribute (bottom :: V3 Float))
+		-- ~ (setAttribute (bottom :: V3 Float))
+		-- ~ (setAttribute (bottom :: V3 Float))
 
 
 loadOBJ :: Farbe m => FilePath -> m [OBJPoint]

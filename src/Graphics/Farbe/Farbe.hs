@@ -147,7 +147,7 @@ drawInto a b = do
 
 drawTexture :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
 drawTexture = do
-	(w',h') <- W.windowSize
+	(w',h') <- W.fbSize
 	let (w,h) = (itoi w', itoi h')
 	fb <- genFramebuffer
 	bindfb fb
@@ -175,7 +175,7 @@ drawTexture = do
 
 drawDepth :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
 drawDepth = do
-	(w',h') <- W.windowSize
+	(w',h') <- W.fbSize
 	let (w,h) = (itoi w', itoi h')
 	fb <- genFramebuffer
 	bindfb fb

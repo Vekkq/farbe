@@ -70,6 +70,7 @@ compileShader f = do
 			else return False
 	return completeShader
 
+
 isProgramCompiled :: MonadIO m => ShaderId -> m Bool
 isProgramCompiled i = fmap (==GL_TRUE) $ withPtr_ $ \p -> glGetProgramiv i GL_LINK_STATUS p
 

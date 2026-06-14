@@ -13,6 +13,8 @@ import Control.Monad
 import Data.Maybe
 import Data.Function
 
+import Shadow
+
 
 frameShader :: Farbe m => [VArray (V2 Float)] -> m ()
 frameShader = shader $ \(V2 x y) -> do
@@ -36,7 +38,7 @@ basicShader :: Farbe m => Var Texture -> Var (Mat V3 V3 Float) -> [VArray (V3 Fl
 basicShader t r = shader $ \(n,v) -> do
 	let v' = use r **| v
 	n' <- transfer n
-	return (up 1 v', up 1 n' + texture (use t) (V2 1 (-1) * down fragCoord / 512))
+	return (adjustZ $ up 1 v', up 1 n' + texture (use t) (V2 1 (-1) * down fragCoord / 512))
 
 
 renderbasic :: (MonadWindow m, Farbe m) => Var (Mat V3 V3 Float) -> m ()
@@ -53,7 +55,8 @@ renderbasic r = do
 		loop
 
 
-shaderobj :: Farbe m => Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float, V3 Float)] -> m ()
+shaderobj :: Farbe m
+	=> Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float, V3 Float)] -> m ()
 shaderobj r = shader $ \(v, t, n) -> do
 	let v' = use r **| v
 	t' <- transfer $ down t
@@ -74,9 +77,6 @@ anyMouseClick es f = case es of
 	[(EventMouseKey _ _ Down, _)] -> f
 	_ -> return ()
 
-updateRotate es r = case es of
-	[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (x*0.01) (y*0.01)
-	_ -> return ()
 
 
 
@@ -86,5 +86,5 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
 
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
-	renderbasic r
+	renderShadow r
 

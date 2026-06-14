@@ -19,12 +19,12 @@ This library abstracts away traps of OpenGL and provides its basics for renderin
 -}
 module Graphics.Farbe
 	( runFarbeT
-	, W.Display (..)
+	, Display (..)
 	-- * Event handling
 	, processEvents
-	, W.Event (..)
-	, W.Key (..)
-	, W.KeyState (..)
+	, Event (..)
+	, Key (..)
+	, KeyState (..)
 	-- * Shader definition
 	, shader
 	, ShaderDefi
@@ -33,11 +33,15 @@ module Graphics.Farbe
 	-- * Vertex array
 	, VArray (..)
 	, newVArray
+	, frame
+	, floorFrame
 	-- * Shader's Expr type
 	, Expr
 	, V
 	, F
 	, fragCoord
+	, windowDim
+	, windowDim0to1
 	, napier
 	, ln
 	, modf
@@ -64,6 +68,7 @@ module Graphics.Farbe
 	, makeVarM3
 	, makeVarM4
 	, makeVarT
+	, updateRotate
 	, Texture
 	, texture
 	, texture'
@@ -84,12 +89,12 @@ module Graphics.Farbe
 	, FarbeT
 	, Farbe
 	, runFarbeT'
-	, W.MonadWindow
+	, MonadWindow
 	) where
 
 
 import Graphics.Farbe.State hiding (runFarbeT, runFarbeT')
-import qualified Graphics.Farbe.Window as W
+import Graphics.Farbe.Window hiding (processEvents)
 import Graphics.Farbe.Farbe
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Uniform
@@ -100,5 +105,26 @@ import Graphics.Farbe.Shader
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.Expr
 import Control.Monad.Trans
+import Control.Monad
 
+import qualified Graphics.UI.GLFW as W
+
+
+updateRotate es r = case es of
+	[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (-y*0.01) (-x*0.01)
+	_ -> return ()
+
+
+windowDim :: (MonadWindow m) => m (V2 (Expr e Float))
+windowDim = do
+	w <- glfwWindow
+	return $ livingExprV "dim" $ do
+		(x,y) <- liftIO $ W.getFramebufferSize w
+		return $ fromIntegral <$> V2 x y
+
+
+windowDim0to1 :: (MonadWindow m) => m (V2 (Expr F Float))
+windowDim0to1 = do
+	e <- windowDim
+	return $ down fragCoord / e
 
