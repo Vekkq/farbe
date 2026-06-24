@@ -84,7 +84,8 @@ anyMouseClick es f = case es of
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
 	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
+	renderShadow
 
 	r <- makeVarM3 $ V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
-	renderShadow r
+	renderbasic r
 

@@ -69,7 +69,7 @@
 
 * add OBJ type that loads and holds mvar with the data. it allows for checks if it is loaded. extend generic vertexarray for those checks
 
-
+* upgrade Window with Vec
 
 
 info:

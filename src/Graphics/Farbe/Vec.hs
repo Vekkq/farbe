@@ -38,6 +38,9 @@ module Graphics.Farbe.Vec
 	, refract
 	-- * Matrix operations
 	, Mat
+	, Identity (..)
+	, translateM
+	, scaleM
 	, mtranspose
 	, vtranspose
 	, vtranspose'
@@ -57,8 +60,13 @@ module Graphics.Farbe.Vec
 	, pitchM
 	, yawM
 	, rotationMatrix
+	, rollM4
+	, pitchM4
+	, yawM4
+	, rotationMatrix4
 	-- * Perspective
 	, perspective
+	, perspectiveGL
 	-- * Utility classes
 	, FromList (..)
 	, fromList
@@ -335,6 +343,11 @@ rollM a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
 pitchM a = V3 (V3 1 0 0) (V3 0 (cos a) (-sin a)) (V3 0 (sin a) (cos a))
 yawM a = V3 (V3 (cos a) 0 (sin a)) (V3 0 1 0) (V3 (-sin a) 0 (cos a))
 
+rollM4, pitchM4, yawM4 :: Floating a => a -> Mat V4 V4 a
+rollM4 a = V4 (V4 (cos a) (-sin a) 0 0) (V4 (sin a) (cos a) 0 0) (V4 0 0 1 0) (V4 0 0 0 1)
+pitchM4 a = V4 (V4 1 0 0 0) (V4 0 (cos a) (-sin a) 0) (V4 0 (sin a) (cos a) 0) (V4 0 0 0 1)
+yawM4 a = V4 (V4 (cos a) 0 (sin a) 0) (V4 0 1 0 0) (V4 (-sin a) 0 (cos a) 0) (V4 0 0 0 1)
+
 -- OG
 -- ~ rollM, pitchM, yawM :: Floating a => a -> Mat V3 V3 a
 -- ~ rollM a = V3 (V3 (cos a) (-sin a) 0) (V3 (sin a) (cos a) 0) (V3 0 0 1)
@@ -353,34 +366,27 @@ yaw a v = yawM a **| v
 rotationMatrix :: Floating a => a -> a -> a -> Mat V3 V3 a
 rotationMatrix a b c = rollM a **** pitchM b **** yawM c
 
-
--- | Multiplication matrix for orthogonal to perspective projection.
-perspective
-  :: Floating a
-  => a -- ^ FOV (y direction, in radians)
-  -> a -- ^ Aspect ratio
-  -> a -- ^ Near plane
-  -> a -- ^ Far plane
-  -> Mat V4 V4 a
-perspective fovy aspect near far =
-  V4 (V4 x 0 0    0)
-     (V4 0 y 0    0)
-     (V4 0 0 z    w)
-     (V4 0 0 (-1) 0)
-  where tanHalfFovy = tan $ fovy / 2
-        x = 1 / (aspect * tanHalfFovy)
-        y = 1 / tanHalfFovy
-        fpn = far + near
-        fmn = far - near
-        oon = 0.5/near
-        oof = 0.5/far
-        -- z = 1 / (near/fpn - far/fpn) -- would be better by .5 bits
-        z = -fpn/fmn
-        w = 1/(oof-oon) -- 13 bits error reduced to 0.17
-        -- w = -(2 * far * near) / fmn
--- copied from linear
+rotationMatrix4 :: Floating a => a -> a -> a -> Mat V4 V4 a
+rotationMatrix4 a b c = rollM4 a **** pitchM4 b **** yawM4 c
 
 
+perspective :: Floating a => a -> a -> a -> Mat V4 V4 a
+perspective fovy aspect near = V4
+	(V4 x 0 0    0)
+	(V4 0 y 0    0)
+	(V4 0 0 (-1) w)
+	(V4 0 0 (-1) 0)
+	where
+		t = near*tan(fovy/2)
+		b = -t
+		l = b*aspect
+		r = t*aspect
+		x = (2*near)/(r-l)
+		y = (2*near)/(t-b)
+		w = -2*near
+
+
+perspectiveGL f a = perspective 2 (16/9) 0.01
 
 
 
@@ -529,6 +535,42 @@ instance Storable a => Storable (V4 a) where
   alignment = subSizeOf
   peek p = (fromTuple :: (a,a,a,a) -> (V4 a)) <$> peek (castPtr p)
   poke p v = poke (castPtr p) $ (toTuple :: (V4 a) -> (a,a,a,a)) v
+
+
+
+class Identity a where identity :: a
+instance Num a => Identity (Mat V2 V2 a) where identity = V2 (V2 1 0) (V2 0 1)
+instance Num a => Identity (Mat V3 V3 a) where
+	identity = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
+
+instance Num a => Identity (Mat V4 V4 a) where
+	identity = V4 (V4 1 0 0 0) (V4 0 1 0 0) (V4 0 0 1 0) (V4 0 0 0 1)
+
+
+reflectionM3 l@(V3 lx ly lz) = 1 / (vlength l ** 2) *|| V3
+	(V3 (ly**2 + lz**2 - lx**2) (2*lx*ly) (2*lx*lz))
+	(V3 (2*ly*lx) (lx**2 + lz**2 - ly**2) (2*ly*lz))
+	(V3 (2*lz*lx) (2*lz*ly) (lx**2 + ly**2 - lz**2))
+
+
+
+
+fmap2 :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
+fmap2 = fmap . fmap
+
+
+
+translateM (V3 x y z) = V4
+	(V4 1 0 0 x)
+	(V4 0 1 0 y)
+	(V4 0 0 1 z)
+	(V4 0 0 0 1)
+
+scaleM = undefined
+
+
+
+
 
 
 

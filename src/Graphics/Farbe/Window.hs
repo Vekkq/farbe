@@ -44,6 +44,7 @@ module Graphics.Farbe.Window
 	-- * Utility
 	, getTime
 	, fbSize
+	, lastCoord
 	, glfwWindow
 	-- ~ -- module re-export
 	-- ~ , module Control.Monad
@@ -315,6 +316,10 @@ eventsOnLocked es = do
 -- it seems flawed. needs fix. TODO
 -- probably just move the coord update into the case statement
 
+lastCoord :: MonadWindow m => m (V2 Float)
+lastCoord = do
+	(x,y) <- liftIO . readMVar =<< wsLastCoord <$> windowState
+	return $ V2 x y
 
 -- | Ask whether a key is still pressed.
 --   Use this to get additional context, when processing events.
@@ -336,6 +341,15 @@ getKeys = filterM (fmap ksToBool . getKey) [succ minBound..maxBound]
 getMouseKeys :: MonadWindow m => m [W.MouseButton]
 getMouseKeys = filterM (fmap ksToBool . getMouseKey) [minBound..maxBound]
 
+getMousePos :: MonadWindow m => m (Maybe (V2 Double))
+getMousePos = do
+	w <- glfwWindow
+	c <- getCursorMode
+	liftIO $ do
+		(x,y) <- W.getCursorPos w
+		return $ case c of
+			CursorLocked -> Nothing
+			_ -> Just $ V2 x y
 
 
 

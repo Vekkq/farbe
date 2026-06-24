@@ -17,17 +17,16 @@ lightShader t = shader $ \(n,v) -> return (fit1 $ pitch (pi/2) v,1)
 
 
 shadowShader :: (MonadWindow m, Farbe m)
-	=> Var (Mat V3 V3 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
-shadowShader r va = do
-	dim <- windowDim0to1
+	=> Var (Mat V4 V4 Float) -> [VArray (V3 Float, V3 Float)] -> m ()
+shadowShader vm va = do
+	-- ~ dim <- windowDim0to1
 	($ va) $ shader $ \(n,v) -> do
-		let v' = use r **| v
+		let v' = use vm **| fit 1 v
 		vf <- transfer v'
-		n' <- transfer $ use r **| n
-		-- ~ l' <- transfer l
-		let l = use r **| lightPoint
-		return (adjustZ $ up 1 v', pure $ (1.5-) $  vdistance (V3 0 0 (-2)) $ reflect (l-vf) n')
-
+		n' <- transfer $ use vm **| fit1 n
+		let l = use vm **| fit1 lightPoint
+		return (v', pure $ (1.5-) $ vdistance (V4 0 0 (-2) 0) $ reflect (l-vf) n')
+-- ~ pure $ (1.5-) $  vdistance (V3 0 0 (-2)) $ reflect (l-vf) n')
 
 -- | light source,
 -- ~ lightIntensity :: V3 a -> V3 a -> a
@@ -40,8 +39,8 @@ lightPoint = V3 0 1 0
 adjustZ (V4 x y z w) = V4 x y z' w
 	where z' = z/10**3
 
-renderShadow :: (MonadWindow m, Farbe m) => Var (Mat V3 V3 Float) -> m ()
-renderShadow r = do
+renderShadow :: (MonadWindow m, Farbe m) => m ()
+renderShadow = do
 	teapot <- readFileBinSTL "test-resources/teapot1.stl" >>= newVArray
 
 	let floorFrame' = map (\v -> (V3 0 1 0, v)) $ floorFrame
@@ -49,10 +48,12 @@ renderShadow r = do
 	-- ~ utah <- newVArray $ teapot ++ map (fmap (* V2 (-1) 1)) teapot
 	let scene = undefined
 
+	vm <- makeVarM4 =<< viewMat
 	fix $ \loop -> processEvents $ \es -> do
-		updateRotate es r
+		m <- viewMat
+		swapVar vm m
 		-- ~ t <- drawDepth $ lightShader [scene]
-		shadowShader r [floorFrame'']
+		shadowShader vm [floorFrame'']
 		-- ~ anyMouseClick es $ renderFrame r
 		loop
 

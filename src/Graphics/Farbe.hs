@@ -38,10 +38,10 @@ module Graphics.Farbe
 	-- * Shader's Expr type
 	, Expr
 	, V
+	, viewMat
 	, F
 	, fragCoord
 	, windowDim
-	, windowDim0to1
 	, napier
 	, ln
 	, modf
@@ -106,25 +106,70 @@ import Graphics.Farbe.BuildShader
 import Graphics.Farbe.Expr
 import Control.Monad.Trans
 import Control.Monad
+import Control.Concurrent
 
 import qualified Graphics.UI.GLFW as W
 
 
+updateRotate :: MonadIO m
+	=> [(Event, b)] -> Var (Mat V3 V3 Float) -> m (Mat V3 V3 Float)
 updateRotate es r = case es of
-	[(EventMouseMove (x,y), _)] -> void $ swapVar r $ rotationMatrix 0 (-y*0.01) (-x*0.01)
-	_ -> return ()
+	[(EventMouseMove (x,y), _)] -> do
+		let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
+		swapVar r m
+		return m
+	_ -> readVar r
 
 
-windowDim :: (MonadWindow m) => m (V2 (Expr e Float))
+viewMat :: MonadWindow m => m (Mat V4 V4 Float)
+viewMat = do
+	V2 x y <- lastCoord
+	return $ perspective 2 1 1 **** translateM (V3 0 0 (-3)) **** rotationMatrix4 0 (-y*0.01) (-x*0.01)
+
+-- ~ perspectiveMatrix :: MonadWindow m => Float -> m (Mat V4 V4 Float)
+-- ~ perspectiveMatrix fov = do
+	-- ~ V2 x y <- windowDim
+	-- ~ return $ inversePerspective fov (x/y) (-1) 1
+
+-- ~ inversePerspective
+  -- ~ :: Floating a
+  -- ~ => a -- ^ FOV (y direction, in radians)
+  -- ~ -> a -- ^ Aspect ratio
+  -- ~ -> a -- ^ Near plane
+  -- ~ -> a -- ^ Far plane
+  -- ~ -> Mat V4 V4 a
+-- ~ inversePerspective fovy aspect near far =
+  -- ~ V4 (V4 a 0 0 0   )
+     -- ~ (V4 0 b 0 0   )
+     -- ~ (V4 0 0 0 (-1))
+     -- ~ (V4 0 0 c d   )
+  -- ~ where tanHalfFovy = tan $ fovy / 2
+        -- ~ a = aspect * tanHalfFovy
+        -- ~ b = tanHalfFovy
+        -- ~ c = oon - oof
+        -- ~ d = oon + oof
+        -- ~ oon = 0.5/near
+        -- ~ oof = 0.5/far
+
+
+
+windowDim :: MonadWindow m => m (V2 Float)
 windowDim = do
 	w <- glfwWindow
-	return $ livingExprV "dim" $ do
-		(x,y) <- liftIO $ W.getFramebufferSize w
-		return $ fromIntegral <$> V2 x y
+	(x,y) <- liftIO $ W.getFramebufferSize w
+	return $ fromIntegral <$> V2 x y
 
 
-windowDim0to1 :: (MonadWindow m) => m (V2 (Expr F Float))
-windowDim0to1 = do
-	e <- windowDim
-	return $ down fragCoord / e
+-- ~ windowDim :: MonadWindow m => m (V2 (Expr e Float))
+-- ~ windowDim = do
+	-- ~ w <- glfwWindow
+	-- ~ return $ livingExprV "dim" $ do
+		-- ~ (x,y) <- liftIO $ W.getFramebufferSize w
+		-- ~ return $ fromIntegral <$> V2 x y
+
+
+-- ~ windowDim0to1 :: (MonadWindow m) => m (V2 (Expr F Float))
+-- ~ windowDim0to1 = do
+	-- ~ e <- windowDim
+	-- ~ return $ down fragCoord / e
 
