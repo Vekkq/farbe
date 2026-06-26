@@ -104,6 +104,7 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.Expr
+import Graphics.Farbe.Params
 import Control.Monad.Trans
 import Control.Monad
 import Control.Concurrent
@@ -111,20 +112,26 @@ import Control.Concurrent
 import qualified Graphics.UI.GLFW as W
 
 
-updateRotate :: MonadIO m
+updateRotate' :: MonadIO m
 	=> [(Event, b)] -> Var (Mat V3 V3 Float) -> m (Mat V3 V3 Float)
-updateRotate es r = case es of
+updateRotate' es r = case es of
 	[(EventMouseMove (x,y), _)] -> do
 		let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
 		swapVar r m
 		return m
 	_ -> readVar r
 
+updateRotate :: MonadWindow m => Var (Mat V3 V3 Float) -> m ()
+updateRotate r = do
+	V2 x y <- lastCoord
+	let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
+	void $ swapVar r m
+
 
 viewMat :: MonadWindow m => m (Mat V4 V4 Float)
 viewMat = do
 	V2 x y <- lastCoord
-	return $ perspective 2 1 1 **** translateM (V3 0 0 (-3)) **** rotationMatrix4 0 (-y*0.01) (-x*0.01)
+	return $ perspective 1 1 0.01 100 **** translateM (V3 0 0 (-3)) **** rotationMatrix4 0 (y*0.01) (-x*0.01)
 
 -- ~ perspectiveMatrix :: MonadWindow m => Float -> m (Mat V4 V4 Float)
 -- ~ perspectiveMatrix fov = do

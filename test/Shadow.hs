@@ -25,7 +25,7 @@ shadowShader vm va = do
 		vf <- transfer v'
 		n' <- transfer $ use vm **| fit1 n
 		let l = use vm **| fit1 lightPoint
-		return (v', pure $ (1.5-) $ vdistance (V4 0 0 (-2) 0) $ reflect (l-vf) n')
+		return (v', pure $ (*4) . (1.5-) $ vdistance (V4 0 0 (-1.9) 0) $ reflect (l-vf) n')
 -- ~ pure $ (1.5-) $  vdistance (V3 0 0 (-2)) $ reflect (l-vf) n')
 
 -- | light source,
@@ -34,10 +34,8 @@ shadowShader vm va = do
 
 
 lightPoint :: V3 (Expr e Float)
-lightPoint = V3 0 1 0
+lightPoint = V3 0 2 0
 
-adjustZ (V4 x y z w) = V4 x y z' w
-	where z' = z/10**3
 
 renderShadow :: (MonadWindow m, Farbe m) => m ()
 renderShadow = do

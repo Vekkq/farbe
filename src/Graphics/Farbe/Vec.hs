@@ -66,7 +66,7 @@ module Graphics.Farbe.Vec
 	, rotationMatrix4
 	-- * Perspective
 	, perspective
-	, perspectiveGL
+	, perspectiveInf
 	-- * Utility classes
 	, FromList (..)
 	, fromList
@@ -370,8 +370,22 @@ rotationMatrix4 :: Floating a => a -> a -> a -> Mat V4 V4 a
 rotationMatrix4 a b c = rollM4 a **** pitchM4 b **** yawM4 c
 
 
-perspective :: Floating a => a -> a -> a -> Mat V4 V4 a
-perspective fovy aspect near = V4
+
+perspective :: Floating a => a -> a -> a -> a -> Mat V4 V4 a
+perspective fovy aspect near far = V4
+	(V4 x 0 0    0)
+	(V4 0 y 0    0)
+	(V4 0 0 z    w)
+	(V4 0 0 (-1) 0)
+	where
+		x = 1 / tan (fovy/2) * aspect
+		y = 1 / tan (fovy/2)
+		z = (far+near) / (near-far)
+		w = 2*far*near / (near-far)
+
+
+perspectiveInf :: Floating a => a -> a -> a -> Mat V4 V4 a
+perspectiveInf fovy aspect near = V4
 	(V4 x 0 0    0)
 	(V4 0 y 0    0)
 	(V4 0 0 (-1) w)
@@ -386,7 +400,6 @@ perspective fovy aspect near = V4
 		w = -2*near
 
 
-perspectiveGL f a = perspective 2 (16/9) 0.01
 
 
 
@@ -566,7 +579,11 @@ translateM (V3 x y z) = V4
 	(V4 0 0 1 z)
 	(V4 0 0 0 1)
 
-scaleM = undefined
+scaleM (V3 x y z) = V4
+	(V4 x 0 0 0)
+	(V4 0 y 0 0)
+	(V4 0 0 z 0)
+	(V4 0 0 0 1)
 
 
 
