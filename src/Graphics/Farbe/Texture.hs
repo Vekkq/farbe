@@ -18,6 +18,8 @@ import Control.Concurrent
 import Control.Monad
 import Control.Monad.Reader
 
+import Control.Exception
+
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
@@ -106,9 +108,12 @@ loadTexture io = do
 		delay $ do
 			tex <- newTexture' t wh p
 			putMVar m2 tex
-		tex <- catchMVarBlocked 13 $ takeMVar m2
-		catchMVarBlocked 14 $ putMVar m $ TextureBase tex 0 t ""
-		void $ mkWeakMVar m (delay (with tex $ glDeleteTextures 1))
+		mtex <- handle (\BlockedIndefinitelyOnMVar -> return Nothing) $ fmap Just $ takeMVar m2
+		case mtex of
+			Just tex -> do
+				catchMVarBlocked 14 $ putMVar m $ TextureBase tex 0 t ""
+				void $ mkWeakMVar m (delay (with tex $ glDeleteTextures 1))
+			Nothing -> return ()
 	return $ Texture m
 
 
