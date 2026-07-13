@@ -25,6 +25,7 @@ import Control.Monad.IO.Class ()
 import Data.Maybe
 import Data.Set (member)
 import System.Mem
+import Graphics.Farbe.Params
 
 import Foreign.Ptr
 import Data.Bits

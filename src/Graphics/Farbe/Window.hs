@@ -522,7 +522,7 @@ toBeRun a = liftIO $ do
 	void $ forkIO $ catchJust isMVarBlock (takeMVar s) (\_ -> a)
 	return $ liftIO $ do
 		a
-		putMVar s ()
+		catchMVarBlocked 12 $ putMVar s ()
 	where
 		isMVarBlock :: BlockedIndefinitelyOnMVar -> Maybe ()
 		isMVarBlock _ = Just ()

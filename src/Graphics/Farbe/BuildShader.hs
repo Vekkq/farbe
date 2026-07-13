@@ -38,9 +38,11 @@ data ExprS = ExprS String TypeS [ExprS] deriving Show
 -- | A Shader-building environment.
 type Shdr = BuildShaderT (ShaderEnvT (FarbeT IO))
 
--- ~ data ExprI = ExprI { exprName :: String, exprSetup :: BuildShaderT (ShaderEnvT IO)
+-- ~ data ExprI = ExprI { exprName :: String, exprSetup :: SetupType
 	-- ~ , exprType :: TypeS, exprAst :: [ExprI] }
--- TODO future rewrite form
+-- ~ -- TODO future rewrite form
+
+-- ~ type SetupType = None | RegisterUniform | RegisterVertex | RegisterVarying
 
 runExprI :: ExprI -> Shdr ExprS
 runExprI (ExprI m r ps) = do

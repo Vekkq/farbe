@@ -35,10 +35,10 @@ import GHC.TypeNats
 data Var a = Var { varExpr :: ExprI, varMVar :: MVar a }
 
 swapVar :: MonadIO m => Var a -> a -> m a
-swapVar v = liftIO . swapMVar (varMVar v)
+swapVar v = liftIO . catchMVarBlocked 14 . swapMVar (varMVar v)
 
 readVar :: MonadIO m => Var a -> m a
-readVar = liftIO . readMVar . varMVar
+readVar = liftIO . catchMVarBlocked 15 . readMVar . varMVar
 
 
 makeVar :: forall a m . (Farbe m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
