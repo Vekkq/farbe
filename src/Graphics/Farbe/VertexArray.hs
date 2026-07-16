@@ -33,11 +33,10 @@ import Graphics.GL.Embedded20
 import Graphics.GL.Types
 import Graphics.GL.Ext.OES.Mapbuffer
 
-import System.Mem
+-- ~ import System.Mem
 import Control.Monad.IO.Class
 import Control.Concurrent.MVar
 import Control.Monad.State.Lazy
-
 
 
 
@@ -119,8 +118,8 @@ vboRecover = do
 			glDeleteBuffers 1 p
 
 
-vboFree :: MonadIO m => HandVBO m => GLintptr -> m ()
-vboFree a = updatePager $ \p -> return $ (,()) $ calcRemove a p
+-- ~ vboFree :: MonadIO m => HandVBO m => GLintptr -> m ()
+-- ~ vboFree a = updatePager $ \p -> return $ (,()) $ calcRemove a p
 
 
 -- | Merge neighboring ranges
@@ -191,8 +190,8 @@ nextSpace a (Pager imap c) start size =
 			| otherwise -> nextSpace a (Pager imap (p2+l2)) start size
 		_ -> error "Pager: out of bounds"
 
-calcLength :: Integral n => n -> Pager n -> n
-calcLength k mm = fromMaybe 0 $ M.lookup k $ imap mm
+-- ~ calcLength :: Integral n => n -> Pager n -> n
+-- ~ calcLength k mm = fromMaybe 0 $ M.lookup k $ imap mm
 
 calcRemove :: Integral n => n -> Pager n -> Pager n
 calcRemove k (Pager imap c) = Pager imap' c
@@ -201,8 +200,8 @@ calcRemove k (Pager imap c) = Pager imap' c
 		min' = fst $ fromJust $ M.lookupMin imap
 		max' = fst $ fromJust $ M.lookupMax imap
 
-pagerSize :: Integral n => Pager n -> n
-pagerSize = fst . fromJust . M.lookupMax . imap
+-- ~ pagerSize :: Integral n => Pager n -> n
+-- ~ pagerSize = fst . fromJust . M.lookupMax . imap
 
 
 -- VArrayF interface - functions without intermediate MVar -------------------------------
@@ -245,7 +244,7 @@ newVArray xs = do
 	va <- newVArrayF xs
 	mva <- liftIO $ newMVar va
 	d <- delayVBO
-	liftIO $ mkWeakMVar mva $ d $ execState $ removeVArrayF va
+	_ <- liftIO $ mkWeakMVar mva $ d $ execState $ removeVArrayF va
 	return $ VArray mva
 
 
@@ -261,6 +260,7 @@ frame =
   , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
   ]
 
+floorFrame :: [V3 Float]
 floorFrame = map (pitch (pi/2)) frame
 
 

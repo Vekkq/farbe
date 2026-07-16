@@ -11,7 +11,6 @@ module Graphics.Farbe.Attribute where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
-import Graphics.Farbe.VertexArray
 import Graphics.Farbe.State
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.BuildShader
@@ -19,6 +18,7 @@ import Graphics.Farbe.BuildShader
 import Foreign hiding (void)
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
+import Graphics.GL.Ext.OES.VertexArrayObject
 
 import Control.Monad
 import Control.Monad.Reader

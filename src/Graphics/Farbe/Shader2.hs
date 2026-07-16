@@ -39,6 +39,19 @@ import Control.Monad.State.Strict
 #define bottom undefined
 
 
+data ShdrState
+
+class Monad m => HandShdr m where
+	stateShdr :: (ShdrState -> (a, ShdrState)) -> m a
+
+	delayShdr :: m ((ShdrState -> ShdrState) -> IO ())
+
+getShdr :: HandShdr m => m ShdrState
+getShdr = stateShdr (\s -> (s, s))
+
+setShdr :: HandShdr m => ShdrState -> m ()
+setShdr s = stateShdr (\_ -> ((), s))
+
 
 
 

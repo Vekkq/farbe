@@ -21,7 +21,6 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
-import Control.Exception
 import GHC.Stack
 
 

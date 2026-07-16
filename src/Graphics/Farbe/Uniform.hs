@@ -78,7 +78,7 @@ livingExprV vname io = vecParts $ Expr $ ExprI shdr (toTypeS (undefined :: v a))
 			return vname
 
 
-livingExpr :: forall v a e . (GLtype a, Upload a)
+livingExpr :: forall a e . (GLtype a, Upload a)
 	=> String -> FarbeT IO a -> (Expr e a)
 livingExpr vname io = Expr $ ExprI shdr (toTypeS (undefined :: a)) []
 	where
