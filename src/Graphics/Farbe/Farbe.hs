@@ -33,6 +33,7 @@ import Graphics.GL
 import Control.Concurrent
 -- ~ import Control.Concurrent.MVar
 
+import qualified Graphics.Farbe.Shader2 as S
 
 
 

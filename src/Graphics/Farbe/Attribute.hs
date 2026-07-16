@@ -23,7 +23,17 @@ import Graphics.GL.Types
 import Control.Monad
 import Control.Monad.Reader
 
+
 #define bottom undefined
+
+
+-- GL extension for VAO ------------------------------------------------------------------
+
+glGenVertexArray :: MonadIO m => m GLuint
+glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
+
+glBindVertexArray :: MonadIO m => GLuint -> m ()
+glBindVertexArray = glBindVertexArrayOES
 
 
 

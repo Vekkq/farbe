@@ -3,7 +3,18 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 
-module Graphics.Farbe.VertexArray where
+module Graphics.Farbe.VertexArray
+	( newVArray
+	, drawArrays
+	, VArray
+	, HandVBO (..)
+	, VBOState
+	, initHandVBOState
+	-- * simple arrays
+	, frame
+	, floorFrame
+	)
+	where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Utility
@@ -18,18 +29,15 @@ import Data.Array.Base
 import Foreign hiding (void)
 import Foreign.C
 
-
 import Graphics.GL.Embedded20
-import Graphics.GL.Ext.OES.VertexArrayObject
-import Graphics.GL.Ext.OES.Mapbuffer
 import Graphics.GL.Types
+import Graphics.GL.Ext.OES.Mapbuffer
 
 import System.Mem
 import Control.Monad.IO.Class
 import Control.Concurrent.MVar
 import Control.Monad.State.Lazy
 
-import Debug.Trace
 
 
 
@@ -40,6 +48,9 @@ data VBOState = VBOState
 
 class Monad m => HandVBO m where
 	stateVBO :: (VBOState -> (a, VBOState)) -> m a
+
+	stateVBO' :: HandVBO m => (VBOState -> VBOState) -> m ()
+	stateVBO' f = stateVBO $ \vbo -> ((),f vbo)
 	-- ~ getVBOMVar :: m (MVar VBOState)
 	delayVBO :: m ((VBOState -> VBOState) -> IO ())
 
@@ -49,8 +60,6 @@ getVBO = stateVBO (\s -> (s, s))
 setVBO :: HandVBO m => VBOState -> m ()
 setVBO s = stateVBO (\_ -> ((), s))
 
-stateVBO' :: HandVBO m => (VBOState -> VBOState) -> m ()
-stateVBO' f = stateVBO $ \vbo -> ((),f vbo)
 
 
 instance Monad m => HandVBO (StateT VBOState m) where
@@ -196,7 +205,7 @@ pagerSize :: Integral n => Pager n -> n
 pagerSize = fst . fromJust . M.lookupMax . imap
 
 
--- VArrayF interface - currently required to be freed manually ---------------------------
+-- VArrayF interface - functions without intermediate MVar -------------------------------
 
 data VArrayF a = VArrayF { vArraySize :: GLintptr, vArrayPos :: GLintptr } deriving (Eq,Ord,Show)
 
@@ -205,7 +214,7 @@ newVArrayF xs = newVArrayF' =<<
 	(liftIO $ newListArray (0, pred $ length xs) $ foldr (:) [] xs)
 
 
-newVArrayF' :: MonadIO m => (HandVBO m, Storable a) => StorableArray Int a -> m (VArrayF a)
+newVArrayF' :: (MonadIO m, HandVBO m, Storable a) => StorableArray Int a -> m (VArrayF a)
 newVArrayF' a = do
 	i <- liftIO $ getNumElements a
 	let s = itoi $ subSizeOf a * i
@@ -236,8 +245,7 @@ newVArray xs = do
 	va <- newVArrayF xs
 	mva <- liftIO $ newMVar va
 	d <- delayVBO
-	liftIO $ mkWeakMVar mva $ d (traceShow "del" $ execState $ removeVArrayF va)
-
+	liftIO $ mkWeakMVar mva $ d $ execState $ removeVArrayF va
 	return $ VArray mva
 
 
@@ -245,15 +253,6 @@ drawArrays :: (MonadIO m, Storable a) => [VArray a] -> m ()
 drawArrays xs = do
 	ys <- liftIO $ mapM (readMVar . unVArray) xs
 	drawArraysF ys
-
-
--- GL extension for VAO ------------------------------------------------------------------
-
-glGenVertexArray :: MonadIO m => m GLuint
-glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
-
-glBindVertexArray :: MonadIO m => GLuint -> m ()
-glBindVertexArray = glBindVertexArrayOES
 
 -- Coordinates of two triangles covering the visible front
 frame :: [V3 Float]
