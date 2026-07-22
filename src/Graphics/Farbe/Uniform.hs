@@ -12,8 +12,6 @@ import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
 import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
-import Graphics.Farbe.State
-import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 
 
@@ -35,10 +33,10 @@ import GHC.TypeNats
 data Var a = Var { varExpr :: ExprI, varMVar :: MVar a }
 
 swapVar :: MonadIO m => Var a -> a -> m a
-swapVar v = liftIO . catchMVarBlocked 14 . swapMVar (varMVar v)
+swapVar v = liftIO . swapMVar (varMVar v)
 
 readVar :: MonadIO m => Var a -> m a
-readVar = liftIO . catchMVarBlocked 15 . readMVar . varMVar
+readVar = liftIO . readMVar . varMVar
 
 
 makeVar :: forall a m . (Farbe m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
@@ -78,7 +76,7 @@ livingExprV vname io = vecParts $ Expr $ ExprI shdr (toTypeS (undefined :: v a))
 			return vname
 
 
-livingExpr :: forall a e . (GLtype a, Upload a)
+livingExpr :: forall v a e . (GLtype a, Upload a)
 	=> String -> FarbeT IO a -> (Expr e a)
 livingExpr vname io = Expr $ ExprI shdr (toTypeS (undefined :: a)) []
 	where

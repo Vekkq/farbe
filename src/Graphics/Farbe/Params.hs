@@ -16,7 +16,6 @@ import Graphics.Farbe.Shader
 import Graphics.Farbe.State
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.Vec
-import Graphics.Farbe.Expr
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.VertexArray
@@ -43,15 +42,7 @@ instance (AttrType a b, ShaderDefinition f g, UploadDefault a, Use (Var a) V r, 
 		return $ \a -> liftF (swapVar v a) g
 
 
--- ~ colorful :: Mat V3 V3 Float -> FarbeT IO ([VArray (V3 Float, V3 Float)] -> FarbeT IO ())
--- ~ colorful = shade $ \r (n,v) -> colorful'
-colorful' :: Mat V3 V3 (Expr V Float) -> (V3 (Expr V Float), V3 (Expr V Float)) -> ShaderDefi
-colorful' r (n,v) = do
-	let v' = r **| v
-	n' <- transfer n
-	return (up 1 v', up 1 n' * 0.5 + 0.2)
-
--- ~ colorful :: Farbe m => Mat V3 V3 Float -> FarbeT IO ([VArray (V3 Float, V3 Float)] -> m ())
+-- ~ colorful :: Farbe m => Mat V3 V3 Float -> [VArray (V3 Float, V3 Float)] -> m ()
 -- ~ colorful = shade $ \r (n,v) -> do
 	-- ~ let v' = use r **| v
 	-- ~ n' <- transfer n

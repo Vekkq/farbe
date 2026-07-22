@@ -21,6 +21,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Control.Monad.Except
 import Control.Monad.RWS
+import Control.Exception
 import GHC.Stack
 
 
@@ -65,18 +66,22 @@ instance (MonadIO m, Farbe m) => Counter m where
 	count = stateFarbe (\s -> let c = counter s in (c, s { counter = succ c }))
 
 
-instance (Monad m, Farbe m) => HandVBO m where
+instance (MonadIO m, Farbe m) => HandVBO m where
 	stateVBO f = do
-		stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
-	delayVBO = do
-		d <- getsFarbe delayed
-		return $ \f -> catchMVarBlocked 22 . putMVar d $ stateVBO' f
+		m <- getVBOMVar
+		vbo <- liftIO $ catchMVarBlocked 10 $ takeMVar m
+		let (a, vbo') = f vbo
+		liftIO $ catchMVarBlocked 11 $ putMVar m vbo'
+		return a
+	--stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+	getVBOMVar = getsFarbe vboState
 
 instance (MonadIO m, Farbe m) => HandTex m where
 	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
 
 	getDelayFun :: MonadIO m => m (IO () -> IO ())
 	getDelayFun = delayFun
+
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
@@ -90,7 +95,7 @@ SIMPLEFUNCTION_CLASSINSTANCES(stateFarbe,Farbe,.)
 data FarbeState = FarbeState
 	{ config :: Config
 	, counter :: Int
-	, vboState :: VBOState
+	, vboState :: MVar VBOState
 	, texState :: TexState
 	, delayed :: MVar (FarbeT IO ())
 	, shaderCache :: M.IntMap ShExec
@@ -113,12 +118,13 @@ defaultConfig = Config
 emptyFarbeState :: MonadIO m => m FarbeState
 emptyFarbeState = do
 	vbo <- initHandVBOState (2^24)
+	mvbo <- liftIO $ newMVar vbo
 	tex <- initTexState
 	del <- liftIO $ newEmptyMVar
 	return $ FarbeState
 		{ config = defaultConfig
 		, counter = 0
-		, vboState = vbo
+		, vboState = mvbo
 		, texState = tex
 		, delayed = del
 		, shaderCache = M.empty

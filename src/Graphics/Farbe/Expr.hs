@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# LANGUAGE CPP #-}
 
 module Graphics.Farbe.Expr where
 
@@ -8,10 +9,93 @@ import Graphics.Farbe.GL
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Array
-import Graphics.Farbe.BuildShader
+import Data.Foldable (toList)
 
 import Numeric
 import Foreign hiding (void)
+
+
+
+
+
+
+#define bottom undefined
+
+-- | User-facing type expression.
+data Expr e a = Expr { unExpr :: ExprI } deriving Functor
+
+data F
+data V
+
+-- | Internal expression.
+data ExprI = ExprI
+	{ fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
+
+data Register = None | RegisterUniform | RegisterVertex | RegisterVarying | RegisterOut
+
+-- | A Shader-building environment.
+-- ~ type Shdr = BuildShaderT (ShaderEnvT (FarbeT IO))
+
+-- ~ data ExprI = ExprI { exprName :: String, exprSetup :: SetupType
+	-- ~ , exprType :: TypeS, exprAst :: [ExprI] }
+-- ~ -- TODO future rewrite form
+
+-- ~ type SetupType = None | RegisterUniform | RegisterVertex | RegisterVarying
+
+-- ~ runExprI :: ExprI -> Shdr ExprS
+-- ~ runExprI (ExprI m r ps) = do
+	-- ~ s <- m
+	-- ~ ps' <- mapM runExprI ps
+	-- ~ return $ ExprS s r ps'
+
+-- ~ liftExpr :: (GLtype a) => String -> [ExprI] -> Expr e a
+-- ~ liftExpr s p = liftExprShdr (return s) p
+
+-- ~ liftExpr' :: (GLtype a) => String -> Expr e a
+-- ~ liftExpr' s = liftExpr s []
+
+-- ~ liftExprShdr :: forall e a . (GLtype a) => Shdr String -> [ExprI] -> Expr e a
+-- ~ liftExprShdr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p
+
+-- ~ liftExprShdr' :: (GLtype a) => Shdr String -> Expr e a
+-- ~ liftExprShdr' s = liftExprShdr s []
+
+liftExpr :: forall a e . GLtype a => String -> [ExprI] -> Expr e a
+liftExpr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p None
+
+-- rename to literal
+expr :: (Show b, GLtype a) => b -> Expr e a
+expr x = liftExpr (show x) []
+
+
+-- overload it for multiple parameters
+
+liftE0 ::(GLtype a) => String -> Expr e a
+liftE0 s = liftExpr s []
+
+liftE1 :: (GLtype a2) => String -> Expr e a1 -> Expr e a2
+liftE1 s (Expr a) = liftExpr s [a]
+
+liftE2 :: (GLtype a3) => String -> Expr e a1 -> Expr e a2 -> Expr e a3
+liftE2 s (Expr a) (Expr b) = liftExpr s [a,b]
+
+liftE3 :: (GLtype a4) => String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
+liftE3 s (Expr a) (Expr b) (Expr c) = liftExpr s [a,b,c]
+
+
+vecParts :: (GLtype a, Vector v) => Expr e (v a) -> v (Expr e a)
+vecParts e = fromListFill bottom $ map (\i -> arrV e i) $ map expr [0..]
+
+exprVec :: forall e a v . (GLtype a, Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
+exprVec v = liftExpr (slName (bottom :: v a)) $ map unExpr $ toList v
+
+exprMat :: forall a e v .(GLtype a, Vector v, GLtype (v a), GLtype (v (v a)))
+	=> v (v (Expr e a)) -> Expr e (v (v a))
+exprMat v = liftExpr (slName (bottom :: v a)) $ map unExpr $ concatMap toList $ toList v
+
+arrV :: (GLtype a, Vector v) => Expr e (v a) -> Expr e Int32 -> Expr e a
+arrV = liftE2 "[]"
+
 
 
 

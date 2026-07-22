@@ -17,6 +17,7 @@ import Graphics.Farbe.BuildShader
 import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Utility
 
+
 import Data.Char
 import Data.List
 import Data.Foldable
@@ -97,7 +98,7 @@ addShader t shdr = do
 		glAttachShader sp i
 		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
 		return i
-	modifyShader $ \sd -> sd { subShaderId = i : subShaderId sd }
+	-- ~ modifyShader $ \sd -> sd { subShaderId = i : subShaderId sd }
 	devDebug str
 	return a
 	where

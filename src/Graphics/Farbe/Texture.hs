@@ -41,8 +41,6 @@ initTexState = liftIO $ do
 class HandTex m where
 	stateTex :: (TexState -> (a, TexState)) -> m a
 	getDelayFun :: MonadIO m => m (IO () -> IO ())
-	-- ~ delayTex :: m ((TexState -> TexState) -> IO ())
-
 
 getTex :: HandTex m => m TexState
 getTex = stateTex (\s -> (s, s))
@@ -109,14 +107,13 @@ loadTexture io = do
 		m2 <- newEmptyMVar
 		delay $ do
 			tex <- newTexture' t wh p
-			catchMVarBlocked 13 $ putMVar m2 tex
+			putMVar m2 tex
 		mtex <- handle (\BlockedIndefinitelyOnMVar -> return Nothing) $ fmap Just $ takeMVar m2
 		case mtex of
 			Just tex -> do
 				catchMVarBlocked 14 $ putMVar m $ TextureBase tex 0 t ""
 				void $ mkWeakMVar m (delay (with tex $ glDeleteTextures 1))
 			Nothing -> return ()
-	liftIO $ yield
 	return $ Texture m
 
 
@@ -143,27 +140,13 @@ newTexture t p ptr = do
 
 
 texUpload :: (MonadIO m, HandTex m) => GLint -> Texture -> m ()
-texUpload l t = do
-		b <- liftIO $ isEmptyMVar $ tbase t
-		when (not b) $ texUpload' l t
-		-- ~ if b
-		-- ~ then do
-			-- ~ delay <- getDelayFun
-			-- ~ liftIO $ void $ forkIO $ do
-				-- ~ threadDelay 5
-				-- ~ delay $ texUpload l t
-		-- ~ else texUpload' l t
-
-
-
--- tl;dr registering a texture is delayed, which blocks ops on same main thread
-texUpload' :: (MonadIO m, HandTex m) => GLint -> Texture -> m ()
-texUpload' l (Texture t) = do
-		tb@(TextureBase i u _ _) <- liftIO $ catchMVarBlocked 16 $ readMVar t
+texUpload l (Texture t) = do
+		tb@(TextureBase i u _ _) <- liftIO $ readMVar t
+		-- ~ (TextureBase _ i mu _ _ _) <- liftIO $ readIORef ioreftb
 		TexState u' ts <- getTex
 		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
 		if (i /= i') then do
-			-- ~ liftIO $ putStrLn $ show i ++ " assigned to unit " ++ show u'
+			-- ~ liftIO $ putStrLn $ "assigned to unit " ++ show u'
 			glActiveTexture $ GL_TEXTURE0 + u'
 			glBindTexture GL_TEXTURE_2D i
 			glUniform1i l $ itoi u'

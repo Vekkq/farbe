@@ -25,7 +25,6 @@ import Control.Monad.IO.Class ()
 import Data.Maybe
 import Data.Set (member)
 import System.Mem
-import Graphics.Farbe.Params
 
 import Foreign.Ptr
 import Data.Bits
@@ -33,7 +32,10 @@ import Graphics.GL
 import Control.Concurrent
 -- ~ import Control.Concurrent.MVar
 
-import qualified Graphics.Farbe.Shader2 as S
+<<<<<<< Updated upstream
+=======
+-- ~ import qualified Graphics.Farbe.Shader2 as S
+>>>>>>> Stashed changes
 
 
 

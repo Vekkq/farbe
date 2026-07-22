@@ -82,7 +82,7 @@ updateMVar m a = liftIO $ void $ fuzzySwapMVar m a
 fuzzySwapMVar :: MonadIO m => MVar a -> a -> m (Maybe a)
 fuzzySwapMVar ml a = liftIO $ do
 	r <- tryTakeMVar ml
-	catchMVarBlocked 11 $ putMVar ml a
+	putMVar ml a
 	return r
 
 

@@ -3,18 +3,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 
-module Graphics.Farbe.VertexArray
-	( newVArray
-	, drawArrays
-	, VArray
-	, HandVBO (..)
-	, VBOState
-	, initHandVBOState
-	-- * simple arrays
-	, frame
-	, floorFrame
-	)
-	where
+module Graphics.Farbe.VertexArray where
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Utility
@@ -30,13 +19,15 @@ import Foreign hiding (void)
 import Foreign.C
 
 import Graphics.GL.Embedded20
-import Graphics.GL.Types
+import Graphics.GL.Ext.OES.VertexArrayObject
 import Graphics.GL.Ext.OES.Mapbuffer
+import Graphics.GL.Types
 
--- ~ import System.Mem
+import System.Mem
 import Control.Monad.IO.Class
 import Control.Concurrent.MVar
 import Control.Monad.State.Lazy
+
 
 
 
@@ -45,13 +36,9 @@ data VBOState = VBOState
 	, vboIndex :: GLuint
 	}
 
-class Monad m => HandVBO m where
+class MonadIO m => HandVBO m where
 	stateVBO :: (VBOState -> (a, VBOState)) -> m a
-
-	stateVBO' :: HandVBO m => (VBOState -> VBOState) -> m ()
-	stateVBO' f = stateVBO $ \vbo -> ((),f vbo)
-	-- ~ getVBOMVar :: m (MVar VBOState)
-	delayVBO :: m ((VBOState -> VBOState) -> IO ())
+	getVBOMVar :: m (MVar VBOState)
 
 getVBO :: HandVBO m => m VBOState
 getVBO = stateVBO (\s -> (s, s))
@@ -60,10 +47,9 @@ setVBO :: HandVBO m => VBOState -> m ()
 setVBO s = stateVBO (\_ -> ((), s))
 
 
-
-instance Monad m => HandVBO (StateT VBOState m) where
+instance MonadIO m => HandVBO (StateT VBOState m) where
 	stateVBO = state
-	delayVBO = error "no delay impl for StateT"
+	getVBOMVar = error "no MVar for StateT"
 
 -- VBO manager ---------------------------------------------------------------------------
 
@@ -79,7 +65,7 @@ vboUpdate (VArrayF s i) a =
 	liftIO $ withStorableArray a $ \p -> glBufferSubData GL_ARRAY_BUFFER i s $ castPtr p
 
 
-vboAlloc :: MonadIO m => HandVBO m => GLintptr -> GLintptr -> m GLintptr
+vboAlloc :: HandVBO m => GLintptr -> GLintptr -> m GLintptr
 vboAlloc a i = do
 	pager <- pager <$> getVBO
 	let maybeP = calcAlloc a pager i
@@ -94,7 +80,7 @@ vboAlloc a i = do
 			vboRecover
 			vboAlloc a i
 
-vboRecover :: MonadIO m => HandVBO m => m ()
+vboRecover :: HandVBO m => m ()
 vboRecover = do
 	pager <- pager <$> getVBO
 	let size = fst $ M.findMax $ imap pager
@@ -118,8 +104,8 @@ vboRecover = do
 			glDeleteBuffers 1 p
 
 
--- ~ vboFree :: MonadIO m => HandVBO m => GLintptr -> m ()
--- ~ vboFree a = updatePager $ \p -> return $ (,()) $ calcRemove a p
+vboFree :: HandVBO m => GLintptr -> m ()
+vboFree a = updatePager $ \p -> return $ (,()) $ calcRemove a p
 
 
 -- | Merge neighboring ranges
@@ -154,14 +140,14 @@ newPager :: Integral n
 	-> Pager n
 newPager s = Pager (M.fromList [((-1), 1), (s,negate s)]) 0
 
-updatePager ::HandVBO m => (Pager GLintptr -> m (Pager GLintptr, a)) -> m a
+updatePager :: HandVBO m => (Pager GLintptr -> m (Pager GLintptr, a)) -> m a
 updatePager f = do
 	vm <- getVBO
 	(p',r) <- f $ pager vm
 	setVBO $ vm { pager = p' }
 	return r
 
-putPager :: MonadIO m => HandVBO m => Pager GLintptr -> m ()
+putPager :: HandVBO m => Pager GLintptr -> m ()
 putPager a = updatePager $ \_ -> return (a, ())
 
 calcAlloc :: Integral n
@@ -190,8 +176,8 @@ nextSpace a (Pager imap c) start size =
 			| otherwise -> nextSpace a (Pager imap (p2+l2)) start size
 		_ -> error "Pager: out of bounds"
 
--- ~ calcLength :: Integral n => n -> Pager n -> n
--- ~ calcLength k mm = fromMaybe 0 $ M.lookup k $ imap mm
+calcLength :: Integral n => n -> Pager n -> n
+calcLength k mm = fromMaybe 0 $ M.lookup k $ imap mm
 
 calcRemove :: Integral n => n -> Pager n -> Pager n
 calcRemove k (Pager imap c) = Pager imap' c
@@ -200,20 +186,20 @@ calcRemove k (Pager imap c) = Pager imap' c
 		min' = fst $ fromJust $ M.lookupMin imap
 		max' = fst $ fromJust $ M.lookupMax imap
 
--- ~ pagerSize :: Integral n => Pager n -> n
--- ~ pagerSize = fst . fromJust . M.lookupMax . imap
+pagerSize :: Integral n => Pager n -> n
+pagerSize = fst . fromJust . M.lookupMax . imap
 
 
--- VArrayF interface - functions without intermediate MVar -------------------------------
+-- VArrayF interface - currently required to be freed manually ---------------------------
 
 data VArrayF a = VArrayF { vArraySize :: GLintptr, vArrayPos :: GLintptr } deriving (Eq,Ord,Show)
 
-newVArrayF :: (MonadIO m, HandVBO m, Storable a, Foldable f) => f a -> m (VArrayF a)
+newVArrayF :: (HandVBO m, Storable a, Foldable f) => f a -> m (VArrayF a)
 newVArrayF xs = newVArrayF' =<<
 	(liftIO $ newListArray (0, pred $ length xs) $ foldr (:) [] xs)
 
 
-newVArrayF' :: (MonadIO m, HandVBO m, Storable a) => StorableArray Int a -> m (VArrayF a)
+newVArrayF' :: (HandVBO m, Storable a) => StorableArray Int a -> m (VArrayF a)
 newVArrayF' a = do
 	i <- liftIO $ getNumElements a
 	let s = itoi $ subSizeOf a * i
@@ -239,12 +225,13 @@ removeVArrayF (VArrayF _ i) = updatePager $ return . (,()) . calcRemove i
 
 newtype VArray a = VArray { unVArray :: (MVar (VArrayF a)) }
 
-newVArray :: (MonadIO m, HandVBO m, Storable a, Foldable f) => f a -> m (VArray a)
+newVArray :: (HandVBO m, Storable a, Foldable f) => f a -> m (VArray a)
 newVArray xs = do
 	va <- newVArrayF xs
 	mva <- liftIO $ newMVar va
-	d <- delayVBO
-	_ <- liftIO $ mkWeakMVar mva $ d $ execState $ removeVArrayF va
+	mvbo <- getVBOMVar
+	liftIO $ mkWeakMVar mva $ catchMVarBlocked 6 $
+		modifyMVar_ mvbo $ execStateT (removeVArrayF va)
 	return $ VArray mva
 
 
@@ -253,6 +240,15 @@ drawArrays xs = do
 	ys <- liftIO $ mapM (readMVar . unVArray) xs
 	drawArraysF ys
 
+
+-- GL extension for VAO ------------------------------------------------------------------
+
+glGenVertexArray :: MonadIO m => m GLuint
+glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
+
+glBindVertexArray :: MonadIO m => GLuint -> m ()
+glBindVertexArray = glBindVertexArrayOES
+
 -- Coordinates of two triangles covering the visible front
 frame :: [V3 Float]
 frame =
@@ -260,7 +256,6 @@ frame =
   , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
   ]
 
-floorFrame :: [V3 Float]
 floorFrame = map (pitch (pi/2)) frame
 
 

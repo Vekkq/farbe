@@ -11,29 +11,18 @@ module Graphics.Farbe.Attribute where
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
+import Graphics.Farbe.VertexArray
 import Graphics.Farbe.State
 import Graphics.Farbe.ShaderEnv
-import Graphics.Farbe.BuildShader
 
 import Foreign hiding (void)
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
-import Graphics.GL.Ext.OES.VertexArrayObject
 
 import Control.Monad
 import Control.Monad.Reader
 
-
 #define bottom undefined
-
-
--- GL extension for VAO ------------------------------------------------------------------
-
-glGenVertexArray :: MonadIO m => m GLuint
-glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
-
-glBindVertexArray :: MonadIO m => GLuint -> m ()
-glBindVertexArray = glBindVertexArrayOES
 
 
 
