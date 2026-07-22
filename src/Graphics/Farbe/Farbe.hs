@@ -32,10 +32,7 @@ import Graphics.GL
 import Control.Concurrent
 -- ~ import Control.Concurrent.MVar
 
-<<<<<<< Updated upstream
-=======
--- ~ import qualified Graphics.Farbe.Shader2 as S
->>>>>>> Stashed changes
+import qualified Graphics.Farbe.Shader2 as S
 
 
 
