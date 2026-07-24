@@ -102,6 +102,7 @@ import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
+import qualified Graphics.Farbe.Shader2 as S
 import Graphics.Farbe.BuildShader
 import Graphics.Farbe.Expr
 import Graphics.Farbe.Params
