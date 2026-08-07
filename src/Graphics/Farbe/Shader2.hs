@@ -5,6 +5,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module Graphics.Farbe.Shader2 where
 
@@ -44,7 +45,8 @@ import Control.Monad.State.Strict
 #define bottom undefined
 
 
--- ShdrState -----------------------------------------------------------------------------
+--- ShdrState ----------------------------------------------------------------------------
+
 
 data ShdrState = ShdrState { shdrMap :: M.IntMap Dynamic }
 
@@ -58,7 +60,6 @@ getShdr = stateShdr (\s -> (s, s))
 
 setShdr :: HandShdr m => ShdrState -> m ()
 setShdr s = stateShdr (\_ -> ((), s))
-
 
 
 -- Expr ----------------------------------------------------------------------------------
@@ -148,7 +149,7 @@ emod = liftE2 "mod"
 
 -- SHADER DEFINITION ---------------------------------------------------------------------
 
-getShader :: f -> m g
+getShader :: Shader f g => f -> m g
 getShader = undefined
 
 isShaderCompiled :: f -> m Bool
@@ -157,45 +158,45 @@ isShaderCompiled = undefined
 data F
 data V
 
--- ~ instance Shader f g => Shader (Expr V Int -> f) (Int -> g)
+-- ~ makeShader :: Shader f g => f -> g
+-- ~ makeShader f = join $ makeShader' f
 
-class Shader f g where
-	makeShader :: f -> g
+class Shader f g | g -> f where
+	makeShader :: f -> m g
 
-instance (Shader f g, Has m g, HandShdr m) => Shader
+instance (Shader f g, Has m g) => Shader
 	(Mat V3 V3 (Expr V Float) -> f)
 	(Mat V3 V3 Float -> g) where
-	-- ~ shader f = \m -> upload f
-
-
--- ~ instance (Shader f g) => Shader
-	-- ~ ((V3 (Expr V Float), V3 (Expr V Float)) -> f)
-	-- ~ (VArray (V3 Float, V3 Float) -> g)
-
--- ~ instance (Shader f g, AttrType a b) => Shader
-	-- ~ (b -> f)
-	-- ~ (VArray a -> g)
+	-- ~ makeShader f = makeShader (f ()) $ \g -> liftF $ do
+		-- ~ i <- getShaderId
+		-- ~ n <- getName
+		-- ~ postShader $ do
+			-- ~ upload n g
 
 instance (Attribute a b, HandShdr m) => Shader
 	(b -> (V4 (Expr V Float), V4 (Expr F Float)))
 	(VArray a -> m Bool)
 
--- ~ instance (HandShdr m) => Shader
-	-- ~ (V4 (Expr V Float), V4 (Expr F Float))
-	-- ~ (m Bool)
-
 
 class Has m f | f -> m where
-	liftF :: m a -> f -> f
+	liftF :: f -> m a -> f
 
 instance {-# INCOHERENT #-} Has m b => Has m (a -> b) where
-	liftF m f = \p -> liftF m (f p)
+	liftF f m = \p -> liftF (f p) m
 
 instance Applicative m => Has m (m a) where
-	liftF m f = m *> f
--- ~ foo :: Shader
-	-- ~ ((V3 (Expr V Float), V3 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float)))
-	-- ~ (VArray (V3 Float, V3 Float) -> m Bool)
+	liftF f m = m *> f
+
+
+
+class ComposeF m f where
+	composef :: m f -> f
+
+instance {-# INCOHERENT #-} (Functor m, ComposeF m b) => ComposeF m (a -> b) where
+	composef m = \a -> composef (fmap ($ a) m)
+
+instance Monad m => ComposeF m (m a) where
+	composef = join
 
 -- VAO LAND ------------------------------------------------------------------------------
 
@@ -277,7 +278,10 @@ type Vao = GLuint
 
 -- TESTBED -------------------------------------------------------------------------------
 
-colorful :: HandShdr m => Mat V3 V3 Float -> VArray (V3 Float, V3 Float) -> m Bool
+colo :: HandShdr m => Mat V3 V3 Float -> VArray (V3 Float, V3 Float) -> m Bool
+colo = composef colorful
+
+colorful :: HandShdr m => m (Mat V3 V3 Float -> VArray (V3 Float, V3 Float) -> m Bool)
 colorful = makeShader colorful'
 
 colorful'
