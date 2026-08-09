@@ -26,8 +26,6 @@ module Graphics.Farbe
 	, Key (..)
 	, KeyState (..)
 	-- * Shader definition
-	, shader
-	, ShaderDefi
 	, isShaderCompiled
 	, module Graphics.Farbe.Vec
 	-- * Vertex array
@@ -50,32 +48,13 @@ module Graphics.Farbe
 	, ediv
 	, emod
 	, transfer
-	, use
 	-- * Make mutable shared variables for shaders
-	, makeVarF
-	, makeVarI
-	, makeVarB
-	, makeVarV2F
-	, makeVarV2I
-	, makeVarV2B
-	, makeVarV3F
-	, makeVarV3I
-	, makeVarV3B
-	, makeVarV4F
-	, makeVarV4I
-	, makeVarV4B
-	, makeVarM2
-	, makeVarM3
-	, makeVarM4
-	, makeVarT
-	, updateRotate
+
 	, Texture
 	, texture
 	, texture'
 	, loadTexture
-	, Var (..)
-	, swapVar
-	, AttrType
+	, Attribute
 	-- * Rendering control
 	, drawOver
 	, drawTexture
@@ -97,13 +76,13 @@ import Graphics.Farbe.State hiding (runFarbeT, runFarbeT')
 import Graphics.Farbe.Window hiding (processEvents)
 import Graphics.Farbe.Farbe
 import Graphics.Farbe.Vec
+import Graphics.Farbe.Expr
 import Graphics.Farbe.Uniform
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Shader
-import qualified Graphics.Farbe.Shader2 as S
-import Graphics.Farbe.BuildShader
+import qualified Graphics.Farbe.Shader as S
 import Graphics.Farbe.Expr
 import Graphics.Farbe.Params
 import Control.Monad.Trans
@@ -113,20 +92,20 @@ import Control.Concurrent
 import qualified Graphics.UI.GLFW as W
 
 
-updateRotate' :: MonadIO m
-	=> [(Event, b)] -> Var (Mat V3 V3 Float) -> m (Mat V3 V3 Float)
-updateRotate' es r = case es of
-	[(EventMouseMove (x,y), _)] -> do
-		let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
-		swapVar r m
-		return m
-	_ -> readVar r
+-- ~ updateRotate' :: MonadIO m
+	-- ~ => [(Event, b)] -> Var (Mat V3 V3 Float) -> m (Mat V3 V3 Float)
+-- ~ updateRotate' es r = case es of
+	-- ~ [(EventMouseMove (x,y), _)] -> do
+		-- ~ let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
+		-- ~ swapVar r m
+		-- ~ return m
+	-- ~ _ -> readVar r
 
-updateRotate :: MonadWindow m => Var (Mat V3 V3 Float) -> m ()
-updateRotate r = do
-	V2 x y <- lastCoord
-	let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
-	void $ swapVar r m
+-- ~ updateRotate :: MonadWindow m => Var (Mat V3 V3 Float) -> m ()
+-- ~ updateRotate r = do
+	-- ~ V2 x y <- lastCoord
+	-- ~ let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
+	-- ~ void $ swapVar r m
 
 
 viewMat :: MonadWindow m => m (Mat V4 V4 Float)

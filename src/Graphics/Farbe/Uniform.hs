@@ -7,14 +7,13 @@
 
 module Graphics.Farbe.Uniform where
 
+import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
 import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 import Graphics.Farbe.State
-import Graphics.Farbe.BuildShader
-import Graphics.Farbe.ShaderEnv
 
 
 import Foreign hiding (void)
@@ -27,7 +26,7 @@ import Control.Monad
 import Control.Monad.Reader
 import GHC.TypeNats
 
-
+{-
 #define bottom undefined
 
 -- Uniform variables ---------------------------------------------------------------------
@@ -269,3 +268,4 @@ instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) wher
 instance Use (Var Texture) e (Expr e Texture) where
   use = Expr . varExpr
 
+-}

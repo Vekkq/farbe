@@ -5,17 +5,20 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module Graphics.Farbe.Shader where
 
+import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
-import Graphics.Farbe.State
-import Graphics.Farbe.BuildShader
-import Graphics.Farbe.ShaderEnv
+-- ~ import Graphics.Farbe.State
+-- ~ import Graphics.Farbe.BuildShader
+-- ~ import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Utility
+-- ~ import Graphics.Farbe.Expr
 
 import Data.Char
 import Data.List
@@ -26,10 +29,14 @@ import Foreign.C
 import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
 import qualified Data.IntMap as M
+import qualified Data.Set as S
 
+import Data.Dynamic
+import Numeric
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
+import Graphics.GL.Ext.OES.VertexArrayObject
 
 import Control.Exception
 import Control.Monad
@@ -38,230 +45,151 @@ import Control.Monad.State.Strict
 
 #define bottom undefined
 
--- ~ import GHC.Stack
-
-
-type ShaderM = DeferT' Shdr
-
-type ShaderDefi = ShaderM (V4 (Expr V Float), V4 (Expr F Float))
 
 
 
-compileShader :: (Farbe m, Farbe f, AttrType a b)
-	=> (b -> ShaderDefi) -> m (f Bool)
-compileShader f = do
-	(vao, sd) <- createShader $ do
-		join $ addShader GL_VERTEX_SHADER $ do
-			(i,e) <- setAttributes (bottom :: a)
-			((vs,fs),fm) <- runDeferT $ f e
-			addExpr "gl_Position" $ exprVec vs
-			return $ addShader GL_FRAGMENT_SHADER $ do
-				addExpr "gl_FragColor" $ exprVec $ fs
-				sequence_ fm -- fm are operations for fragment shader part
-				-- splice fs here to add further outputs
-				return i
-	let	completeShader = liftFarbe $ do
-			b <- isProgramCompiled $ shaderId sd
-			if b then do
-				liftIO $ glUseProgram $ shaderId sd
-				liftIO $ glBindVertexArray vao
-				fmap and $ sequence $ reverse $ preRenderM sd
-			else return False
-	return completeShader
+
+--- ShdrState -Saving global shaders -----------------------------------------------------
+
+data ShdrState = ShdrState { shdrMap :: M.IntMap Dynamic }
+
+class Monad m => HandShdr m where
+	stateShdr :: (ShdrState -> (a, ShdrState)) -> m a
+
+	-- ~ delayShdr :: m ((ShdrState -> ShdrState) -> IO ())
+
+getShdr :: HandShdr m => m ShdrState
+getShdr = stateShdr (\s -> (s, s))
+
+setShdr :: HandShdr m => ShdrState -> m ()
+setShdr s = stateShdr (\_ -> ((), s))
 
 
-isProgramCompiled :: MonadIO m => ShaderId -> m Bool
-isProgramCompiled i = fmap (==GL_TRUE) $ withPtr_ $ \p -> glGetProgramiv i GL_LINK_STATUS p
+-- SHADER DEFINITION ---------------------------------------------------------------------
 
--- ~ isShaderCompiled' :: MonadIO m => ShaderId -> m Bool
--- ~ isShaderCompiled' i = fmap (==GL_TRUE) $ withPtr_ $ \p -> glGetShaderiv i GL_COMPILE_STATUS p
+getShader :: Shader f g => f -> m g
+getShader = undefined
 
-
-
-addShader :: (Farbe m, ShaderEnv m) => GLenum -> BuildShaderT m a -> m a
-addShader t shdr = do
-	sp <- getShaderId
-	(a,st) <- runBuildShader shdr
-	let str
-		=  "#version 100\n"
-		++ unlines (toList $ header st)
-		++ "\n\nvoid main(){\n"
-		++ toCStatements (bexpr st)
-		++ "}"
-	i <- liftIO $ bracket (newCAString str) free $ \cs -> do
-		i <- glCreateShader t
-		with cs $ \p -> glShaderSource i 1 p nullPtr
-		glCompileShader i
-		err <- checkShaderError i
-		maybe (return ()) (putStrLn . (str++)) err
-		glAttachShader sp i
-		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
-		return i
-	modifyShader $ \sd -> sd { subShaderId = i : subShaderId sd }
-	devDebug str
-	return a
-	where
-		checkShaderError :: GLuint -> IO (Maybe String)
-		checkShaderError i = bracket (mallocArray $ 2^10) free $ \er ->
-			bracket malloc free $ \errLength -> do
-				glGetShaderInfoLog i (2^10) errLength er
-				peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
-					"" -> return Nothing
-					e -> return $ Just e
+isShaderCompiled :: f -> m Bool
+isShaderCompiled = undefined
 
 
-isShaderCompiled :: (Farbe m, AttrType a b) => (b -> ShaderDefi) -> m Bool
-isShaderCompiled f = do
-	msh <- lookupShader f
-	case msh of
-		Just sh -> sh
-		Nothing -> return False
+makeShader :: MonadIO m => Shader f g => f -> m g
+makeShader f = do
+	(a, sd) <- runShaderEnvT $ do
+		undefined
+	mkShader f
 
-getExpr :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDefi)
-	-> m (V4 (Expr V Float), V4 (Expr F Float))
-getExpr f = fmap (fst . fst) $ createShader $ runBuildShader $ do
-	(_,e) <- setAttributes (bottom :: a)
-	((vs,fs),_) <- runDeferT $ f e
-	modifyShader $ \s -> s { postShaderM = return () } -- stops it from writing GL commands
-	return (vs,fs)
+class Shader f g | g -> f where
+	mkShader :: f -> m g
 
-lookupShader :: (Farbe m, Farbe f, AttrType a b) => (b -> ShaderDefi) -> m (Maybe (f Bool))
-lookupShader f = do
-	e <- hash <$> getExpr f
-	sc <- getShaderCache
-	return $ liftFarbe <$> M.lookup e sc
+instance (Shader f g, Has m g) => Shader
+	(Mat V3 V3 (Expr V Float) -> f)
+	(Mat V3 V3 Float -> g) where
+	-- ~ makeShader f = makeShader (f ()) $ \g -> liftF $ do
+		-- ~ i <- getShaderId
+		-- ~ n <- getName
+		-- ~ postShader $ do
+			-- ~ upload n g
 
--- | Use shader definitions for rendering.
-shader :: (Farbe m, AttrType a b)
-	=> (b -> ShaderDefi)
-	-> [VArray a] -> m ()
-shader f varrs = do
-	msh <- lookupShader f
-	case msh of
-		Just sh -> do
-			b <- sh
-			when b $ drawArrays varrs
-		Nothing -> do
-			sh <- compileShader f
-			e <- hash <$> getExpr f
-			modifyShaderCache $ M.insert e sh
+instance (Attribute a b, HandShdr m) => Shader
+	(b -> (V4 (Expr V Float), V4 (Expr F Float)))
+	(VArray a -> m Bool) where
+	mkShader = undefined -- do
+	-- ~ (vaoId,e) <- setAttributes (bottom :: a)
 
+class Has m f | f -> m where
+	liftF :: f -> m a -> f
 
-toCStatements :: [(String, ExprS)] -> String
-toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
+instance {-# INCOHERENT #-} Has m b => Has m (a -> b) where
+	liftF f m = \p -> liftF (f p) m
 
-
-toCExpr :: ExprS -> String
-toCExpr e = case e of
-	ExprS s _ [] -> s
-	ExprS "[]" _ (p1:p2:[]) -> toCExpr p1 ++ "[" ++ toCExpr p2 ++ "]"
-	ExprS s _ (p1:p2:[]) | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p2
-	ExprS "if" _ (p1:p2:p3:[]) -> par $ toCExpr p1 ++ "?" ++ toCExpr p2 ++ ":" ++ toCExpr p3
-	ExprS s _ as -> (s++) $ par $ intercalate ", " $ map toCExpr as
-	where
-		isOp :: String -> Bool
-		isOp (x:_) = not $ isAlpha x
-		isOp [] = False
-
-		par :: String -> String
-		par s = "(" ++ s ++ ")"
-
-
--- | Transfer values from vertex shader to fragment shader. Floating point numbers will be interpolated among its triangle space. Integers are taken from the first point of the triangle.
-
-class Transfer a b | a -> b, b -> a where
-	transfer :: a -> ShaderM b
-
-instance (GLtype a) => Transfer (Expr V a) (Expr F a) where
-	transfer = transfer1
-
-instance (GLtype a, GLtype (V2 a)) => Transfer (V2 (Expr V a)) (V2 (Expr F a)) where
-	transfer = fmap (vecParts) . transfer1 . exprVec
-
-instance (GLtype a, GLtype (V3 a)) => Transfer (V3 (Expr V a)) (V3 (Expr F a)) where
-	transfer = fmap (vecParts) . transfer1 . exprVec
-
-instance (GLtype a, GLtype (V4 a)) => Transfer (V4 (Expr V a)) (V4 (Expr F a)) where
-	transfer = fmap (vecParts) . transfer1 . exprVec
-
-instance (GLtype a, GLtype (V2 a), GLtype (V2 (V2 a)))
-	=> Transfer (V2 (V2 (Expr V a))) (V2 (V2 (Expr F a))) where
-	transfer = fmap (fmap vecParts . vecParts) . transfer1 . exprMat
-
-instance (GLtype a, GLtype (V3 a), GLtype (V3 (V3 a))) =>
-	Transfer (V3 (V3 (Expr V a))) (V3 (V3 (Expr F a))) where
-	transfer = fmap (fmap vecParts . vecParts) . transfer1 . exprMat
-
-instance (GLtype a, GLtype (V4 a), GLtype (V4 (V4 a))) =>
-	Transfer (V4 (V4 (Expr V a))) (V4 (V4 (Expr F a))) where
-	transfer = fmap (fmap vecParts . vecParts) . transfer1 . exprMat
-
-
-transfer1 :: forall a . GLtype a => Expr V a -> ShaderM (Expr F a)
-transfer1 e = do
-	let a = bottom :: a
-	n <- name "t" a
-	lift $ addExpr n e
-	addHeader "varying" a n
-	defer $ void $ addHeader "varying" a n
-	return $ liftExprShdr' $ return n
+instance Applicative m => Has m (m a) where
+	liftF f m = m *> f
 
 
 
--- DeferT --------------------------------------------------------------------------------
--- | DeferT, simple monad to defer monadic operations.
+class ComposeF m f where
+	composef :: m f -> f
 
-newtype DeferT n m a = DeferT { unDefer :: StateT (Seq.Seq n) m a }
-	deriving (Functor, Applicative, Monad, MonadIO, Farbe)
+instance {-# INCOHERENT #-} (Functor m, ComposeF m b) => ComposeF m (a -> b) where
+	composef m = \a -> composef (fmap ($ a) m)
 
-type DeferT' m = DeferT (m ()) m
+instance Monad m => ComposeF m (m a) where
+	composef = join
 
-instance MonadTrans (DeferT n) where
-	lift = DeferT . lift
+-- VAO LAND ------------------------------------------------------------------------------
 
-instance (Monad m, BuildShader m) => BuildShader (DeferT' m) where
-	buildShaderState = lift . buildShaderState
+-- ~ class Storable a => Attribute a b | a -> b, b -> a where
+	-- ~ setAttribute' :: a -> m b
 
-instance (Monad m, ShaderEnv m) => ShaderEnv (DeferT' m) where
-	stateShader = lift . stateShader
+-- ~ instance Attribute (V3 Float, V3 Float) (V3 (Expr V Float), V3 (Expr V Float))
 
-
-runDeferT :: (Monad m) => DeferT n m a -> m (a, [n])
-runDeferT m = do
-	(a,w) <- runStateT (unDefer m) Seq.empty
-	return (a, toList w)
-
-runDeferT' :: Monad m => DeferT' m a -> m a
-runDeferT' m = do
-	(a,e) <- runDeferT m
-	sequence_ e
-	return a
-
-runDeferT'' :: Monad m => DeferT n m a -> m (a, [n])
-runDeferT'' m = do
-	(a,w) <- runStateT (unDefer m) Seq.empty
-	return (a, toList w)
-
-class Monad m => Defer n m | m -> n where
-	defer :: n -> m ()
-
-instance (Monad m) => Defer n (DeferT n m) where
-	defer = DeferT . (\a -> modify (|>a))
+------------------------------------------------------------------------------------------
 
 
 
-instance Eq ExprI where
-	(ExprI _ r ps) == (ExprI _ r2 ps2) = r == r2 && ps == ps2
+------------------------------------------------------------------------------------------
 
-instance Eq (Expr e a) where
-	Expr i == Expr i2 = i == i2
+type ShaderId = GLuint
 
-instance Hashable ExprI where
-	hashWithSalt salt (ExprI _ r ps) = salt `hashWithSalt` r `hashWithSalt` ps
+data ShaderType = Vertex | Fragment
 
-instance Hashable (Expr e a) where
-	hashWithSalt salt (Expr x) = hashWithSalt salt x
+data ShaderData = ShaderData
+	{ headers :: S.Set (ShaderType, Header)
+	, exprs :: S.Set (ShaderType, ExprI)
+	}
 
-instance (Hashable a) => Hashable (V4 a) where
-	hashWithSalt salt = foldl hashWithSalt salt
+emptyShaderData :: MonadIO m => m ShaderData
+emptyShaderData = do
+	i<- glCreateProgram
+	return $ ShaderData
+		{ headers = S.empty
+		, exprs = S.empty
+		}
+
+newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: StateT ShaderData m a }
+	deriving
+		(Functor, Applicative, Monad, MonadIO)
+
+instance MonadTrans ShaderEnvT where
+	lift = ShaderEnvT . lift
+
+instance MonadState s m => MonadState s (ShaderEnvT m) where
+	state = lift . state
+
+
+class (Functor m) => ShaderEnv m where
+	stateShader :: (ShaderData -> (a, ShaderData)) -> m a
+
+modifyShader :: ShaderEnv m => (ShaderData -> ShaderData) -> m ()
+modifyShader f = stateShader (\s -> ((), f s))
+
+getsShader :: ShaderEnv m => (ShaderData -> r) -> m r
+getsShader f = f <$> getShader'
+
+getShader' :: ShaderEnv m => m (ShaderData)
+getShader' = stateShader (\s -> (s, s))
+
+putShader :: ShaderEnv m => ShaderData -> m ()
+putShader s = stateShader (\_ -> ((),s))
+
+instance Monad m => ShaderEnv (ShaderEnvT m) where
+	stateShader = ShaderEnvT . state
+
+runShaderEnvT :: (MonadIO m) => ShaderEnvT m a -> m (a, ShaderData)
+runShaderEnvT (ShaderEnvT ms) = emptyShaderData >>= runStateT ms
+
+
+data Header
+
+
+
+transfer' :: V3 (Expr V Float) -> V3 (Expr F Float)
+transfer' = undefined
+
+transfer :: Expr V a -> Expr F a -- extend to all variants
+transfer = undefined
+
+
+

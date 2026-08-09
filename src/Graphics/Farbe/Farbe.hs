@@ -17,7 +17,6 @@ import qualified Graphics.Farbe.Window as W
 import Graphics.Farbe.Window hiding (processEvents)
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
-import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Utility
 import Control.Monad
 import Control.Monad.Trans
@@ -33,15 +32,13 @@ import Graphics.GL
 import Control.Concurrent
 -- ~ import Control.Concurrent.MVar
 
-import qualified Graphics.Farbe.Shader2 as S
+import qualified Graphics.Farbe.Shader as S
 
 
 
 instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
 	stateFarbe = lift . stateFarbe
 
-instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
-	stateShader = lift . stateShader
 
 
 -- | The environment to do draw operations.
@@ -108,11 +105,11 @@ runDelayed = do
 		then runDelayed
 		else logTime
 	where
-		work :: (Farbe m, MonadIO m) => m ()
-		work = do
-			d <- getsFarbe delayed
-			join $ fmap (liftFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
-
+		-- ~ work :: (Farbe m, MonadIO m) => m ()
+		-- ~ work = do
+			-- ~ d <- getsFarbe delayed
+			-- ~ join $ fmap (liftFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
+		work = undefined
 
 
 drawOver :: MonadIO m => m a1 -> m a2 -> m ()

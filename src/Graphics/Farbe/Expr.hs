@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# LANGUAGE CPP #-}
 
 module Graphics.Farbe.Expr where
 
@@ -8,11 +9,38 @@ import Graphics.Farbe.GL
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Array
-import Graphics.Farbe.BuildShader
+import Data.Foldable
+-- ~ import Graphics.Farbe.BuildShader
 
 import Numeric
 import Foreign hiding (void)
 
+#define bottom undefined
+
+-- Expr ----------------------------------------------------------------------------------
+
+data Expr e a = Expr { unExpr :: ExprI } deriving Functor
+
+data ExprI = ExprI
+	{ fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
+
+data Register = None | RegisterUniform | RegisterVertex | RegisterVarying | RegisterOut
+
+
+liftExpr :: forall a e . GLtype a => String -> [ExprI] -> Expr e a
+liftExpr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p None
+
+liftE0 :: GLtype a => String -> Expr e a
+liftE0 s = liftExpr s []
+
+liftE1 :: (GLtype a2) => String -> Expr e a1 -> Expr e a2
+liftE1 s (Expr a) = liftExpr s [a]
+
+liftE2 :: (GLtype a3) => String -> Expr e a1 -> Expr e a2 -> Expr e a3
+liftE2 s (Expr a) (Expr b) = liftExpr s [a,b]
+
+liftE3 :: (GLtype a4) => String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
+liftE3 s (Expr a) (Expr b) (Expr c) = liftExpr s [a,b,c]
 
 
 instance (GLtype a, Num a) => Num (Expr e a) where
@@ -67,7 +95,27 @@ erem = liftE2 "rem"
 ediv = liftE2 "div"
 emod = liftE2 "mod"
 
+
+vecParts :: (GLtype a, Vector v) => Expr e (v a) -> v (Expr e a)
+vecParts e = fromListFill bottom $ map (\i -> arrV e i) $ map literal [0..]
+
+exprVec :: forall e a v . (GLtype a, Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
+exprVec v = liftExpr (slName (bottom :: v a)) $ map unExpr $ toList v
+
+exprMat :: forall a e v .(GLtype a, Vector v, GLtype (v a), GLtype (v (v a)))
+	=> v (v (Expr e a)) -> Expr e (v (v a))
+exprMat v = liftExpr (slName (bottom :: v a)) $ map unExpr $ concatMap toList $ toList v
+
+arrV :: (GLtype a, Vector v) => Expr e (v a) -> Expr e Int32 -> Expr e a
+arrV = liftE2 "[]"
+
+literal :: (Show b, GLtype a) => b -> Expr e a
+literal x = liftE0 $ show x
+
+
 -- TODO add non-component-wise vector and matrix functions
+data F
+data V
 
 fragCoord :: V4 (Expr F Float)
 fragCoord = vecParts $ liftE0 "gl_FragCoord"
@@ -83,7 +131,7 @@ texture' t v = vecParts $ liftE2 "texture2D" t (exprVec v)
 
 
 arr :: GLtype a => Expr e (Arr s a) -> Int32 -> Expr e a
-arr e' n = liftE2 "[]" e' $ (expr n :: Expr e Int32)
+arr e' n = liftE2 "[]" e' $ (literal n :: Expr e Int32)
 
 -- | @arr'@ is ignoring constant expression requirement.
 --   May not work with some implementations.
