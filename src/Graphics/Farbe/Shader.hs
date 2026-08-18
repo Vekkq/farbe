@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 
@@ -49,7 +50,7 @@ import Control.Monad.State.Strict
 
 
 
---- ShdrState -Saving global shaders -----------------------------------------------------
+--- ShdrState - Saving global shaders ----------------------------------------------------
 
 data ShdrState = ShdrState { shdrMap :: M.IntMap Dynamic }
 
@@ -74,38 +75,60 @@ isShaderCompiled :: f -> m Bool
 isShaderCompiled = undefined
 
 
-makeShader :: MonadIO m => Shader f g => f -> m g
+-- ~ shader
+	-- ~ :: (Shader f g, ShaderEnv m, HandShdr n
+	-- ~ , LiftF (m Bool -> n Bool) g h)
+	-- ~ => f -> n h
+-- ~ shader = undefined
+
+
+makeShader :: (Shader f g) => f -> g
 makeShader f = do
-	(a, sd) <- runShaderEnvT $ do
-		undefined
-	mkShader f
+	-- ~ (a, sd) <- runShaderEnvT $ do
+		-- ~ i <- getsShader shaderId
+
+		-- ~ undefined
+		-- ~ setAttributes i a
+	-- ~ mkShader f
+	undefined
 
 class Shader f g | g -> f where
-	mkShader :: f -> m g
+	mkShader :: ShaderEnv m => f -> m g
 
-instance (Shader f g, Has m g) => Shader
+instance (Shader f g, AppliableF m g) => Shader
 	(Mat V3 V3 (Expr V Float) -> f)
 	(Mat V3 V3 Float -> g) where
-	-- ~ makeShader f = makeShader (f ()) $ \g -> liftF $ do
+	-- ~ makeShader f = makeShader (f ()) $ \g -> applyF $ do
 		-- ~ i <- getShaderId
 		-- ~ n <- getName
 		-- ~ postShader $ do
 			-- ~ upload n g
 
-instance (Attribute a b, HandShdr m) => Shader
+instance (Attribute a b, Monad m) => Shader
 	(b -> (V4 (Expr V Float), V4 (Expr F Float)))
 	(VArray a -> m Bool) where
 	mkShader = undefined -- do
 	-- ~ (vaoId,e) <- setAttributes (bottom :: a)
 
-class Has m f | f -> m where
-	liftF :: f -> m a -> f
 
-instance {-# INCOHERENT #-} Has m b => Has m (a -> b) where
-	liftF f m = \p -> liftF (f p) m
+class LiftF nm f g | f nm -> g, g nm -> f where
+	liftF :: nm -> f -> g
 
-instance Applicative m => Has m (m a) where
-	liftF f m = m *> f
+instance {-# INCOHERENT #-} LiftF nm f g => LiftF nm (a -> f) (a -> g) where
+	liftF nm f = \a -> liftF nm (f a)
+
+instance LiftF (n -> m) n m where
+	liftF nm n = nm n
+
+
+class AppliableF m f | f -> m where
+	applyF :: f -> m a -> f
+
+instance {-# INCOHERENT #-} AppliableF m b => AppliableF m (a -> b) where
+	applyF f m = \p -> applyF (f p) m
+
+instance Applicative m => AppliableF m (m a) where
+	applyF f m = m *> f
 
 
 
@@ -131,12 +154,14 @@ instance Monad m => ComposeF m (m a) where
 
 ------------------------------------------------------------------------------------------
 
-type ShaderId = GLuint
+-- ~ type ShaderId = GLuint
 
 data ShaderType = Vertex | Fragment
 
 data ShaderData = ShaderData
-	{ headers :: S.Set (ShaderType, Header)
+	{ counter :: Int
+	, shaderId :: ShaderId
+	, headers :: S.Set (ShaderType, Header)
 	, exprs :: S.Set (ShaderType, ExprI)
 	}
 
@@ -144,7 +169,9 @@ emptyShaderData :: MonadIO m => m ShaderData
 emptyShaderData = do
 	i<- glCreateProgram
 	return $ ShaderData
-		{ headers = S.empty
+		{ counter = 0
+		, shaderId = i
+		, headers = S.empty
 		, exprs = S.empty
 		}
 

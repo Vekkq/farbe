@@ -40,7 +40,6 @@ library
                  , Graphics.Farbe.Shader
                  , Graphics.Farbe.GL
                  , Graphics.Farbe.Utility
-                 , Graphics.Farbe.State
                  , Graphics.Farbe.Attribute
                  , Graphics.Farbe.Uniform
                  , Graphics.Farbe.Texture

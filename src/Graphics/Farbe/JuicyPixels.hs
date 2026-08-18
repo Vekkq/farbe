@@ -9,8 +9,9 @@ import Codec.Picture
 import Codec.Picture.Types
 
 import Graphics.Farbe
-import Graphics.Farbe.State
-import Graphics.Farbe.Vec ()
+import Graphics.Farbe.Farbe
+-- ~ import Graphics.Farbe.State
+import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
 import Graphics.Farbe.Utility
@@ -25,7 +26,7 @@ import Graphics.GL.Types
 
 import Data.Either
 import Control.Monad
-
+import Control.Monad.IO.Class
 
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
 loadImage = loadImage' Nothing

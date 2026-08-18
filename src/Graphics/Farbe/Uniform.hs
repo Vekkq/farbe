@@ -13,7 +13,6 @@ import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
 import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
-import Graphics.Farbe.State
 
 
 import Foreign hiding (void)

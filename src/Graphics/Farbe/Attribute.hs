@@ -12,7 +12,7 @@ import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
-import Graphics.Farbe.State
+-- ~ import Graphics.Farbe.State
 -- ~ import Graphics.Farbe.ShaderEnv
 -- ~ import Graphics.Farbe.BuildShader
 
@@ -39,21 +39,20 @@ glBindVertexArray = glBindVertexArrayOES
 
 
 type VaoId = GLuint
+type ShaderId = GLuint
 
 data BuildDataVAO = BuildDataVAO
-	{ shaderId :: ShaderId
+	{ vshaderId :: ShaderId
 	, byteCount :: Int
 	, byteMax :: Int
 	, postShader :: IO ()
-	, preRender :: IO ()
 	}
 
 emptyBuildVao i s = BuildDataVAO
-		{ shaderId = i
+		{ vshaderId = i
 		, byteCount = 0
 		, byteMax = s
 		, postShader = return ()
-		, preRender = return ()
 		}
 
 newtype BuildDataVAOT m a = BuildDataVAOT { unBuildVAOT :: StateT BuildDataVAO m a }
@@ -63,11 +62,18 @@ newtype BuildDataVAOT m a = BuildDataVAOT { unBuildVAOT :: StateT BuildDataVAO m
 instance MonadTrans BuildDataVAOT where
 	lift = BuildDataVAOT . lift
 
-instance MonadState s m => MonadState s (BuildDataVAOT m) where
-	state = lift . state
+-- ~ instance MonadState s m => MonadState s (BuildDataVAOT m) where
+	-- ~ state = lift . state
+
+
+runAttribute :: MonadIO m => ShaderId -> Int -> BuildDataVAOT m a -> m a
+runAttribute s b (BuildDataVAOT m) = evalStateT m $ emptyBuildVao s b
 
 class (Functor m) => BuildVAO m where
 	stateVao :: (BuildDataVAO -> (a, BuildDataVAO)) -> m a
+
+instance Monad m => BuildVAO (BuildDataVAOT m) where
+	stateVao = BuildDataVAOT . state
 
 modifyVao :: BuildVAO m => (BuildDataVAO -> BuildDataVAO) -> m ()
 modifyVao f = stateVao (\s -> ((), f s))
@@ -91,8 +97,17 @@ nameVao a = do
 
 -- Make VAO ------------------------------------------------------------------------------
 
-setAttributes :: (MonadIO m, Attribute a b, BuildVAO m) => a -> m (VaoId, b)
-setAttributes a = do
+setAttributes :: (Attribute a b, MonadIO m) => ShaderId -> a -> m (VaoId, b, IO ())
+setAttributes i a = runAttribute i (sizeOf a) $ do
+	i <- glGenVertexArray
+	glBindVertexArray i
+	e <- setAttribute a
+	ps <- getsVao postShader
+	return (i, e, ps)
+
+{-
+setAttributes' :: (MonadIO m, Attribute a b, BuildVAO m) => a -> m (VaoId, b)
+setAttributes' a = do
 	i <- glGenVertexArray
 	glBindVertexArray i
 	setByteMax (sizeOf a)
@@ -100,12 +115,12 @@ setAttributes a = do
 	-- ~ modifyVao $ \s -> s { postShader = postShader s >> ps }
 	e <- setAttribute a
 	return (i, e)
-
+-}
 
 setupAttribute1
 	:: (BuildVAO m, Monad m, GLtype a, Storable a) => a -> m (Expr V a)
 setupAttribute1 a = do
-	s <- getsVao shaderId
+	s <- getsVao vshaderId
 	n <- nameVao a
 	maxSize <- getsVao byteMax
 	o <- advanceBy a

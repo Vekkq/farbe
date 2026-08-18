@@ -13,7 +13,6 @@ module Graphics.Farbe.Params where
 
 
 import Graphics.Farbe.Shader
-import Graphics.Farbe.State
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Expr

@@ -46,6 +46,7 @@ module Graphics.Farbe.Window
 	, fbSize
 	, lastCoord
 	, glfwWindow
+	, W.getFramebufferSize
 	-- ~ -- module re-export
 	-- ~ , module Control.Monad
 	-- ~ , module Control.Monad.IO.Class
