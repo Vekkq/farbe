@@ -99,6 +99,10 @@ emod = liftE2 "mod"
 vecParts :: (GLtype a, Vector v) => Expr e (v a) -> v (Expr e a)
 vecParts e = fromListFill bottom $ map (\i -> arrV e i) $ map literal [0..]
 
+-- working?
+matParts :: (GLtype a, GLtype (v a), Vector v) => Expr e (v (v a)) -> v (v (Expr e a))
+matParts = fmap vecParts . vecParts
+
 exprVec :: forall e a v . (GLtype a, Vector v, GLtype (v a)) => v (Expr e a) -> Expr e (v a)
 exprVec v = liftExpr (slName (bottom :: v a)) $ map unExpr $ toList v
 
