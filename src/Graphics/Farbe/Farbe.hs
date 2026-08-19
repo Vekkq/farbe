@@ -77,7 +77,6 @@ instance (Monad m, Farbe m) => HandTex m where
 
 instance (Monad m, Farbe m) => HandShdr m where
 	stateShdr f = stateFarbe (\s -> let (a,s') = f $ shdrState s in (a, s{ shdrState = s' } ))
-	-- ~ stateShdr :: (ShdrState -> (a, ShdrState)) -> m a
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \

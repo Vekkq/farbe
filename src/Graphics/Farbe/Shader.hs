@@ -98,13 +98,11 @@ makeShader f = do
 	(g, sd) <- runShaderEnvT $ mkShader f
 	return g
 
-class Shader m f g where
+class Shader m f g | g -> f, g -> f where
 	mkShader :: f -> ShaderEnvT m g
 
 instance (Shader m f g, AppliableF m g, MonadIO m)
-	=> Shader m
-	(Mat V3 V3 (Expr V Float) -> f)
-	(Mat V3 V3 Float -> g) where
+	=> Shader m	(Mat V3 V3 (Expr V Float) -> f) (Mat V3 V3 Float -> g) where
 	-- ~ mkShader :: (Mat V3 V3 (Expr V Float) -> f) -> m (Mat V3 V3 Float -> g)
 	mkShader f = do
 		s <- getsShader shaderId
@@ -112,15 +110,22 @@ instance (Shader m f g, AppliableF m g, MonadIO m)
 		g <- mkShader $ f (matParts $ Expr $ ExprI vname (TVec3 $ TVec3 TFloat) [] RegisterUniform)
 		l <- withString vname $ glGetUniformLocation s
 		return $ \m -> if l > 0 then applyF g $ upload l m else g
+-- applyF application order will be important
 
+instance (Attribute a b, MonadIO m)
+	=> Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> m Bool) where
+	mkShader f = do
+		s <- getsShader shaderId
+		(vaoId, e, sp) <- setAttributes s (bottom :: a)
+		let expr = f e
+		compile expr
+		return $ \v -> do
+			liftIO sp
+			drawArrays [v]
+			return True
 
-instance (Attribute a b, MonadIO m, AppliableF m (m Bool))
-	=> Shader m
-	(b -> (V4 (Expr V Float), V4 (Expr F Float)))
-	(VArray a -> m Bool) where
-	mkShader f = undefined -- do
-	-- ~ (vaoId,e) <- setAttributes (bottom :: a)
-		-- ~ compile f
+compile :: (V4 (Expr V Float), V4 (Expr F Float)) -> ShaderEnvT m (VArray a -> m Bool)
+compile = error "boom"
 
 
 -- ~ class JoinF m f g where
@@ -131,7 +136,7 @@ instance (Attribute a b, MonadIO m, AppliableF m (m Bool))
 class LiftF nm f g | f nm -> g, g nm -> f where
 	liftF :: nm -> f -> g
 
-instance {-# INCOHERENT #-} LiftF nm f g => LiftF nm (a -> f) (a -> g) where
+instance LiftF nm f g => LiftF nm (a -> f) (a -> g) where
 	liftF nm f = \a -> liftF nm (f a)
 
 instance LiftF (n -> m) n m where
@@ -141,7 +146,7 @@ instance LiftF (n -> m) n m where
 class AppliableF m f | f -> m where
 	applyF :: f -> m a -> f
 
-instance AppliableF m b => AppliableF m (a -> b) where
+instance {-# INCOHERENT #-} AppliableF m b => AppliableF m (a -> b) where
 	applyF f m = \p -> applyF (f p) m
 
 instance Applicative m => AppliableF m (m a) where

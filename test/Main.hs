@@ -18,14 +18,13 @@ import Control.Monad
 import Data.Maybe
 import Data.Function
 
-
 -- ~ colo :: HandShdr m => Mat V3 V3 Float -> VArray (V3 Float) -> m Bool
 -- ~ colo = composef colorful
 
 -- ~ colorful :: HandShdr m => m (Mat V3 V3 Float -> VArray (V3 Float) -> m Bool)
 -- ~ colorful = mkShader colorful'
 
-colorfula :: (MonadIO m, HandShdr m) => m (Mat V3 V3 Float -> VArray (V3 Float) -> m Bool)
+colorfula :: (MonadIO m, Farbe m) => m (Mat V3 V3 Float -> VArray (V3 Float) -> m Bool)
 colorfula = makeShader colorful'
 
 colorful'
@@ -47,7 +46,6 @@ colorful'' v = let
 	v' = v
 	n' = transfer' v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
-
 
 
 
