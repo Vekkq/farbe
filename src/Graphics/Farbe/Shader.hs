@@ -93,15 +93,15 @@ ful' :: (MonadIO m, HandShdr m) => m (VArray (V3 Float) -> m Bool)
 ful' = makeShader ful
 
 
-makeShader :: (MonadIO m, Shader (ShaderEnvT m) f g) => f -> m g
+makeShader :: (MonadIO m, Shader m f g) => f -> m g
 makeShader f = do
 	(g, sd) <- runShaderEnvT $ mkShader f
 	return g
 
-class ShaderEnv m => Shader m f g | g -> f where
-	mkShader :: f -> m g
+class Shader m f g where
+	mkShader :: f -> ShaderEnvT m g
 
-instance (Shader m f g, AppliableF m g, ShaderEnv m, MonadIO m)
+instance (Shader m f g, AppliableF m g, MonadIO m)
 	=> Shader m
 	(Mat V3 V3 (Expr V Float) -> f)
 	(Mat V3 V3 Float -> g) where
@@ -111,20 +111,13 @@ instance (Shader m f g, AppliableF m g, ShaderEnv m, MonadIO m)
 		let vname = "foo"
 		g <- mkShader $ f (matParts $ Expr $ ExprI vname (TVec3 $ TVec3 TFloat) [] RegisterUniform)
 		l <- withString vname $ glGetUniformLocation s
-		-- ~ return $ \m -> applyF g $ when (l > 0) $ modifyShader $ \sd -> sd { preRender = upload l m >> preRender sd }
-		return $ \m -> applyF g $ when (l > 0) $ upload l m
+		return $ \m -> if l > 0 then applyF g $ upload l m else g
 
 
-	-- ~ makeShader f = makeShader (f ()) $ \g -> applyF $ do
-		-- ~ i <- getShaderId
-		-- ~ n <- getName
-		-- ~ postShader $ do
-			-- ~ upload n g
-
-instance (Attribute a b, MonadIO m, ShaderEnv m)
+instance (Attribute a b, MonadIO m, AppliableF m (m Bool))
 	=> Shader m
 	(b -> (V4 (Expr V Float), V4 (Expr F Float)))
-	(VArray a -> n Bool) where
+	(VArray a -> m Bool) where
 	mkShader f = undefined -- do
 	-- ~ (vaoId,e) <- setAttributes (bottom :: a)
 		-- ~ compile f
