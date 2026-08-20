@@ -81,28 +81,28 @@ isShaderCompiled = undefined
 	-- ~ => f -> n h
 -- ~ shader = undefined
 
-ful
-	:: (V3 (Expr V Float))
-	-> (V4 (Expr V Float), V4 (Expr F Float))
+ful :: (V3 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
 ful v = let
 	v' = v
 	n' = transfer' v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
 ful' :: (MonadIO m, HandShdr m) => m (VArray (V3 Float) -> m Bool)
-ful' = makeShader ful
+ful' = makeShader' ful
 
+makeShader :: (MonadIO m, Shader m f g, JoinF m g) => f -> g
+makeShader = joinF . makeShader'
 
-makeShader :: (MonadIO m, Shader m f g) => f -> m g
-makeShader f = do
+makeShader' :: (MonadIO m, Shader m f g) => f -> m g
+makeShader' f = do
 	(g, sd) <- runShaderEnvT $ mkShader f
 	return g
 
-class Shader m f g | g -> f, g -> f where
+class AppliableF m g => Shader m f g | g -> f, g -> m where
 	mkShader :: f -> ShaderEnvT m g
 
-instance (Shader m f g, AppliableF m g, MonadIO m)
-	=> Shader m	(Mat V3 V3 (Expr V Float) -> f) (Mat V3 V3 Float -> g) where
+instance (Shader m f g, MonadIO m)
+	=> Shader m (Mat V3 V3 (Expr V Float) -> f) (Mat V3 V3 Float -> g) where
 	-- ~ mkShader :: (Mat V3 V3 (Expr V Float) -> f) -> m (Mat V3 V3 Float -> g)
 	mkShader f = do
 		s <- getsShader shaderId
@@ -128,9 +128,14 @@ compile :: (V4 (Expr V Float), V4 (Expr F Float)) -> ShaderEnvT m (VArray a -> m
 compile = error "boom"
 
 
--- ~ class JoinF m f g where
-	-- ~ joinF :: f -> g
+class JoinF m f where
+	joinF :: m f -> f
 
+instance {-# INCOHERENT #-} (JoinF m f, Monad m) => JoinF m (a -> f) where
+	joinF mf = \a -> joinF $ fmap ($ a) mf
+
+instance Monad m => JoinF m (m a) where
+	joinF = join
 
 
 class LiftF nm f g | f nm -> g, g nm -> f where
@@ -146,7 +151,7 @@ instance LiftF (n -> m) n m where
 class AppliableF m f | f -> m where
 	applyF :: f -> m a -> f
 
-instance {-# INCOHERENT #-} AppliableF m b => AppliableF m (a -> b) where
+instance AppliableF m b => AppliableF m (a -> b) where
 	applyF f m = \p -> applyF (f p) m
 
 instance Applicative m => AppliableF m (m a) where
