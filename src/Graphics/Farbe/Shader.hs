@@ -68,8 +68,8 @@ setShdr s = stateShdr (\_ -> ((), s))
 
 -- SHADER DEFINITION ---------------------------------------------------------------------
 
-getShader :: Shader m f g => f -> m g
-getShader = undefined
+-- ~ getShader :: Shader f g => f -> m g
+-- ~ getShader = undefined
 
 isShaderCompiled :: f -> m Bool
 isShaderCompiled = undefined
@@ -87,42 +87,59 @@ ful v = let
 	n' = transfer' v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
-ful' :: (MonadIO m, HandShdr m) => m (VArray (V3 Float) -> m Bool)
-ful' = makeShader' ful
+-- ~ ful' :: (MonadIO m, HandShdr m) => m (VArray (V3 Float) -> m Bool)
+-- ~ ful' = makeShader' ful
 
-makeShader :: (MonadIO m, Shader m f g, JoinF m g) => f -> g
-makeShader = joinF . makeShader'
+-- ~ makeShader :: (MonadIO m, Shader m f g, JoinF m g) => f -> g
+-- ~ makeShader = joinF . makeShader'
 
-makeShader' :: (MonadIO m, Shader m f g) => f -> m g
-makeShader' f = do
-	(g, sd) <- runShaderEnvT $ mkShader f
-	return g
+-- ~ makeShader' :: (MonadIO m, Shader m f g) => f -> m g
+-- ~ makeShader' f = do
+	-- ~ (g, sd) <- runShaderEnvT $ mkShader f
+	-- ~ return g
 
-class AppliableF m g => Shader m f g | g -> f, g -> m where
-	mkShader :: f -> ShaderEnvT m g
+-- ~ class AppliableF m g => Shader m f g | g -> f, g -> m where
+	-- ~ mkShader :: f -> ShaderEnvT m g
 
-instance (Shader m f g, MonadIO m)
-	=> Shader m (Mat V3 V3 (Expr V Float) -> f) (Mat V3 V3 Float -> g) where
-	-- ~ mkShader :: (Mat V3 V3 (Expr V Float) -> f) -> m (Mat V3 V3 Float -> g)
-	mkShader f = do
-		s <- getsShader shaderId
-		let vname = "foo"
-		g <- mkShader $ f (matParts $ Expr $ ExprI vname (TVec3 $ TVec3 TFloat) [] RegisterUniform)
-		l <- withString vname $ glGetUniformLocation s
-		return $ \m -> if l > 0 then applyF g $ upload l m else g
--- applyF application order will be important
+-- ~ instance (Shader m f g, MonadIO m)
+	-- ~ => Shader m (Mat V3 V3 (Expr V Float) -> f) (Mat V3 V3 Float -> g) where
+	-- ~ mkShader f = do
+		-- ~ s <- getsShader shaderId
+		-- ~ let vname = "foo"
+		-- ~ g <- mkShader $ f (matParts $ Expr $ ExprI vname (TVec3 $ TVec3 TFloat) [] RegisterUniform)
+		-- ~ l <- withString vname $ glGetUniformLocation s
+		-- ~ return $ \m -> if l > 0 then applyF g $ upload l m else g
+-- ~ -- applyF application order will be important
 
-instance (Attribute a b, MonadIO m)
-	=> Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> m Bool) where
-	mkShader f = do
-		s <- getsShader shaderId
-		(vaoId, e, sp) <- setAttributes s (bottom :: a)
-		let expr = f e
-		compile expr
-		return $ \v -> do
-			liftIO sp
-			drawArrays [v]
-			return True
+-- ~ instance (Attribute a b, MonadIO m)
+	-- ~ => Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> m Bool) where
+	-- ~ mkShader f = do
+		-- ~ s <- getsShader shaderId
+		-- ~ (vaoId, e, sp) <- setAttributes s (bottom :: a)
+		-- ~ let expr = f e
+		-- ~ compile expr
+		-- ~ return $ \v -> do
+			-- ~ liftIO sp
+			-- ~ drawArrays [v]
+			-- ~ return True
+
+class AppliableF (ShaderEnvT IO) g => Shader f g | f -> g, g -> f where
+	mkShader :: f -> g
+
+instance (Uniform a b, Shader f g)
+	=> Shader (b -> f) (a -> g) where
+	mkShader = undefined
+
+instance (Attribute a b)
+	=> Shader (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> ShaderEnvT IO ()) where
+	mkShader = undefined
+
+
+class Uniform a b | a -> b, b -> a
+
+instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float))
+
+
 
 compile :: (V4 (Expr V Float), V4 (Expr F Float)) -> ShaderEnvT m (VArray a -> m Bool)
 compile = error "boom"
