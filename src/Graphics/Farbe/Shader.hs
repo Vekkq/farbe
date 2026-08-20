@@ -123,19 +123,34 @@ ful v = let
 			-- ~ drawArrays [v]
 			-- ~ return True
 
-class AppliableF (ShaderEnvT IO) g => Shader f g | f -> g, g -> f where
-	mkShader :: f -> g
+-- ~ makeShader' :: (Shader f g, JoinF IO g) => f -> g
+-- ~ makeShader' = joinF . makeShader
+
+makeShader :: (Shader f g, MonadIO m) => f -> m g
+makeShader f = do
+	(g, sd) <- liftIO $ runShaderEnvT $ mkShader f
+	return g
+
+class Shader f g | f -> g, g -> f where
+	mkShader :: f -> ShaderEnvT IO g
+	idShader :: f -> Int
 
 instance (Uniform a b, Shader f g)
 	=> Shader (b -> f) (a -> g) where
 	mkShader = undefined
+	idShader = undefined
+
 
 instance (Attribute a b)
-	=> Shader (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> ShaderEnvT IO ()) where
+	=> Shader (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> IO ()) where
 	mkShader = undefined
+	idShader = undefined
 
 
-class Uniform a b | a -> b, b -> a
+
+class Uniform a b | a -> b, b -> a where
+	uniformExpr :: a -> Expr e b
+	uniformUpload :: a -> IO ()
 
 instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float))
 
@@ -158,7 +173,7 @@ instance Monad m => JoinF m (m a) where
 class LiftF nm f g | f nm -> g, g nm -> f where
 	liftF :: nm -> f -> g
 
-instance LiftF nm f g => LiftF nm (a -> f) (a -> g) where
+instance {-# INCOHERENT #-} LiftF nm f g => LiftF nm (a -> f) (a -> g) where
 	liftF nm f = \a -> liftF nm (f a)
 
 instance LiftF (n -> m) n m where
@@ -173,7 +188,6 @@ instance AppliableF m b => AppliableF m (a -> b) where
 
 instance Applicative m => AppliableF m (m a) where
 	applyF f m = m *> f
-
 
 
 class ComposeF m f where

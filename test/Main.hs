@@ -24,17 +24,17 @@ import Data.Function
 -- ~ colorful :: HandShdr m => m (Mat V3 V3 Float -> VArray (V3 Float) -> m Bool)
 -- ~ colorful = mkShader colorful'
 
-colorfulc :: (MonadIO m, Farbe m) => Mat V3 V3 Float -> VArray (V3 Float) -> m Bool
-colorfulc = makeShader $ \ r v -> let
-	v' = r **| v
-	n' = transfer' v
-	in (up 1 v', up 1 n' * 0.5 + 0.2)
+-- ~ colorfulc :: (MonadIO m, Farbe m) => Mat V3 V3 Float -> VArray (V3 Float) -> m Bool
+-- ~ colorfulc = makeShader $ \ r v -> let
+	-- ~ v' = r **| v
+	-- ~ n' = transfer' v
+	-- ~ in (up 1 v', up 1 n' * 0.5 + 0.2)
 
 
 
 
-colorfula :: (MonadIO m, Farbe m) => Mat V3 V3 Float -> VArray (V3 Float) -> m Bool
-colorfula = makeShader colorful'
+-- ~ colorfula :: (MonadIO m, Farbe m) => Mat V3 V3 Float -> VArray (V3 Float) -> m Bool
+-- ~ colorfula = makeShader colorful'
 
 colorful'
 	:: Mat V3 V3 (Expr V Float)
@@ -45,8 +45,8 @@ colorful' r v = let
 	n' = transfer' v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
-colorfulb :: (MonadIO m, HandShdr m) => VArray (V3 Float) -> m Bool
-colorfulb = makeShader colorful''
+-- ~ colorfulb :: (MonadIO m, HandShdr m) => VArray (V3 Float) -> m Bool
+-- ~ colorfulb = makeShader colorful''
 
 colorful''
 	:: (V3 (Expr V Float))
@@ -64,8 +64,8 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 	fix $ \loop -> do
 		va <- newVArray frame
 		-- ~ colorfula identity va
-		colorfulb va
-		-- ~ makeShader colorful'' $ va
+		-- ~ colorfulb va
+		makeShader colorful'' $ va
 		loop
 
 
