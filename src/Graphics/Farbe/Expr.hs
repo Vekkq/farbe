@@ -19,12 +19,14 @@ import Foreign hiding (void)
 
 -- Expr ----------------------------------------------------------------------------------
 
-data Expr e a = Expr { unExpr :: ExprI } deriving Functor
+data Expr e a = Expr { unExpr :: ExprI } deriving (Eq, Ord, Show, Read)
 
 data ExprI = ExprI
 	{ fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
+	deriving (Eq, Ord, Show, Read)
 
 data Register = None | RegisterUniform | RegisterVertex | RegisterVarying | RegisterOut
+	deriving (Eq, Ord, Show, Read)
 
 
 liftExpr :: forall a e . GLtype a => String -> [ExprI] -> Expr e a

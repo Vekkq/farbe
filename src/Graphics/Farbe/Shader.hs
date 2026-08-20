@@ -228,7 +228,6 @@ data ShaderData = ShaderData
 	, shaderId :: ShaderId
 	, headers :: S.Set (ShaderType, Header)
 	, exprs :: S.Set (ShaderType, ExprI)
-	, preRender :: IO ()
 	}
 
 emptyShaderData :: MonadIO m => m ShaderData
@@ -239,7 +238,6 @@ emptyShaderData = do
 		, shaderId = i
 		, headers = S.empty
 		, exprs = S.empty
-		, preRender = return ()
 		}
 
 newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: StateT ShaderData m a }
