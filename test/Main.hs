@@ -65,7 +65,7 @@ main = runFarbeT "" (InWindow (1000,800)) $ do
 		va <- newVArray frame
 		-- ~ colorfula identity va
 		-- ~ colorfulb va
-		makeShader colorful'' $ va
+		liftIO $ makeShader' colorful'' $ va
 		loop
 
 

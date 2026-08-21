@@ -123,26 +123,32 @@ ful v = let
 			-- ~ drawArrays [v]
 			-- ~ return True
 
--- ~ makeShader' :: (Shader f g, JoinF IO g) => f -> g
--- ~ makeShader' = joinF . makeShader
+makeShader' :: (MonadIO m, Shader m f g, JoinF m g) => f -> g
+makeShader' = joinF . makeShader
 
-makeShader :: (Shader f g, MonadIO m) => f -> m g
+makeShader :: (MonadIO m, Shader m f g) => f -> m g
 makeShader f = do
-	(g, sd) <- liftIO $ runShaderEnvT $ mkShader f
+	(g, sd) <- runShaderEnvT $ mkShader f
 	return g
 
-class Shader f g | f -> g, g -> f where
-	mkShader :: f -> ShaderEnvT IO g
-	idShader :: f -> Int
+class Shader m f g | m f -> g, g -> f, g -> m where
+	mkShader :: f -> ShaderEnvT m g
+	idShader :: f -> m Int
 
-instance (Uniform a b, Shader f g)
-	=> Shader (b -> f) (a -> g) where
+-- ~ instance (Shader f g)
+	-- ~ => Shader ((Mat V3 V3 (Expr V Float)) -> f) ((Mat V3 V3 Float) -> g) where
+	-- ~ mkShader = undefined
+	-- ~ idShader = undefined
+
+
+instance (Attribute a b, Uniform u1 e1)
+	=> Shader m (e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u1 -> VArray a -> m ()) where
 	mkShader = undefined
 	idShader = undefined
 
 
 instance (Attribute a b)
-	=> Shader (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> IO ()) where
+	=> Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> m ()) where
 	mkShader = undefined
 	idShader = undefined
 
@@ -189,15 +195,6 @@ instance AppliableF m b => AppliableF m (a -> b) where
 instance Applicative m => AppliableF m (m a) where
 	applyF f m = m *> f
 
-
-class ComposeF m f where
-	composef :: m f -> f
-
-instance {-# INCOHERENT #-} (Functor m, ComposeF m b) => ComposeF m (a -> b) where
-	composef m = \a -> composef (fmap ($ a) m)
-
-instance Monad m => ComposeF m (m a) where
-	composef = join
 
 
 -- Upload --------------------------------------------------------------------------------
