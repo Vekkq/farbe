@@ -68,97 +68,51 @@ setShdr s = stateShdr (\_ -> ((), s))
 
 -- SHADER DEFINITION ---------------------------------------------------------------------
 
--- ~ getShader :: Shader f g => f -> m g
--- ~ getShader = undefined
+
+compileShader :: (MonadIO m, Shader m f g, HandShdr m) => f -> m g
+compileShader f = do
+	(g, sd) <- runShaderEnvT $ mkShader f
+	return g
 
 isShaderCompiled :: f -> m Bool
 isShaderCompiled = undefined
 
+shaderCompileProgress :: f -> m [(String, Bool)] -- should i have this?
+shaderCompileProgress = undefined
 
--- ~ shader
-	-- ~ :: (Shader f g, ShaderEnv m, HandShdr n
-	-- ~ , LiftF (m Bool -> n Bool) g h)
-	-- ~ => f -> n h
--- ~ shader = undefined
+runShader :: (MonadIO m, Shader m f g, JoinF m g, HandShdr m) => f -> g
+runShader = joinF . compileShader
 
-ful :: (V3 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
-ful v = let
-	v' = v
-	n' = transfer' v
-	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
--- ~ ful' :: (MonadIO m, HandShdr m) => m (VArray (V3 Float) -> m Bool)
--- ~ ful' = makeShader' ful
+class Shader m f g | m f -> g, g -> f, g -> m where
+	mkShader :: MonadIO m => f -> ShaderEnvT m g
+	idShader :: f -> m Int
 
--- ~ makeShader :: (MonadIO m, Shader m f g, JoinF m g) => f -> g
--- ~ makeShader = joinF . makeShader'
-
--- ~ makeShader' :: (MonadIO m, Shader m f g) => f -> m g
--- ~ makeShader' f = do
-	-- ~ (g, sd) <- runShaderEnvT $ mkShader f
-	-- ~ return g
-
--- ~ class AppliableF m g => Shader m f g | g -> f, g -> m where
-	-- ~ mkShader :: f -> ShaderEnvT m g
-
--- ~ instance (Shader m f g, MonadIO m)
-	-- ~ => Shader m (Mat V3 V3 (Expr V Float) -> f) (Mat V3 V3 Float -> g) where
-	-- ~ mkShader f = do
+instance (Attribute a b, Uniform u1 e1)
+	=> Shader m (e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u1 -> VArray a -> m Bool) where
+	mkShader f = undefined
 		-- ~ s <- getsShader shaderId
 		-- ~ let vname = "foo"
 		-- ~ g <- mkShader $ f (matParts $ Expr $ ExprI vname (TVec3 $ TVec3 TFloat) [] RegisterUniform)
 		-- ~ l <- withString vname $ glGetUniformLocation s
 		-- ~ return $ \m -> if l > 0 then applyF g $ upload l m else g
--- ~ -- applyF application order will be important
 
--- ~ instance (Attribute a b, MonadIO m)
-	-- ~ => Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> m Bool) where
-	-- ~ mkShader f = do
-		-- ~ s <- getsShader shaderId
-		-- ~ (vaoId, e, sp) <- setAttributes s (bottom :: a)
-		-- ~ let expr = f e
-		-- ~ compile expr
-		-- ~ return $ \v -> do
-			-- ~ liftIO sp
-			-- ~ drawArrays [v]
-			-- ~ return True
-
-makeShader' :: (MonadIO m, Shader m f g, JoinF m g) => f -> g
-makeShader' = joinF . makeShader
-
-makeShader :: (MonadIO m, Shader m f g) => f -> m g
-makeShader f = do
-	(g, sd) <- runShaderEnvT $ mkShader f
-	return g
-
-class Shader m f g | m f -> g, g -> f, g -> m where
-	mkShader :: f -> ShaderEnvT m g
-	idShader :: f -> m Int
-
--- ~ instance (Shader f g)
-	-- ~ => Shader ((Mat V3 V3 (Expr V Float)) -> f) ((Mat V3 V3 Float) -> g) where
-	-- ~ mkShader = undefined
-	-- ~ idShader = undefined
-
-
-instance (Attribute a b, Uniform u1 e1)
-	=> Shader m (e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u1 -> VArray a -> m ()) where
-	mkShader = undefined
 	idShader = undefined
 
 
 instance (Attribute a b)
-	=> Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> m ()) where
-	mkShader = undefined
+	=> Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) (VArray a -> m Bool) where
+	mkShader f = do
+		s <- getsShader shaderId
+		(vaoId, e, sp) <- setAttributes s (bottom :: a)
+		let expr = f e
+		compile expr
+		return $ \v -> do
+			liftIO sp
+			drawArrays [v]
+			return True
 	idShader = undefined
 
-
-
-class Uniform a b | a -> b, b -> a where
-	uniformExpr :: a -> Expr e b
-	uniformUpload :: a -> IO ()
-
-instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float))
 
 
 
@@ -241,9 +195,16 @@ instance MonadIO m => Upload m (Mat V4 V4 Float) where
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
 
+
+class Uniform a b | a -> b, b -> a where
+	uniformExpr :: a -> Expr e b
+	uniformUpload :: a -> IO ()
+
+instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float))
+
+
 (.:) = (.).(.)
 
--- (HandTex m) =>
 
 ------------------------------------------------------------------------------------------
 
