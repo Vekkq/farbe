@@ -25,12 +25,15 @@ data ExprI = ExprI
 	{ fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
 	deriving (Eq, Ord, Show, Read)
 
-data Register = None | RegisterUniform | RegisterVertex | RegisterVarying | RegisterOut
+data Register = RegisterNone | RegisterVarying | RegisterUniform | RegisterVertex
 	deriving (Eq, Ord, Show, Read)
+
+data F
+data V
 
 
 liftExpr :: forall a e . GLtype a => String -> [ExprI] -> Expr e a
-liftExpr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p None
+liftExpr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p RegisterNone
 
 liftE0 :: GLtype a => String -> Expr e a
 liftE0 s = liftExpr s []
@@ -44,6 +47,17 @@ liftE2 s (Expr a) (Expr b) = liftExpr s [a,b]
 liftE3 :: (GLtype a4) => String -> Expr e a1 -> Expr e a2 -> Expr e a3 -> Expr e a4
 liftE3 s (Expr a) (Expr b) (Expr c) = liftExpr s [a,b,c]
 
+-- ~ freeEnv :: Expr A a -> Expr e a
+-- ~ freeEnv (Expr e) = (Expr e)
+
+crawl :: (ExprI -> a) -> ExprI -> [a]
+crawl f e@(ExprI _ _ ps _) = f e : concatMap (crawl f) ps
+
+mapExpr :: Monad m => (ExprI -> m ExprI) -> ExprI -> m ExprI
+mapExpr f e = do
+	g <- f e
+	ps <- mapM (mapExpr f) $ fnAst g
+	return $ g { fnAst = ps }
 
 instance (GLtype a, Num a) => Num (Expr e a) where
 	(+) = liftE2 "+"
@@ -120,8 +134,6 @@ literal x = liftE0 $ show x
 
 
 -- TODO add non-component-wise vector and matrix functions
-data F
-data V
 
 fragCoord :: V4 (Expr F Float)
 fragCoord = vecParts $ liftE0 "gl_FragCoord"
@@ -146,3 +158,7 @@ arr' = liftE2 "[]"
 
 if' :: GLtype a => Expr e Bool -> Expr e a -> Expr e a -> Expr e a
 if' = liftE3 "if"
+
+transferFrag :: Expr V a -> Expr F a
+transferFrag (Expr e) = Expr $ ExprI "transferFrag" (bottom :: a) [e] RegisterVarying
+

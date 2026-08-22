@@ -60,6 +60,7 @@ module Graphics.Farbe
 	, Farbe
 	, runFarbeT'
 	, MonadWindow
+	, glErr
 	) where
 
 

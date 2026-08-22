@@ -25,115 +25,66 @@ import Control.Monad
 import Control.Monad.Reader
 import GHC.TypeNats
 
-{-
 #define bottom undefined
 
--- Uniform variables ---------------------------------------------------------------------
-
-data Var a = Var { varExpr :: ExprI, varMVar :: MVar a }
-
-swapVar :: MonadIO m => Var a -> a -> m a
-swapVar v = liftIO . catchMVarBlocked 14 . swapMVar (varMVar v)
-
-readVar :: MonadIO m => Var a -> m a
-readVar = liftIO . catchMVarBlocked 15 . readMVar . varMVar
 
 
-makeVar :: forall a m . (Farbe m, MonadIO m, GLtype a, Upload a) => a -> m (Var a)
-makeVar a = do
-	m <- liftIO $ newMVar a
-	vname <- (name "u" a)
-	let r = do
-		b <- addHeader "uniform" a vname
-		s <- getShaderId
-		when b $ postShader $ do
-			l <- withString vname $ glGetUniformLocation s
-			wc <- makeRunWhenChanged $ upload l
-			-- RunWhenChanged will probably bork for textures,
-			-- since they need to be always checked for assigned tex unit
-			-- it will bork when the max unit limit is exceeded,
-			-- which will overwrite existing units
-			preRender $ do
-				(liftIO $ readMVar m) >>= runwc wc
-				return True
-		return vname
-	return $ Var (ExprI r (toTypeS (bottom :: a)) []) m
+
+class Uniform a b | a -> b, b -> a where
+	uniformUpload :: Int32 -> a -> IO ()
+	uniformExpr :: a -> b
+
+instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float))
 
 
-livingExprV :: forall v a e . (GLtype (v a), GLtype a, Upload (v a), Vector v)
-	=> String -> FarbeT IO (v a) -> v (Expr e a)
-livingExprV vname io = vecParts $ Expr $ ExprI shdr (toTypeS (undefined :: v a)) []
-	where
-		shdr = do
-			b <- addHeader "uniform" (undefined :: v a) vname
-			s <- getShaderId
-			when b $ postShader $ do
-				l <- withString vname $ glGetUniformLocation s
-				preRender $ do
-					a <- io
-					upload l a
-					return True
-			return vname
 
 
-livingExpr :: forall a e . (GLtype a, Upload a)
-	=> String -> FarbeT IO a -> (Expr e a)
-livingExpr vname io = Expr $ ExprI shdr (toTypeS (undefined :: a)) []
-	where
-		shdr = do
-			b <- addHeader "uniform" (undefined :: a) vname
-			s <- getShaderId
-			when b $ postShader $ do
-				l <- withString vname $ glGetUniformLocation s
-				preRender $ do
-					a <- io
-					upload l a
-					return True
-			return vname
+-- Upload --------------------------------------------------------------------------------
 
-class (GLtype a, Eq a) => Upload a where
-	upload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
-	-- TODO: makeUploadFn :: GLint -> a -> m (a -> m ())
-	-- move RunWhenChanged into instances
-	-- for the purpose of separating texture upload routine
+class (GLtype a, Eq a, MonadIO m) => Upload m a where
+	upload :: GLint -> a -> m ()
 
-instance Upload Bool where upload l = glUniform1i l . boolToInt
-instance Upload Int32 where upload l = glUniform1i l . itoi
-instance Upload Float where	upload l = glUniform1f l
-instance Upload (V2 Float) where upload l (V2 a b) = glUniform2f l a b
-instance Upload (V3 Float) where upload l (V3 a b c) = glUniform3f l a b c
-instance Upload (V4 Float) where upload l (V4 a b c d) = glUniform4f l a b c d
+instance MonadIO m => Upload m Bool where upload l = glUniform1i l . boolToInt
+instance MonadIO m => Upload m Int32 where upload l = glUniform1i l . itoi
+instance MonadIO m => Upload m Float where	upload l = glUniform1f l
+instance MonadIO m => Upload m (V2 Float) where upload l (V2 a b) = glUniform2f l a b
+instance MonadIO m => Upload m (V3 Float) where upload l (V3 a b c) = glUniform3f l a b c
+instance MonadIO m => Upload m (V4 Float) where upload l (V4 a b c d) = glUniform4f l a b c d
 
-instance Upload (V2 Int32) where
+instance MonadIO m => Upload m (V2 Int32) where
 	upload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
 
-instance Upload (V3 Int32) where
+instance MonadIO m => Upload m (V3 Int32) where
 	upload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
 
-instance Upload (V4 Int32) where
+instance MonadIO m => Upload m (V4 Int32) where
 	upload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
 
-instance Upload (V2 Bool) where
+instance MonadIO m => Upload m (V2 Bool) where
 	upload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
 
-instance Upload (V3 Bool) where
+instance MonadIO m => Upload m (V3 Bool) where
 	upload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
 
-instance Upload (V4 Bool) where
+instance MonadIO m => Upload m (V4 Bool) where
 	upload l (V4 a b c d) =
 		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
 
 
-instance Upload (Mat V2 V2 Float) where
+instance MonadIO m => Upload m (Mat V2 V2 Float) where
 	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
 
-instance Upload (Mat V3 V3 Float) where
+instance MonadIO m => Upload m (Mat V3 V3 Float) where
 	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
 
-instance Upload (Mat V4 V4 Float) where
+instance MonadIO m => Upload m (Mat V4 V4 Float) where
 	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
 
-instance Upload Texture where
+withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
+withArray' = liftIO .: withArray
+
+
+instance (HandTex m, MonadIO m) => Upload m Texture where
 	upload = texUpload
 
 
@@ -145,13 +96,12 @@ instance GLtype Texture where
 	glShortName _ = "t"
 
 
-withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
-withArray' = liftIO .: withArray
 
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 
 
+{-
 makeVarT :: forall m . (Farbe m, MonadIO m) => Texture -> m (Var Texture)
 makeVarT tex = do
 	m <- liftIO $ newMVar tex
@@ -230,8 +180,9 @@ instance UploadDefault (Mat V2 V2 Float) where upDefault = 0
 instance UploadDefault (Mat V3 V3 Float) where upDefault = 0
 instance UploadDefault (Mat V4 V4 Float) where upDefault = 0
 
+-}
 -- Access uniform variables --------------------------------------------------------------
-
+{-
 class Use a e r | a e -> r, r -> a e where
 	use :: a -> r
 

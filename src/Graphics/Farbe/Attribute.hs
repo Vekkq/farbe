@@ -93,7 +93,7 @@ advanceBy a = do
 nameVao :: (Monad m, BuildVAO m, GLtype a) => a -> m String
 nameVao a = do
 	b <- getsVao byteCount
-	return $ "a" ++ glShortName a ++ "At" ++ show b
+	return $ "a" ++ show b ++ glShortName a
 
 -- Make VAO ------------------------------------------------------------------------------
 
@@ -105,17 +105,6 @@ setAttributes i a = runAttribute i (sizeOf a) $ do
 	ps <- getsVao postShader
 	return (i, e, ps)
 
-{-
-setAttributes' :: (MonadIO m, Attribute a b, BuildVAO m) => a -> m (VaoId, b)
-setAttributes' a = do
-	i <- glGenVertexArray
-	glBindVertexArray i
-	setByteMax (sizeOf a)
-	-- ~ let ps = glBindVertexArray i
-	-- ~ modifyVao $ \s -> s { postShader = postShader s >> ps }
-	e <- setAttribute a
-	return (i, e)
--}
 
 setupAttribute1
 	:: (BuildVAO m, Monad m, GLtype a, Storable a) => a -> m (Expr V a)
@@ -140,11 +129,6 @@ setupAttribute1 a = do
 
 -----------
 
--- ~ data Expr e a = Expr { unExpr :: ExprI } deriving Functor
-
--- ~ data ExprI = ExprI
-	-- ~ { fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
-
 class Storable a => Attribute a b | a -> b, b -> a where
 	setAttribute :: (BuildVAO m, MonadIO m) => a -> m b
 
@@ -152,13 +136,6 @@ class Storable a => Attribute a b | a -> b, b -> a where
 instance Attribute Bool (Expr V Bool) where setAttribute = setupAttribute1
 instance Attribute Int32 (Expr V Int32) where setAttribute = setupAttribute1
 instance Attribute Float (Expr V Float) where setAttribute = setupAttribute1
-
--- not working that well and probably not necessary
--- ~ instance Attribute (Normalized Float) (Normalized (Expr V Float)) where
-	-- ~ setAttribute a = fmap Normalized $ fmap2 unNormalized $ setupAttribute1 a
-		-- ~ where
-		-- ~ fmap2 :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
-		-- ~ fmap2 f = fmap (fmap f)
 
 
 instance (Attribute a c, Attribute b d) => Attribute (a,b) (c,d) where

@@ -43,10 +43,13 @@ colorful'' v = let
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
 	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
-	fix $ \loop -> do
+	-- ~ fix $ \loop -> do
 		va <- newVArray frame
-		runShader colorful'' va
-		runShader colorful' identity va
-		loop
+		glErr
+		runShader colorful'' [va]
+		runShader colorful' identity [va]
+		return ()
+
+		-- ~ loop
 
 

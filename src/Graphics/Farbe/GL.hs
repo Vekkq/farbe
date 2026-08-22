@@ -22,6 +22,26 @@ import Graphics.GL.Types
 data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex
 	deriving (Eq, Ord, Read, Show, Generic)
 
+slNameFromTypeS t = case t of
+	TBool -> "highp bool"
+	TInt -> "highp int"
+	TFloat -> "highp float"
+	TVec2 TFloat -> "highp vec2"
+	TVec3 TFloat -> "highp vec3"
+	TVec4 TFloat -> "highp vec4"
+	TVec2 TInt -> "highp ivec2"
+	TVec3 TInt -> "highp ivec3"
+	TVec4 TInt -> "highp ivec4"
+	TVec2 TBool -> "highp bvec2"
+	TVec3 TBool -> "highp bvec3"
+	TVec4 TBool -> "highp bvec4"
+	TVec2 (TVec2 TFloat) -> "highp mat2"
+	TVec3 (TVec3 TFloat) -> "highp mat3"
+	TVec4 (TVec4 TFloat) -> "highp mat4"
+	TTex -> "sampler2D"
+
+
+
 instance Hashable TypeS
 
 
