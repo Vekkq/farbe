@@ -102,7 +102,8 @@ instance (Attribute a b)
 		optimizeExpressions
 		handleTransfers
 		collectHeaders
-		compile
+		compileSubShader Vertex
+		compileSubShader Fragment
 		liftIO sp
 		return $ \vs -> do
 			glUseProgram s
@@ -137,12 +138,12 @@ optimizeExpressions = return () -- undefined
 handleTransfers :: ShaderEnv m => m ()
 handleTransfers = do
 	exps <- getsShader exprs
-	sequence_ $ for exps $ \(s,t,e) -> mapExpr f e
+	sequence_ $ for exps $ \(t,(s,e)) -> mapExpr f e
 	where
 	f :: ShaderEnv m => ExprI -> m ExprI
 	f (ExprI "transferFrag" t [p] r) = do
 		c <- stateShader $ \case s | c <- succ $ counter s -> (c, s { counter = c })
-		let name = "t" ++ show c
+		let name = "t" ++ show c ++ slNameFromTypeS t
 		addExpr Vertex name p
 		return $ ExprI name t [] RegisterVarying
 	f e = return e
@@ -153,7 +154,7 @@ handleTransfers = do
 collectHeaders :: ShaderEnv m => m ()
 collectHeaders = do
 	exps <- getsShader exprs
-	forM_ exps $ \(s, e, exp) -> sequence_ $ crawl (addHeader e) exp
+	forM_ exps $ \(e, (s, exp)) -> sequence_ $ crawl (addHeader e) exp
 -- vertexes, unicodes, transfers
 
 
@@ -164,52 +165,63 @@ addHeader e (ExprI n a ps r) = do
 		RegisterVertex -> "attribute"
 		RegisterVarying -> "varying"
 		RegisterNone -> ""
-	let str = unwords [i, slNameFromTypeS a, n, ";"]
+	let str = unwords [i, slNameWithPrecTypeS a, n, ";"]
 	hs <- getsShader headers
 	let b = not (null i) && not (S.member (e,str) hs)
 	when b $ modifyShader $ \s -> s { headers = S.insert (e,str) $ headers s }
 
 
-compileSubShader :: ShaderEnv m => ShaderType -> m ()
+compileSubShader :: (MonadIO m, ShaderEnv m) => ShaderType -> m ()
 compileSubShader t = do
-	st <- getsShader exprs
+	st <- getShader
+	sp <- getsShader shaderId
 	let heads = map snd $ filter ((t==). fst) $ toList $ headers st
-	let es = exprs st
+	let es = map snd $ filter ((t==) . fst) $ exprs st
 	let str
 		=  "#version 100\n"
-		++ unlines (map snd $ filter ((t==). fst) $ toList $ headers st)
+		++ unlines heads
 		++ "\n\nvoid main(){\n"
-		++ toCStatements (bexpr st)
+		++ toCStatements es
 		++ "}"
-	i <- liftIO $ bracket (newCAString str) free $ \cs -> do
-		i <- glCreateShader t
+	liftIO $ bracket (newCAString str) free $ \cs -> do
+		i <- glCreateShader $ shaderTypeGLEnum t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
 		err <- checkShaderError i
 		maybe (return ()) (putStrLn . (str++)) err
 		glAttachShader sp i
-		when (t == GL_FRAGMENT_SHADER) $ glLinkProgram sp
-		return i
+		when (t == Fragment) $ glLinkProgram sp
+	where
+		checkShaderError :: GLuint -> IO (Maybe String)
+		checkShaderError i = bracket (mallocArray $ 2^10) free $ \er ->
+			bracket malloc free $ \errLength -> do
+				glGetShaderInfoLog i (2^10) errLength er
+				peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
+					"" -> return Nothing
+					e -> return $ Just e
+
+		shaderTypeGLEnum :: ShaderType -> GLenum
+		shaderTypeGLEnum Vertex = GL_VERTEX_SHADER
+		shaderTypeGLEnum Fragment = GL_FRAGMENT_SHADER
+
+toCStatements :: [(String, ExprI)] -> String
+toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
 
 
--- ~ toCStatements :: [(String, ExprS)] -> String
--- ~ toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
+toCExpr :: ExprI -> String
+toCExpr e = case e of
+	ExprI s _ [] _ -> s
+	ExprI "[]" _ (p1:p2:[]) _ -> toCExpr p1 ++ "[" ++ toCExpr p2 ++ "]"
+	ExprI s _ (p1:p2:[]) _ | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p2
+	ExprI "if" _ (p1:p2:p3:[]) _ -> par $ toCExpr p1 ++ "?" ++ toCExpr p2 ++ ":" ++ toCExpr p3
+	ExprI s _ as _ -> (s++) $ par $ intercalate ", " $ map toCExpr as
+	where
+		isOp :: String -> Bool
+		isOp (x:_) = not $ isAlpha x
+		isOp [] = False
 
-
--- ~ toCExpr :: ExprS -> String
--- ~ toCExpr e = case e of
-	-- ~ ExprS s _ [] -> s
-	-- ~ ExprS "[]" _ (p1:p2:[]) -> toCExpr p1 ++ "[" ++ toCExpr p2 ++ "]"
-	-- ~ ExprS s _ (p1:p2:[]) | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p2
-	-- ~ ExprS "if" _ (p1:p2:p3:[]) -> par $ toCExpr p1 ++ "?" ++ toCExpr p2 ++ ":" ++ toCExpr p3
-	-- ~ ExprS s _ as -> (s++) $ par $ intercalate ", " $ map toCExpr as
-	-- ~ where
-		-- ~ isOp :: String -> Bool
-		-- ~ isOp (x:_) = not $ isAlpha x
-		-- ~ isOp [] = False
-
-		-- ~ par :: String -> String
-		-- ~ par s = "(" ++ s ++ ")"
+		par :: String -> String
+		par s = "(" ++ s ++ ")"
 
 
 class JoinF m f where
@@ -257,7 +269,7 @@ data ShaderData = ShaderData
 	{ counter :: Int
 	, shaderId :: ShaderId
 	, headers :: S.Set (ShaderType, Header)
-	, exprs :: [(String, ShaderType, ExprI)]
+	, exprs :: [(ShaderType, (String, ExprI))]
 	-- ~ , preRender :: IO ()
 	}
 
@@ -310,7 +322,7 @@ runShaderEnvT (ShaderEnvT ms) = emptyShaderData >>= runStateT ms
 
 addExpr :: ShaderEnv m => ShaderType -> String -> ExprI -> m ()
 addExpr e n expri = do
-	modifyShader $ \s -> s { exprs = (n,e,expri) : exprs s }
+	modifyShader $ \s -> s { exprs = (e,(n,expri)) : exprs s }
 
 
 

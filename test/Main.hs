@@ -26,7 +26,7 @@ colorful'
 	-> (V4 (Expr V Float), V4 (Expr F Float))
 colorful' r v = let
 	v' = r **| v
-	n' = transfer' v
+	n' = transferFrag v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
 
@@ -35,7 +35,7 @@ colorful''
 	-> (V4 (Expr V Float), V4 (Expr F Float))
 colorful'' v = let
 	v' = v
-	n' = transfer' v
+	n' = transferFrag v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
 

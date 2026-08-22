@@ -38,7 +38,7 @@ module Graphics.Farbe
 	, erem
 	, ediv
 	, emod
-	, transfer
+	, transferFrag
 	-- * Make mutable shared variables for shaders
 
 	, Texture

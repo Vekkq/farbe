@@ -23,23 +23,25 @@ data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | T
 	deriving (Eq, Ord, Read, Show, Generic)
 
 slNameFromTypeS t = case t of
-	TBool -> "highp bool"
-	TInt -> "highp int"
-	TFloat -> "highp float"
-	TVec2 TFloat -> "highp vec2"
-	TVec3 TFloat -> "highp vec3"
-	TVec4 TFloat -> "highp vec4"
-	TVec2 TInt -> "highp ivec2"
-	TVec3 TInt -> "highp ivec3"
-	TVec4 TInt -> "highp ivec4"
-	TVec2 TBool -> "highp bvec2"
-	TVec3 TBool -> "highp bvec3"
-	TVec4 TBool -> "highp bvec4"
-	TVec2 (TVec2 TFloat) -> "highp mat2"
-	TVec3 (TVec3 TFloat) -> "highp mat3"
-	TVec4 (TVec4 TFloat) -> "highp mat4"
+	TBool -> "bool"
+	TInt -> "int"
+	TFloat -> "float"
+	TVec2 TFloat -> "vec2"
+	TVec3 TFloat -> "vec3"
+	TVec4 TFloat -> "vec4"
+	TVec2 TInt -> "ivec2"
+	TVec3 TInt -> "ivec3"
+	TVec4 TInt -> "ivec4"
+	TVec2 TBool -> "bvec2"
+	TVec3 TBool -> "bvec3"
+	TVec4 TBool -> "bvec4"
+	TVec2 (TVec2 TFloat) -> "mat2"
+	TVec3 (TVec3 TFloat) -> "mat3"
+	TVec4 (TVec4 TFloat) -> "mat4"
 	TTex -> "sampler2D"
 
+slNameWithPrecTypeS TTex = slNameFromTypeS TTex
+slNameWithPrecTypeS a = "highp " ++ slNameFromTypeS a
 
 
 instance Hashable TypeS

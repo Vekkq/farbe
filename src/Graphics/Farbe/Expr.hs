@@ -2,6 +2,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Graphics.Farbe.Expr where
 
@@ -159,6 +161,24 @@ arr' = liftE2 "[]"
 if' :: GLtype a => Expr e Bool -> Expr e a -> Expr e a -> Expr e a
 if' = liftE3 "if"
 
-transferFrag :: Expr V a -> Expr F a
-transferFrag (Expr e) = Expr $ ExprI "transferFrag" (bottom :: a) [e] RegisterVarying
+class Transfer a b | a -> b, b -> a where
+	transferFrag :: a -> b
+
+instance Transfer (Expr V Float) (Expr F Float) where
+	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TFloat [e] RegisterVarying
+
+instance Transfer (Expr V Int) (Expr F Int) where
+	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TInt [e] RegisterVarying
+
+instance Transfer (Expr V Bool) (Expr F Bool) where
+	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TBool [e] RegisterVarying
+
+instance (Transfer a b) => Transfer (V2 a) (V2 b) where
+	transferFrag = fmap transferFrag
+
+instance (Transfer a b) => Transfer (V3 a) (V3 b) where
+	transferFrag = fmap transferFrag
+
+instance (Transfer a b) => Transfer (V4 a) (V4 b) where
+	transferFrag = fmap transferFrag
 
