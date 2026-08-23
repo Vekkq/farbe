@@ -31,63 +31,91 @@ import GHC.TypeNats
 
 
 class Uniform a b | a -> b, b -> a where
-	uniformUpload :: MonadIO m => GLint -> a -> m ()
+	uniformUpload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
 	uniformExpr :: Int -> a -> b
-
-instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float)) where
-	uniformUpload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
-	uniformExpr i a = matParts $ Expr $ ExprI (nameUniform i a) (TVec3 (TVec3 TFloat)) [] RegisterUniform
 
 nameUniform :: GLtype a => Int -> a -> String
 nameUniform i a = "u" ++ show i ++ glShortName a
 
--- Upload --------------------------------------------------------------------------------
+exprUniform :: GLtype a => Int -> a -> Expr e b
+exprUniform i a = Expr $ ExprI (nameUniform i a) (toTypeS a) [] RegisterUniform
 
-class (GLtype a, Eq a, MonadIO m) => Upload m a where
-	upload :: GLint -> a -> m ()
+(.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
+(.:) = (.).(.)
 
-instance MonadIO m => Upload m Bool where upload l = glUniform1i l . boolToInt
-instance MonadIO m => Upload m Int32 where upload l = glUniform1i l . itoi
-instance MonadIO m => Upload m Float where	upload l = glUniform1f l
-instance MonadIO m => Upload m (V2 Float) where upload l (V2 a b) = glUniform2f l a b
-instance MonadIO m => Upload m (V3 Float) where upload l (V3 a b c) = glUniform3f l a b c
-instance MonadIO m => Upload m (V4 Float) where upload l (V4 a b c d) = glUniform4f l a b c d
 
-instance MonadIO m => Upload m (V2 Int32) where
-	upload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
 
-instance MonadIO m => Upload m (V3 Int32) where
-	upload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
+instance Uniform Float (Expr V Float) where
+	uniformUpload l = glUniform1f l
+	uniformExpr = exprUniform
 
-instance MonadIO m => Upload m (V4 Int32) where
-	upload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
+instance Uniform Int32 (Expr V Int32) where
+	uniformUpload l = glUniform1i l . itoi
+	uniformExpr = exprUniform
 
-instance MonadIO m => Upload m (V2 Bool) where
-	upload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
+instance Uniform Bool (Expr V Bool) where
+	uniformUpload l = glUniform1i l . boolToInt
+	uniformExpr = exprUniform
 
-instance MonadIO m => Upload m (V3 Bool) where
-	upload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
+instance Uniform (V2 Float) (V2 (Expr V Float)) where
+	uniformUpload l (V2 a b) = glUniform2f l a b
+	uniformExpr = vecParts .: exprUniform
 
-instance MonadIO m => Upload m (V4 Bool) where
-	upload l (V4 a b c d) =
+instance Uniform (V3 Float) (V3 (Expr V Float)) where
+	uniformUpload l (V3 a b c) = glUniform3f l a b c
+	uniformExpr = vecParts .: exprUniform
+
+instance Uniform (V4 Float) (V4 (Expr V Float)) where
+	uniformUpload l (V4 a b c d) = glUniform4f l a b c d
+	uniformExpr = vecParts .: exprUniform
+
+
+instance Uniform (V2 Int32) (V2 (Expr V Int32)) where
+	uniformUpload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
+	uniformExpr = vecParts .: exprUniform
+
+instance Uniform (V3 Int32) (V3 (Expr V Int32)) where
+	uniformUpload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
+	uniformExpr = vecParts .: exprUniform
+
+instance Uniform (V4 Int32) (V4 (Expr V Int32)) where
+	uniformUpload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
+	uniformExpr = vecParts .: exprUniform
+
+
+instance Uniform (V2 Bool) (V2 (Expr V Bool)) where
+	uniformUpload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
+	uniformExpr = vecParts .: exprUniform
+
+instance Uniform (V3 Bool) (V3 (Expr V Bool)) where
+	uniformUpload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
+	uniformExpr = vecParts .: exprUniform
+
+instance Uniform (V4 Bool) (V4 (Expr V Bool)) where
+	uniformUpload l (V4 a b c d) =
 		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
+	uniformExpr = vecParts .: exprUniform
 
 
-instance MonadIO m => Upload m (Mat V2 V2 Float) where
-	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
+instance Uniform (Mat V2 V2 Float) (Mat V2 V2 (Expr V Float)) where
+	uniformUpload l (V2 (V2 a b) (V2 c d)) = glUniform4f l a b c d
+	uniformExpr = matParts .: exprUniform
 
-instance MonadIO m => Upload m (Mat V3 V3 Float) where
-	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float)) where
+	uniformUpload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+	uniformExpr = matParts .: exprUniform
 
-instance MonadIO m => Upload m (Mat V4 V4 Float) where
-	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
+instance Uniform (Mat V4 V4 Float) (Mat V4 V4 (Expr V Float)) where
+	uniformUpload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
+	uniformExpr = matParts .: exprUniform
+
+
+instance Uniform Texture (Expr V Texture) where
+	uniformUpload = texUpload
+	uniformExpr = exprUniform
 
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
-
-
-instance (HandTex m, MonadIO m) => Upload m Texture where
-	upload = texUpload
 
 
 instance GLtype Texture where
@@ -97,127 +125,3 @@ instance GLtype Texture where
 	glPrecision _ = ""
 	glShortName _ = "t"
 
-
-
-(.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
-(.:) = (.).(.)
-
-
-{-
-makeVarT :: forall m . (Farbe m, MonadIO m) => Texture -> m (Var Texture)
-makeVarT tex = do
-	m <- liftIO $ newMVar tex
-	vname <- (name "u" tex)
-	let r = do
-		b <- addHeader "uniform" tex vname
-		s <- getShaderId
-		when b $ postShader $ do
-			l <- withString vname $ glGetUniformLocation s
-			preRender $ do
-				t <- liftIO $ readMVar m
-				b1 <- liftIO $ isEmptyMVar $ tbase t
-				when b1 $ texUpload l t
-				return $ not b1 -- TODO check if this correct
-		return vname
-	return $ Var (ExprI r (toTypeS tex) []) m
-
--- makeVars ------------------------------------------------------------------------------
-
-makeVarF :: (Farbe m, MonadIO m) => Float -> m (Var Float)
-makeVarI :: (Farbe m, MonadIO m) => Int32 -> m (Var Int32)
-makeVarB :: (Farbe m, MonadIO m) => Bool -> m (Var Bool)
-makeVarV2F :: (Farbe m, MonadIO m) => V2 Float -> m (Var (V2 Float))
-makeVarV2I :: (Farbe m, MonadIO m) => V2 Int32 -> m (Var (V2 Int32))
-makeVarV2B :: (Farbe m, MonadIO m) => V2 Bool -> m (Var (V2 Bool))
-makeVarV3F :: (Farbe m, MonadIO m) => V3 Float -> m (Var (V3 Float))
-makeVarV3I :: (Farbe m, MonadIO m) => V3 Int32 -> m (Var (V3 Int32))
-makeVarV3B :: (Farbe m, MonadIO m) => V3 Bool -> m (Var (V3 Bool))
-makeVarV4F :: (Farbe m, MonadIO m) => V4 Float -> m (Var (V4 Float))
-makeVarV4I :: (Farbe m, MonadIO m) => V4 Int32 -> m (Var (V4 Int32))
-makeVarV4B :: (Farbe m, MonadIO m) => V4 Bool -> m (Var (V4 Bool))
-makeVarM2 :: (Farbe m, MonadIO m) => (V2 (V2 Float)) -> m (Var (V2 (V2 Float)))
-makeVarM3 :: (Farbe m, MonadIO m) => (V3 (V3 Float)) -> m (Var (V3 (V3 Float)))
-makeVarM4 :: (Farbe m, MonadIO m) => (V4 (V4 Float)) -> m (Var (V4 (V4 Float)))
--- ~ makeVarT :: (Farbe m, MonadIO m) => Texture -> m (Var Texture)
-
-
-makeVarF   = makeVar
-makeVarI   = makeVar
-makeVarB   = makeVar
-makeVarV2F = makeVar
-makeVarV2I = makeVar
-makeVarV2B = makeVar
-makeVarV3F = makeVar
-makeVarV3I = makeVar
-makeVarV3B = makeVar
-makeVarV4F = makeVar
-makeVarV4I = makeVar
-makeVarV4B = makeVar
-makeVarM2  = makeVar
-makeVarM3  = makeVar
-makeVarM4  = makeVar
--- ~ makeVarT   = makeVar
-
--- add expr texture shader access functions
-
-makeVarEmpty :: (Farbe m, UploadDefault a) => m (Var a)
-makeVarEmpty = makeVar upDefault
-
-class Upload a => UploadDefault a where upDefault :: a
-
-instance UploadDefault Bool where upDefault = False
-instance UploadDefault Int32 where upDefault = 0
-instance UploadDefault Float where upDefault = 0
-instance UploadDefault (V2 Float) where upDefault = 0
-instance UploadDefault (V3 Float) where upDefault = 0
-instance UploadDefault (V4 Float) where upDefault = 0
-
-instance UploadDefault (V2 Int32) where upDefault = 0
-instance UploadDefault (V3 Int32) where upDefault = 0
-instance UploadDefault (V4 Int32) where upDefault = 0
-instance UploadDefault (V2 Bool) where upDefault = pure False
-instance UploadDefault (V3 Bool) where upDefault = pure False
-instance UploadDefault (V4 Bool) where upDefault = pure False
-instance UploadDefault (Mat V2 V2 Float) where upDefault = 0
-instance UploadDefault (Mat V3 V3 Float) where upDefault = 0
-instance UploadDefault (Mat V4 V4 Float) where upDefault = 0
-
--}
--- Access uniform variables --------------------------------------------------------------
-{-
-class Use a e r | a e -> r, r -> a e where
-	use :: a -> r
-
-instance Use (Var Float) e (Expr e Float) where use = Expr . varExpr
-instance Use (Var Int32) e (Expr e Int32) where use = Expr . varExpr
-instance Use (Var Bool) e (Expr e Bool) where use = Expr . varExpr
-
-usePartsVec :: (Vector v, GLtype a) => Var (v a) -> v (Expr e a)
-usePartsVec = vecParts . Expr . varExpr
-
-instance Use (Var (V2 Float)) e (V2 (Expr e Float)) where use = usePartsVec
-instance Use (Var (V2 Int32)) e (V2 (Expr e Int32)) where use = usePartsVec
-instance Use (Var (V2 Bool)) e (V2 (Expr e Bool)) where use = usePartsVec
-instance Use (Var (V3 Float)) e (V3 (Expr e Float)) where use = usePartsVec
-instance Use (Var (V3 Int32)) e (V3 (Expr e Int32)) where use = usePartsVec
-instance Use (Var (V3 Bool)) e (V3 (Expr e Bool)) where use = usePartsVec
-instance Use (Var (V4 Float)) e (V4 (Expr e Float)) where use = usePartsVec
-instance Use (Var (V4 Int32)) e (V4 (Expr e Int32)) where use = usePartsVec
-instance Use (Var (V4 Bool)) e (V4 (Expr e Bool)) where use = usePartsVec
-
-usePartsMat :: (Vector v, GLtype a, GLtype (v a)) => Var (v (v a)) -> v (v (Expr e a))
-usePartsMat v = vecParts <$> vecParts (Expr $ varExpr v)
-
-instance Use (Var (V2 (V2 Float))) e (V2 (V2 (Expr e Float))) where use = usePartsMat
-instance Use (Var (V3 (V3 Float))) e (V3 (V3 (Expr e Float))) where use = usePartsMat
-instance Use (Var (V4 (V4 Float))) e (V4 (V4 (Expr e Float))) where use = usePartsMat
-
-instance (KnownNat s, GLtype a) => Use (Var (Arr s a)) e (Expr e (Arr s a)) where
-	use = Expr . varExpr
-
-
-
-instance Use (Var Texture) e (Expr e Texture) where
-  use = Expr . varExpr
-
--}

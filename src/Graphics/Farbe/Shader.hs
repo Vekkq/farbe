@@ -18,6 +18,7 @@ import Graphics.Farbe.GL
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Uniform
+import Graphics.Farbe.Texture
 -- ~ import Graphics.Farbe.Farbe
 -- ~ import Graphics.Farbe.State
 -- ~ import Graphics.Farbe.BuildShader
@@ -87,18 +88,24 @@ class Shader m f g | m f -> g, g -> f, g -> m where
 	mkShader :: MonadIO m => f -> ShaderEnvT m g
 	idShader :: MonadIO m => f -> m Int
 
-setUniform f = undefined
-
-instance (Attribute a b, Uniform u1 e1, AppliableF m (m Bool))
-	=> Shader m (e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u1 -> [VArray a] -> m Bool) where
-	mkShader f = do
+setUniform :: (MonadIO m, Uniform u1 e1, HandTex m, AppliableF m g, Shader m f g) => Int -> (e1 -> f) -> ShaderEnvT m (u1 -> g)
+setUniform i f = do
 		s <- getsShader shaderId
 		let vname = "foo"
-		g <- mkShader $ f $ uniformExpr 1 bottom
+		g <- mkShader $ f $ uniformExpr i bottom
 		l <- withString vname $ glGetUniformLocation s
-		return $ \m -> if l > 0 then applyF g $ liftIO $ uniformUpload l m else g
+		return $ \m -> if l > 0 then applyF g $ uniformUpload l m else g
 
+
+instance (Attribute a b, Uniform u1 e1, HandTex m, AppliableF m (m Bool))
+	=> Shader m (e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 1
 	idShader f = idShader $ f $ uniformExpr 1 bottom
+
+instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, HandTex m, AppliableF m (m Bool))
+	=> Shader m (e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 2
+	idShader f = idShader $ f $ uniformExpr 2 bottom
 
 
 instance (Attribute a b)
