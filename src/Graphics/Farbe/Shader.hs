@@ -138,7 +138,8 @@ optimizeExpressions = return () -- undefined
 handleTransfers :: ShaderEnv m => m ()
 handleTransfers = do
 	exps <- getsShader exprs
-	sequence_ $ for exps $ \(t,(s,e)) -> mapExpr f e
+	exps' <- sequence $ for exps $ \(t,(s,e)) -> fmap (\e -> (t,(s,e))) $ mapExpr f e
+	modifyShader $ \s -> s { exprs = exps' }
 	where
 	f :: ShaderEnv m => ExprI -> m ExprI
 	f (ExprI "transferFrag" t [p] r) = do
@@ -174,15 +175,13 @@ addHeader e (ExprI n a ps r) = do
 compileSubShader :: (MonadIO m, ShaderEnv m) => ShaderType -> m ()
 compileSubShader t = do
 	st <- getShader
-	sp <- getsShader shaderId
-	let heads = map snd $ filter ((t==). fst) $ toList $ headers st
-	let es = map snd $ filter ((t==) . fst) $ exprs st
 	let str
 		=  "#version 100\n"
-		++ unlines heads
+		++ (unlines $ pickForShader $ toList $ headers st)
 		++ "\n\nvoid main(){\n"
-		++ toCStatements es
+		++ (toCStatements $ pickForShader $ exprs st)
 		++ "}"
+	sp <- getsShader shaderId
 	liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader $ shaderTypeGLEnum t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
@@ -199,6 +198,9 @@ compileSubShader t = do
 				peekArray0 (CChar 0) er >>= \ce -> case map castCCharToChar ce of
 					"" -> return Nothing
 					e -> return $ Just e
+
+		pickForShader :: [(ShaderType, a)] -> [a]
+		pickForShader = map snd . filter ((t==). fst)
 
 		shaderTypeGLEnum :: ShaderType -> GLenum
 		shaderTypeGLEnum Vertex = GL_VERTEX_SHADER

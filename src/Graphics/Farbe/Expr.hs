@@ -61,6 +61,7 @@ mapExpr f e = do
 	ps <- mapM (mapExpr f) $ fnAst g
 	return $ g { fnAst = ps }
 
+
 instance (GLtype a, Num a) => Num (Expr e a) where
 	(+) = liftE2 "+"
 	(*) = liftE2 "*"
