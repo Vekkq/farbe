@@ -4,6 +4,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Graphics.Farbe.Expr where
 
@@ -12,6 +13,8 @@ import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Array
 import Data.Foldable
+import Data.Hashable
+import GHC.Generics (Generic)
 -- ~ import Graphics.Farbe.BuildShader
 
 import Numeric
@@ -21,14 +24,14 @@ import Foreign hiding (void)
 
 -- Expr ----------------------------------------------------------------------------------
 
-data Expr e a = Expr { unExpr :: ExprI } deriving (Eq, Ord, Show, Read)
+data Expr e a = Expr { unExpr :: ExprI } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 data ExprI = ExprI
 	{ fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
-	deriving (Eq, Ord, Show, Read)
+	deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 data Register = RegisterNone | RegisterVarying | RegisterUniform | RegisterVertex
-	deriving (Eq, Ord, Show, Read)
+	deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 data F
 data V

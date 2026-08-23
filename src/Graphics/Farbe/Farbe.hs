@@ -42,6 +42,21 @@ instance MonadState s m => MonadState s (FarbeT m) where state = lift . state
 
 instance MonadTrans FarbeT where lift = FarbeT . lift
 
+runFarbeT :: MonadIO m => FarbeT m a -> m (a, FarbeState)
+runFarbeT (FarbeT m) = do
+	fs <- emptyFarbeState
+	runStateT m fs
+
+runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
+runFarbeT' fs (FarbeT m) = runStateT m fs
+
+liftFarbe :: (Farbe m, MonadIO m) => FarbeT IO a -> m a
+liftFarbe m = do
+	fd <- getFarbe
+	(a,fd') <- liftIO $ runFarbeT' fd m
+	putFarbe fd'
+	return a
+
 class MonadIO m => Farbe m where
 	stateFarbe :: (FarbeState -> (a, FarbeState)) -> m a
 
@@ -60,23 +75,6 @@ class MonadIO m => Farbe m where
 instance MonadIO m => Farbe (FarbeT m) where
 	stateFarbe = FarbeT . state
 
-
-instance (Monad m, Farbe m) => HandVBO m where
-	stateVBO f = do
-		stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
-	delayVBO = do
-		d <- getsFarbe delayed
-		return $ \f -> catchMVarBlocked 22 . putMVar d $ stateVBO' f
-
-instance (Monad m, Farbe m) => HandTex m where
-	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
-
-	getDelayFun :: MonadIO m => m (IO () -> IO ())
-	getDelayFun = delayFun
-
-
-instance (Monad m, Farbe m) => HandShdr m where
-	stateShdr f = stateFarbe (\s -> let (a,s') = f $ shdrState s in (a, s{ shdrState = s' } ))
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
@@ -119,7 +117,7 @@ emptyFarbeState = do
 		{ config = defaultConfig
 		, vboState = vbo
 		, texState = tex
-		, shdrState = ShdrState $ M.empty
+		, shdrState = initShdrState
 		, delayed = del
 		, lastFrameTime = 0
 		}
@@ -127,14 +125,6 @@ emptyFarbeState = do
 type ShaderId = GLuint
 
 type ShExec = FarbeT IO Bool
-
-runFarbeT :: MonadIO m => FarbeT m a -> m (a, FarbeState)
-runFarbeT (FarbeT m) = do
-	fs <- emptyFarbeState
-	runStateT m fs
-
-runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
-runFarbeT' fs (FarbeT m) = runStateT m fs
 
 
 getsConfig :: Farbe m => (Config -> s) -> m s

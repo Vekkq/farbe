@@ -31,13 +31,15 @@ import GHC.TypeNats
 
 
 class Uniform a b | a -> b, b -> a where
-	uniformUpload :: Int32 -> a -> IO ()
-	uniformExpr :: a -> b
+	uniformUpload :: MonadIO m => GLint -> a -> m ()
+	uniformExpr :: Int -> a -> b
 
-instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float))
+instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float)) where
+	uniformUpload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+	uniformExpr i a = matParts $ Expr $ ExprI (nameUniform i a) (TVec3 (TVec3 TFloat)) [] RegisterUniform
 
-
-
+nameUniform :: GLtype a => Int -> a -> String
+nameUniform i a = "u" ++ show i ++ glShortName a
 
 -- Upload --------------------------------------------------------------------------------
 

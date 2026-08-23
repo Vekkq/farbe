@@ -27,6 +27,7 @@ module Graphics.Farbe
 	-- * Shader's Expr type
 	, Expr
 	, V
+	, rotationFromMouse33
 	, viewMat
 	, F
 	, fragCoord
@@ -115,6 +116,23 @@ runFarbeT' f = fmap fst . S.runFarbeT $ do
 	return a
 
 
+
+instance (Monad m, Farbe m) => HandVBO m where
+	stateVBO f = do
+		stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+	delayVBO = do
+		d <- getsFarbe delayed
+		return $ \f -> catchMVarBlocked 22 . putMVar d $ stateVBO' f
+
+instance (Monad m, Farbe m) => HandTex m where
+	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
+
+	getDelayFun :: MonadIO m => m (IO () -> IO ())
+	getDelayFun = delayFun
+
+instance (Monad m, Farbe m) => HandShdr m where
+	stateShdr f = stateFarbe (\s -> let (a,s') = f $ shdrState s in (a, s{ shdrState = s' } ))
+
 -- | @processEvents@ obtains the events and sends it to a provided function. The function is called, when the program isn't asked to quit. This function also controls the render pipeline (swap buffers).
 processEvents :: (W.MonadWindow m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
@@ -125,18 +143,6 @@ processEvents f = do
 	then return ()
 	else f es
 
-
-isEsc :: [(Event, b)] -> Bool
-isEsc es = case es of
-	[(EventKey Key'Escape Down _, _)] -> True
-	_ -> False
-
-
-isAltF4 :: [(W.Event, W.EventContext)] -> Bool
-isAltF4 es = case es of
-	[(EventKey Key'F4 Down _, c)] | member (Right Key'LeftAlt) c -> True
-	_ -> False
-
 processEvents' :: (MonadWindow m, Farbe m) => m [(W.Event, W.EventContext)]
 processEvents' = do
 	runDelayed
@@ -144,6 +150,15 @@ processEvents' = do
 	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 	W.processEvents
 
+isEsc :: [(Event, b)] -> Bool
+isEsc es = case es of
+	[(EventKey Key'Escape Down _, _)] -> True
+	_ -> False
+
+isAltF4 :: [(W.Event, W.EventContext)] -> Bool
+isAltF4 es = case es of
+	[(EventKey Key'F4 Down _, c)] | member (Right Key'LeftAlt) c -> True
+	_ -> False
 
 glerrcheck :: MonadIO m => m ()
 glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
@@ -162,11 +177,10 @@ runDelayed = do
 		then runDelayed
 		else logTime
 	where
-		-- ~ work :: (Farbe m, MonadIO m) => m ()
-		-- ~ work = do
-			-- ~ d <- getsFarbe delayed
-			-- ~ join $ fmap (applyFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
-		work = undefined
+		work :: (Farbe m, MonadIO m) => m ()
+		work = do
+			d <- getsFarbe delayed
+			join $ fmap (liftFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
 
 
 drawOver :: MonadIO m => m a1 -> m a2 -> m ()
@@ -289,15 +303,11 @@ bindfb (Framebuffer n) = glBindFramebuffer GL_FRAMEBUFFER n
 		-- ~ _ -> return ()
 
 
+rotationFromMouse33 :: MonadWindow m => m (Mat V3 V3 Float)
+rotationFromMouse33 = do
+	V2 x y <- lastCoord
+	return $ rotationMatrix 0 (-y*0.1) (-x*0.1)
 
--- ~ updateRotate' :: MonadIO m
-	-- ~ => [(Event, b)] -> Var (Mat V3 V3 Float) -> m (Mat V3 V3 Float)
--- ~ updateRotate' es r = case es of
-	-- ~ [(EventMouseMove (x,y), _)] -> do
-		-- ~ let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
-		-- ~ swapVar r m
-		-- ~ return m
-	-- ~ _ -> readVar r
 
 -- ~ updateRotate :: MonadWindow m => Var (Mat V3 V3 Float) -> m ()
 -- ~ updateRotate r = do
@@ -311,50 +321,10 @@ viewMat = do
 	V2 x y <- lastCoord
 	return $ perspective 1 1 0.01 100 **** translateM (V3 0 0 (-3)) **** rotationMatrix4 0 (y*0.01) (-x*0.01)
 
--- ~ perspectiveMatrix :: MonadWindow m => Float -> m (Mat V4 V4 Float)
--- ~ perspectiveMatrix fov = do
-	-- ~ V2 x y <- windowDim
-	-- ~ return $ inversePerspective fov (x/y) (-1) 1
-
--- ~ inversePerspective
-  -- ~ :: Floating a
-  -- ~ => a -- ^ FOV (y direction, in radians)
-  -- ~ -> a -- ^ Aspect ratio
-  -- ~ -> a -- ^ Near plane
-  -- ~ -> a -- ^ Far plane
-  -- ~ -> Mat V4 V4 a
--- ~ inversePerspective fovy aspect near far =
-  -- ~ V4 (V4 a 0 0 0   )
-     -- ~ (V4 0 b 0 0   )
-     -- ~ (V4 0 0 0 (-1))
-     -- ~ (V4 0 0 c d   )
-  -- ~ where tanHalfFovy = tan $ fovy / 2
-        -- ~ a = aspect * tanHalfFovy
-        -- ~ b = tanHalfFovy
-        -- ~ c = oon - oof
-        -- ~ d = oon + oof
-        -- ~ oon = 0.5/near
-        -- ~ oof = 0.5/far
-
-
 
 windowDim :: MonadWindow m => m (V2 Float)
 windowDim = do
 	w <- glfwWindow
 	(x,y) <- liftIO $ W.getFramebufferSize w
 	return $ fromIntegral <$> V2 x y
-
-
--- ~ windowDim :: MonadWindow m => m (V2 (Expr e Float))
--- ~ windowDim = do
-	-- ~ w <- glfwWindow
-	-- ~ return $ livingExprV "dim" $ do
-		-- ~ (x,y) <- liftIO $ W.getFramebufferSize w
-		-- ~ return $ fromIntegral <$> V2 x y
-
-
--- ~ windowDim0to1 :: (MonadWindow m) => m (V2 (Expr F Float))
--- ~ windowDim0to1 = do
-	-- ~ e <- windowDim
-	-- ~ return $ down fragCoord / e
 

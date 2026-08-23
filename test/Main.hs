@@ -5,7 +5,7 @@
 module Main (main) where
 
 import Graphics.Farbe
-import Graphics.Farbe.Window
+-- ~ import Graphics.Farbe.Window
 import Graphics.Farbe.Shader
 
 import Graphics.Farbe.Vec
@@ -30,25 +30,15 @@ colorful' r v = let
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
 
-colorful''
-	:: (V3 (Expr V Float))
-	-> (V4 (Expr V Float), V4 (Expr F Float))
-colorful'' v = let
-	v' = v
-	n' = transferFrag v
-	in (up 1 v', up 1 n' * 0.5 + 0.2)
-
-
 
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
-	-- ~ modifyConfig $ \f -> f { devDebugMode = True }
-	fix $ \loop -> do
+	modifyConfig $ \f -> f { devDebugMode = True }
+	fix $ \loop -> processEvents $ \es -> do
 		va <- newVArray frame
-		runShader colorful'' [va]
-		glErr
-		-- ~ runShader colorful' identity [va]
-
+		r <- rotationFromMouse33
+		-- ~ liftIO $ print r
+		runShader colorful' r [va]
 		loop
 
 

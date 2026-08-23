@@ -18,6 +18,7 @@ import Graphics.Farbe.GL
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Uniform
+-- ~ import Graphics.Farbe.Farbe
 -- ~ import Graphics.Farbe.State
 -- ~ import Graphics.Farbe.BuildShader
 -- ~ import Graphics.Farbe.ShaderEnv
@@ -51,12 +52,14 @@ import Control.Monad.State.Strict
 #define bottom undefined
 
 
-
-
-
 --- ShdrState - Saving global shaders ----------------------------------------------------
 
-data ShdrState = ShdrState { shdrMap :: M.IntMap Dynamic }
+data ShdrState = ShdrState
+	{ shdrMap :: M.IntMap Dynamic
+	, shdrCompState :: M.IntMap [String] -- list of unfinished things, were null means done
+	}
+
+initShdrState = ShdrState M.empty M.empty
 
 class Monad m => HandShdr m where
 	stateShdr :: (ShdrState -> (a, ShdrState)) -> m a
@@ -69,26 +72,33 @@ getShdr = stateShdr (\s -> (s, s))
 setShdr :: HandShdr m => ShdrState -> m ()
 setShdr s = stateShdr (\_ -> ((), s))
 
+stateShdrMap :: HandShdr m => (M.IntMap Dynamic -> (a, M.IntMap Dynamic)) -> m a
+stateShdrMap f = stateShdr $ \s -> let (a,sm) = f $ shdrMap s in (a, s { shdrMap = sm })
+
+getShdrMap :: HandShdr m => m (M.IntMap Dynamic)
+getShdrMap = stateShdrMap $ \s -> (s,s)
+
+modifyShdrMap :: HandShdr m => (M.IntMap Dynamic -> M.IntMap Dynamic) -> m (M.IntMap Dynamic)
+modifyShdrMap f = stateShdrMap $ \s -> (f s, f s)
 
 -- SHADER DEFINITION ---------------------------------------------------------------------
 
 class Shader m f g | m f -> g, g -> f, g -> m where
 	mkShader :: MonadIO m => f -> ShaderEnvT m g
-	idShader :: f -> m Int
+	idShader :: MonadIO m => f -> m Int
 
-setUniform = undefined
+setUniform f = undefined
 
 instance (Attribute a b, Uniform u1 e1, AppliableF m (m Bool))
 	=> Shader m (e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u1 -> [VArray a] -> m Bool) where
 	mkShader f = do
 		s <- getsShader shaderId
 		let vname = "foo"
-		-- ~ addHeader
-		g <- mkShader $ f (uniformExpr (bottom :: u1))
+		g <- mkShader $ f $ uniformExpr 1 bottom
 		l <- withString vname $ glGetUniformLocation s
 		return $ \m -> if l > 0 then applyF g $ liftIO $ uniformUpload l m else g
 
-	idShader = undefined
+	idShader f = idShader $ f $ uniformExpr 1 bottom
 
 
 instance (Attribute a b)
@@ -111,7 +121,10 @@ instance (Attribute a b)
 			drawArrays vs
 			return True -- determine from separate id check
 
-	idShader = undefined
+	idShader f = do
+		(_, expr, _) <- setAttributes 0 (bottom :: a)
+		return $ hash $ f expr
+
 
 
 isShaderCompiled :: f -> m Bool
@@ -120,15 +133,26 @@ isShaderCompiled = undefined
 shaderCompileProgress :: f -> m [(String, Bool)] -- should i have this?
 shaderCompileProgress = undefined
 
-runShader :: (MonadIO m, Shader m f g, JoinF m g, HandShdr m) => f -> g
-runShader = joinF . compileShader
+runShader' :: (MonadIO m, Shader m f g, HandShdr m, Typeable g) => f -> m g
+runShader' f = do
+	sm <- getShdrMap
+	fid <- idShader f
+	maybe (compileShader f) return $ join $ fmap fromDynamic $ M.lookup fid sm
 
-compileShader :: (MonadIO m, Shader m f g, HandShdr m) => f -> m g
+runShader :: (MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => f -> g
+runShader = joinF . runShader'
+
+
+compileShader :: (MonadIO m, Shader m f g, HandShdr m, Typeable g) => f -> m g
 compileShader f = do
-	(g, sd) <- runShaderEnvT $ do
-		g <- mkShader f
-		return g
+	g <- evalShaderEnvT $ mkShader f
+	-- save shader inside state
+	fid <- idShader f
+	modifyShdrMap $ M.insert fid (toDyn g)
 	return g
+
+saveShader :: (Shader m f g, HandShdr m) => f -> g -> m ()
+saveShader f g = undefined
 
 
 optimizeExpressions :: ShaderEnv m => m ()
@@ -137,9 +161,15 @@ optimizeExpressions = return () -- undefined
 
 handleTransfers :: ShaderEnv m => m ()
 handleTransfers = do
-	exps <- getsShader exprs
+	-- TODO run mapExpr in stateT instead
+	-- take all exprs
+	exps <- stateShader $ \s -> (exprs s, s { exprs = [] })
+	-- cut all exprs at transferfn and add the exprs after transferfn
 	exps' <- sequence $ for exps $ \(t,(s,e)) -> fmap (\e -> (t,(s,e))) $ mapExpr f e
-	modifyShader $ \s -> s { exprs = exps' }
+	-- add all back up
+	newexprs <- stateShader $ \s -> (exprs s, s { exprs = exps' ++ exprs s })
+	forM_ newexprs $ \(t,(s,e)) -> addVaryingOutputHeader s t e
+
 	where
 	f :: ShaderEnv m => ExprI -> m ExprI
 	f (ExprI "transferFrag" t [p] r) = do
@@ -155,12 +185,12 @@ handleTransfers = do
 collectHeaders :: ShaderEnv m => m ()
 collectHeaders = do
 	exps <- getsShader exprs
-	forM_ exps $ \(e, (s, exp)) -> sequence_ $ crawl (addHeader e) exp
+	forM_ exps $ \(e, (s, exp)) -> sequence_ $ crawl (addInputHeader e) exp
 -- vertexes, unicodes, transfers
 
 
-addHeader :: (ShaderEnv m) => ShaderType -> ExprI -> m ()
-addHeader e (ExprI n a ps r) = do
+addInputHeader :: ShaderEnv m => ShaderType -> ExprI -> m ()
+addInputHeader e (ExprI n a ps r) = do
 	let i = case r of
 		RegisterUniform -> "uniform"
 		RegisterVertex -> "attribute"
@@ -170,6 +200,11 @@ addHeader e (ExprI n a ps r) = do
 	hs <- getsShader headers
 	let b = not (null i) && not (S.member (e,str) hs)
 	when b $ modifyShader $ \s -> s { headers = S.insert (e,str) $ headers s }
+
+addVaryingOutputHeader :: ShaderEnv m => String -> ShaderType -> ExprI -> m ()
+addVaryingOutputHeader n e (ExprI _ a _ _) = let
+		str = unwords ["varying", slNameWithPrecTypeS a, n, ";"]
+	in modifyShader $ \s -> s { headers = S.insert (e,str) $ headers s }
 
 
 compileSubShader :: (MonadIO m, ShaderEnv m) => ShaderType -> m ()
@@ -182,6 +217,7 @@ compileSubShader t = do
 		++ (toCStatements $ pickForShader $ exprs st)
 		++ "}"
 	sp <- getsShader shaderId
+	-- ~ liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader $ shaderTypeGLEnum t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
@@ -206,8 +242,8 @@ compileSubShader t = do
 		shaderTypeGLEnum Vertex = GL_VERTEX_SHADER
 		shaderTypeGLEnum Fragment = GL_FRAGMENT_SHADER
 
-toCStatements :: [(String, ExprI)] -> String
-toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
+		toCStatements :: [(String, ExprI)] -> String
+		toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
 
 
 toCExpr :: ExprI -> String
@@ -321,6 +357,8 @@ instance Monad m => ShaderEnv (ShaderEnvT m) where
 runShaderEnvT :: MonadIO m => ShaderEnvT m a -> m (a, ShaderData)
 runShaderEnvT (ShaderEnvT ms) = emptyShaderData >>= runStateT ms
 
+evalShaderEnvT :: MonadIO m => ShaderEnvT m a -> m a
+evalShaderEnvT = fmap fst . runShaderEnvT
 
 addExpr :: ShaderEnv m => ShaderType -> String -> ExprI -> m ()
 addExpr e n expri = do
