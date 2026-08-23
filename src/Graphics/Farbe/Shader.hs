@@ -98,14 +98,34 @@ setUniform i f = do
 
 
 instance (Attribute a b, Uniform u1 e1, HandTex m, AppliableF m (m Bool))
-	=> Shader m (e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u1 -> [VArray a] -> m Bool) where
+	=> Shader m
+		(e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(u1 -> [VArray a] -> m Bool) where
 	mkShader = setUniform 1
 	idShader f = idShader $ f $ uniformExpr 1 bottom
 
 instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, HandTex m, AppliableF m (m Bool))
-	=> Shader m (e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float))) (u2 -> u1 -> [VArray a] -> m Bool) where
+	=> Shader m
+		(e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(u2 -> u1 -> [VArray a] -> m Bool) where
 	mkShader = setUniform 2
 	idShader f = idShader $ f $ uniformExpr 2 bottom
+
+instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 3
+	idShader f = idShader $ f $ uniformExpr 3 bottom
+
+instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 4
+	idShader f = idShader $ f $ uniformExpr 4 bottom
 
 
 instance (Attribute a b)
@@ -224,7 +244,7 @@ compileSubShader t = do
 		++ (toCStatements $ pickForShader $ exprs st)
 		++ "}"
 	sp <- getsShader shaderId
-	-- ~ liftIO $ putStrLn str
+	liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader $ shaderTypeGLEnum t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
