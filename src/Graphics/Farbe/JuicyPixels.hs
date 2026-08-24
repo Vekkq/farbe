@@ -57,7 +57,8 @@ mapRight :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
 mapRight (Right b) f = Right <$> f b
 mapRight (Left a) _ = pure (Left a)
 
-textureIO = undefined
+-- lost in rewrite
+-- ~ textureIO = undefined
 -- ~ textureIO :: String -> V2 (Expr e Float) -> V4 (Expr e Float)
 -- ~ textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
 	-- ~ where
