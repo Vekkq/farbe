@@ -306,14 +306,7 @@ bindfb (Framebuffer n) = glBindFramebuffer GL_FRAMEBUFFER n
 rotationFromMouse33 :: MonadWindow m => m (Mat V3 V3 Float)
 rotationFromMouse33 = do
 	V2 x y <- lastCoord
-	return $ rotationMatrix 0 (-y*0.1) (-x*0.1)
-
-
--- ~ updateRotate :: MonadWindow m => Var (Mat V3 V3 Float) -> m ()
--- ~ updateRotate r = do
-	-- ~ V2 x y <- lastCoord
-	-- ~ let m = rotationMatrix 0 (-y*0.01) (-x*0.01)
-	-- ~ void $ swapVar r m
+	return $ rotationMatrix 0 (-y*0.01) (-x*0.01)
 
 
 viewMat :: MonadWindow m => m (Mat V4 V4 Float)

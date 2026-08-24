@@ -32,13 +32,13 @@ import GHC.TypeNats
 
 class Uniform a b | a -> b, b -> a where
 	uniformUpload :: (MonadIO m, HandTex m) => GLint -> a -> m ()
-	uniformExpr :: Int -> a -> b
+	uniformExpr :: Int -> a -> (String, b)
 
 nameUniform :: GLtype a => Int -> a -> String
 nameUniform i a = "u" ++ show i ++ glShortName a
 
-exprUniform :: GLtype a => Int -> a -> Expr e b
-exprUniform i a = Expr $ ExprI (nameUniform i a) (toTypeS a) [] RegisterUniform
+exprUniform :: GLtype a => Int -> a -> (String, Expr e b)
+exprUniform i a = ((nameUniform i a), Expr $ ExprI (nameUniform i a) (toTypeS a) [] RegisterUniform)
 
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
@@ -59,55 +59,55 @@ instance Uniform Bool (Expr V Bool) where
 
 instance Uniform (V2 Float) (V2 (Expr V Float)) where
 	uniformUpload l (V2 a b) = glUniform2f l a b
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 instance Uniform (V3 Float) (V3 (Expr V Float)) where
 	uniformUpload l (V3 a b c) = glUniform3f l a b c
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 instance Uniform (V4 Float) (V4 (Expr V Float)) where
 	uniformUpload l (V4 a b c d) = glUniform4f l a b c d
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 
 instance Uniform (V2 Int32) (V2 (Expr V Int32)) where
 	uniformUpload l (V2 a b) = glUniform2i l (itoi a) (itoi b)
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 instance Uniform (V3 Int32) (V3 (Expr V Int32)) where
 	uniformUpload l (V3 a b c) = glUniform3i l (itoi a) (itoi b) (itoi c)
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 instance Uniform (V4 Int32) (V4 (Expr V Int32)) where
 	uniformUpload l (V4 a b c d) = glUniform4i l (itoi a) (itoi b) (itoi c) (itoi d)
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 
 instance Uniform (V2 Bool) (V2 (Expr V Bool)) where
 	uniformUpload l (V2 a b) = glUniform2i l (boolToInt a) (boolToInt b)
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 instance Uniform (V3 Bool) (V3 (Expr V Bool)) where
 	uniformUpload l (V3 a b c) = glUniform3i l (boolToInt a) (boolToInt b) (boolToInt c)
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 instance Uniform (V4 Bool) (V4 (Expr V Bool)) where
 	uniformUpload l (V4 a b c d) =
 		glUniform4i l (boolToInt a) (boolToInt b) (boolToInt c) (boolToInt d)
-	uniformExpr = vecParts .: exprUniform
+	uniformExpr = fmap vecParts .: exprUniform
 
 
 instance Uniform (Mat V2 V2 Float) (Mat V2 V2 (Expr V Float)) where
 	uniformUpload l (V2 (V2 a b) (V2 c d)) = glUniform4f l a b c d
-	uniformExpr = matParts .: exprUniform
+	uniformExpr = fmap matParts .: exprUniform
 
 instance Uniform (Mat V3 V3 Float) (Mat V3 V3 (Expr V Float)) where
 	uniformUpload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
-	uniformExpr = matParts .: exprUniform
+	uniformExpr = fmap matParts .: exprUniform
 
 instance Uniform (Mat V4 V4 Float) (Mat V4 V4 (Expr V Float)) where
 	uniformUpload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
-	uniformExpr = matParts .: exprUniform
+	uniformExpr = fmap matParts .: exprUniform
 
 
 instance Uniform Texture (Expr V Texture) where
