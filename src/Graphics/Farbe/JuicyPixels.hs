@@ -9,12 +9,11 @@ import Codec.Picture
 import Codec.Picture.Types
 
 import Graphics.Farbe
-import Graphics.Farbe.State
-import Graphics.Farbe.Vec ()
+import Graphics.Farbe.Farbe
+-- ~ import Graphics.Farbe.State
+import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
-import Graphics.Farbe.BuildShader
-import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Utility
 import Graphics.Farbe.GL
 import Data.Vector.Storable (unsafeToForeignPtr)
@@ -27,7 +26,7 @@ import Graphics.GL.Types
 
 import Data.Either
 import Control.Monad
-
+import Control.Monad.IO.Class
 
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
 loadImage = loadImage' Nothing
@@ -58,22 +57,22 @@ mapRight :: Applicative f => Either a b -> (b -> f b') -> f (Either a b')
 mapRight (Right b) f = Right <$> f b
 mapRight (Left a) _ = pure (Left a)
 
-
-textureIO :: String -> V2 (Expr e Float) -> V4 (Expr e Float)
-textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
-	where
-		vname = sani str
-		shdr = do
-			b <- addHeader "uniform" (undefined :: Texture) vname
-			s <- getShaderId
-			when b $ postShader $ do
-				t <- loadImage str
-				l <- withString vname $ glGetUniformLocation s
-				preRender $ do
-					b1 <- isTextureLoaded t
-					when b1 $ texUpload l t
-					return b1
-			return vname
+textureIO = undefined
+-- ~ textureIO :: String -> V2 (Expr e Float) -> V4 (Expr e Float)
+-- ~ textureIO str p = flip texture p $ Expr $ ExprI shdr TTex []
+	-- ~ where
+		-- ~ vname = sani str
+		-- ~ shdr = do
+			-- ~ b <- addHeader "uniform" (undefined :: Texture) vname
+			-- ~ s <- getShaderId
+			-- ~ when b $ postShader $ do
+				-- ~ t <- loadImage str
+				-- ~ l <- withString vname $ glGetUniformLocation s
+				-- ~ preRender $ do
+					-- ~ b1 <- isTextureLoaded t
+					-- ~ when b1 $ texUpload l t
+					-- ~ return b1
+			-- ~ return vname
 
 
 sani :: [Char] -> [Char]

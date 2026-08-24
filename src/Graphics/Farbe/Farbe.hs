@@ -1,9 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-
+{-# OPTIONS_GHC -Wno-orphans -Wno-type-defaults #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
@@ -11,226 +7,184 @@
 
 module Graphics.Farbe.Farbe where
 
-import qualified Graphics.Farbe.State as S
-import Graphics.Farbe.State hiding (runFarbeT, runFarbeT')
-import qualified Graphics.Farbe.Window as W
-import Graphics.Farbe.Window hiding (processEvents)
-import Graphics.Farbe.Vec
+import Graphics.Farbe.Window
+import Graphics.Farbe.VertexArray
+import Graphics.Farbe.Shader
 import Graphics.Farbe.Texture
-import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Utility
-import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.IO.Class ()
-import Data.Maybe
-import Data.Set (member)
-import System.Mem
+import Graphics.GL.Types
 
-import Foreign.Ptr
-import Data.Bits
-import Graphics.GL
 import Control.Concurrent
--- ~ import Control.Concurrent.MVar
 
-import qualified Graphics.Farbe.Shader2 as S
-
-
-
-instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
-	stateFarbe = lift . stateFarbe
-
-instance (ShaderEnv m, Monad m) => ShaderEnv (W.WindowT m) where
-	stateShader = lift . stateShader
+import Control.Monad
+import Control.Monad.Reader
+import Control.Monad.State.Strict
+import Control.Monad.Writer.Strict
+import Control.Monad.Except
+import Control.Monad.RWS
+import GHC.Stack
 
 
--- | The environment to do draw operations.
---   It spawns a window with the render context.
-runFarbeT :: MonadIO m => String -> W.Display -> S.FarbeT (W.WindowT m) a -> m a
-runFarbeT s d = W.runWindowT s d . runFarbeT'
+import qualified Data.IntMap.Strict as M
+
+import Graphics.GL.Embedded20
 
 
-runFarbeT' :: MonadIO m => S.FarbeT m a -> m a
-runFarbeT' f = fmap fst . S.runFarbeT $ do
-	glClearColor 0.1 0.1 0.1 1
-	glEnable GL_DEPTH_TEST
-	glPixelStorei GL_UNPACK_ALIGNMENT 1
-	a <- f
-	-- ~ liftIO $ yield
-	-- ~ runDelayed
+
+newtype FarbeT m a = FarbeT { unFarbeT :: StateT FarbeState m a }
+	deriving
+		( Functor, Applicative, Monad, MonadIO
+		, MonadReader r, MonadWriter w
+		, MonadWindow
+		)
+
+instance MonadState s m => MonadState s (FarbeT m) where state = lift . state
+
+instance MonadTrans FarbeT where lift = FarbeT . lift
+
+runFarbeT :: MonadIO m => FarbeT m a -> m (a, FarbeState)
+runFarbeT (FarbeT m) = do
+	fs <- emptyFarbeState
+	runStateT m fs
+
+runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
+runFarbeT' fs (FarbeT m) = runStateT m fs
+
+liftFarbe :: (Farbe m, MonadIO m) => FarbeT IO a -> m a
+liftFarbe m = do
+	fd <- getFarbe
+	(a,fd') <- liftIO $ runFarbeT' fd m
+	putFarbe fd'
 	return a
 
+class MonadIO m => Farbe m where
+	stateFarbe :: (FarbeState -> (a, FarbeState)) -> m a
 
--- | @processEvents@ obtains the events and sends it to a provided function. The function is called, when the program isn't asked to quit. This function also controls the render pipeline (swap buffers).
-processEvents :: (W.MonadWindow m, Farbe m)
-	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
-processEvents f = do
-	es <- processEvents'
-	b <- shouldWindowClose
-	if b || isEsc es || isAltF4 es
-	then return ()
-	else f es
+	getsFarbe :: (FarbeState -> a) -> m a
+	getsFarbe f = stateFarbe $ \s -> (f s, s)
 
+	getFarbe :: m FarbeState
+	getFarbe = stateFarbe (\s -> (s,s))
 
-isEsc :: [(Event, b)] -> Bool
-isEsc es = case es of
-	[(EventKey Key'Escape Down _, _)] -> True
-	_ -> False
+	putFarbe :: FarbeState -> m ()
+	putFarbe s = stateFarbe (\_ -> ((),s))
 
+	modifyFarbe :: (FarbeState -> FarbeState) -> m ()
+	modifyFarbe f = stateFarbe $ (\s -> ((), f s))
 
-isAltF4 :: [(W.Event, W.EventContext)] -> Bool
-isAltF4 es = case es of
-	[(EventKey Key'F4 Down _, c)] | member (Right Key'LeftAlt) c -> True
-	_ -> False
-
-processEvents' :: (MonadWindow m, Farbe m) => m [(W.Event, W.EventContext)]
-processEvents' = do
-	runDelayed
-	W.swapBuffers
-	glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
-	W.processEvents
-
-
-glerrcheck :: MonadIO m => m ()
-glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: " ++ show e
-
-
-runDelayed :: (W.MonadWindow m, Farbe m, MonadIO m) => m ()
-runDelayed = do
-	glerrcheck
-	liftIO $ performGC
-	work -- get at least one piece done per frame
-	isEmpty <- join $ (liftIO . isEmptyMVar) <$> getsFarbe delayed
-	tl <- getsFarbe lastFrameTime
-	t <- W.getTime
-	c <- getsConfig workTime
-	if not isEmpty && t - tl > c
-		then runDelayed
-		else logTime
-	where
-		work :: (Farbe m, MonadIO m) => m ()
-		work = do
-			d <- getsFarbe delayed
-			join $ fmap (liftFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
+instance MonadIO m => Farbe (FarbeT m) where
+	stateFarbe = FarbeT . state
 
 
 
-drawOver :: MonadIO m => m a1 -> m a2 -> m ()
-drawOver a b = do
-	glEnable GL_STENCIL_TEST
-	-- ~ glStencilOp GL_KEEP GL_KEEP GL_REPLACE
-	-- ~ glStencilOp GL_KEEP GL_KEEP GL_DECR_WRAP
-	a
-	glStencilFunc GL_GREATER 1 1
-	b
-	glDisable GL_STENCIL_TEST
+#define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
+instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
+instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+
+SIMPLEFUNCTION_CLASSINSTANCES(stateFarbe,Farbe,.)
+
+data FarbeState = FarbeState
+	{ config :: Config
+	, vboState :: VBOState
+	, shdrState :: ShdrState
+	, texState :: TexState
+	, delayed :: MVar (FarbeT IO ())
+	, lastFrameTime :: Double
+	}
+
+data Config = Config
+	{ debugMode :: Bool
+	, devDebugMode :: Bool
+	, workTime :: Double
+	}
+
+defaultConfig :: Config
+defaultConfig = Config
+	{ debugMode = False
+	, devDebugMode = False
+	, workTime = 1/50
+	}
+
+emptyFarbeState :: MonadIO m => m FarbeState
+emptyFarbeState = do
+	vbo <- initHandVBOState (2^24)
+	tex <- initTexState
+	del <- liftIO $ newEmptyMVar
+	return $ FarbeState
+		{ config = defaultConfig
+		, vboState = vbo
+		, texState = tex
+		, shdrState = initShdrState
+		, delayed = del
+		, lastFrameTime = 0
+		}
+
+type ShaderId = GLuint
+
+type ShExec = FarbeT IO Bool
 
 
-drawInto :: MonadIO m => m a1 -> m a2 -> m ()
-drawInto a b = do
-	glEnable GL_STENCIL_TEST
-	glClear GL_STENCIL_BUFFER_BIT
-	glStencilOp GL_KEEP GL_DECR_WRAP GL_DECR_WRAP
-	glColorMask GL_FALSE GL_FALSE GL_FALSE GL_FALSE
-	a
-	glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
+getsConfig :: Farbe m => (Config -> s) -> m s
+getsConfig f = getsFarbe (f . config)
 
-	glStencilOp GL_KEEP GL_KEEP GL_KEEP
-	glStencilFunc GL_LESS 1 0xFF
-	glDisable GL_DEPTH_TEST
-	b
-
-	glStencilFunc GL_ALWAYS 0 0xFF
-	glDisable GL_STENCIL_TEST
+modifyConfig :: Farbe m => (Config -> Config) -> m ()
+modifyConfig f = modifyFarbe (\farb -> farb { config = f $ config farb })
 
 
+-- ~ stateShaderCache :: Farbe m
+	-- ~ => (M.IntMap ShExec -> (a, M.IntMap ShExec)) -> m a
+-- ~ stateShaderCache f = stateFarbe $ \s ->
+	-- ~ let (a,c) = f $ shaderCache s in (a, s{ shaderCache = c })
+
+-- ~ getShaderCache :: Farbe m => m (M.IntMap ShExec)
+-- ~ getShaderCache = stateShaderCache $ \s -> (s,s)
+
+-- ~ putShaderCache :: Farbe m => (M.IntMap ShExec) -> m ()
+-- ~ putShaderCache d = stateShaderCache $ \_ -> ((),d)
+
+-- ~ modifyShaderCache :: (Farbe m)
+	-- ~ => (M.IntMap ShExec -> M.IntMap ShExec) -> m ()
+-- ~ modifyShaderCache f = do
+	-- ~ sc <- getShaderCache
+	-- ~ let sc' = f sc
+	-- ~ putShaderCache sc'
 
 
+printOn :: (Farbe m, MonadIO m) => (Config -> Bool) -> String -> m ()
+printOn f s = do
+	b <- getsConfig f
+	when b $ liftIO $ putStrLn s
 
-drawTexture :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
-drawTexture = do
-	(w',h') <- W.fbSize
-	let (w,h) = (itoi w', itoi h')
-	fb <- genFramebuffer
-	bindfb fb
-	texRGB <- newTexture defaultRGB (V2 w h) nullPtr
-	idRGB <- getTexId texRGB
-	glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D idRGB 0
-	-- replace texture with renderbuffer in this function
-	texD <- newTexture defaultD (V2 w h) nullPtr
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
-	-- ~ glDepthFunc GL_LEQUAL
-	idD <- getTexId texD
-	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D idD 0
+debug :: (Farbe m, MonadIO m) => String -> m ()
+debug = printOn debugMode
 
-	bindfb $ Framebuffer 0
-	return $ \r -> do
-		bindfb fb
-		glClear GL_COLOR_BUFFER_BIT
-		r
-		bindfb $ Framebuffer 0
-		return texRGB
-		-- untested and all
+devDebug :: (Farbe m, MonadIO m) => String -> m ()
+devDebug = printOn devDebugMode
+
+logTime :: (MonadWindow m, Farbe m, MonadIO m) => m ()
+logTime = do
+	t <- getTime
+	modifyFarbe $ \s -> s { lastFrameTime = t }
 
 
+delay :: Farbe m => FarbeT IO () -> m ()
+delay m = do --modifyFarbe $ \s -> s { delayed = delayed s Seq.|> m }
+		d <- getsFarbe delayed
+		liftIO $ catchMVarBlocked 8 $ putMVar d m
 
-drawDepth :: (Monad m, Farbe m, W.MonadWindow m) => m (m () -> m Texture)
-drawDepth = do
-	(w',h') <- W.fbSize
-	let (w,h) = (itoi w', itoi h')
-	fb <- genFramebuffer
-	bindfb fb
-	texD <- newTexture defaultD (V2 w h) nullPtr
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
-	glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
-	-- ~ glDepthFunc GL_LEQUAL
-	idD <- getTexId texD
-	glFramebufferTexture2D GL_FRAMEBUFFER GL_DEPTH_ATTACHMENT GL_TEXTURE_2D idD 0
-	bindfb $ Framebuffer 0
-	return $ \r -> do
-		bindfb fb
-		glClear GL_DEPTH_BUFFER_BIT
-		r
-		bindfb $ Framebuffer 0
-		return texD
-		-- untested
+delayFun :: (Farbe m) => m (IO () -> IO ())
+delayFun = do
+	d <- getsFarbe delayed
+	return $ catchMVarBlocked 9 . putMVar d . lift
 
+getThisLine :: HasCallStack => Int
+getThisLine = case reverse $ getCallStack callStack of
+	(_,cs):_ -> srcLocStartLine cs
+	_ -> 0
 
-
--- ~ renderTexture :: (MonadIO m, HandTex m, DelayedState SmallWorld m, ShaderCache (HandTexT IO) m)
-	-- ~ => Var (Texture f) -> m ([VArray (V3 Float)] -> m ())
--- ~ renderTexture t = compile $ \v -> do
-	-- ~ let V4 x y _ _ = fragCoord
-	-- ~ let V4 r g b a = (*0.5) $ texture (use t) $ V2 x (-y) * 0.001
-	-- ~ return (up 1 v, V4 r g b 1)
-
-
-
-
--- ~ compile' :: (Farbe m, AttrType a b, DelayedState SmallWorld m, ShaderCache (HandTexT IO) m)
-	-- ~ => (b -> ShaderM (V4 (Expr V Float), V4 (Expr F Float)))
-	-- ~ -> m ([VArray a] -> Render m)
--- ~ compile' a = fmap (DrawShader .) $ compile a
-
--- :: attribsandall => m Render
-
-
-newtype Framebuffer = Framebuffer GLuint
-
-genFramebuffer :: MonadIO m => m Framebuffer
-genFramebuffer = liftIO $ fmap Framebuffer $ withPtr_ $ glGenFramebuffers 1
-
-bindfb :: (MonadIO m) => Framebuffer -> m ()
-bindfb (Framebuffer n) = glBindFramebuffer GL_FRAMEBUFFER n
-
--- ~ framebufferStatus :: (MonadIO m) => m ()
--- ~ framebufferStatus = do
-	-- ~ s <- glCheckFramebufferStatus GL_FRAMEBUFFER
-	-- ~ case s of
-		-- ~ GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT -> error "borked framebuffer attachment"
-		-- ~ GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS -> error "borked framebuffer dimensions"
-		-- ~ GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT -> error "missing attachments"
-		-- ~ GL_FRAMEBUFFER_UNSUPPORTED -> error "framebuffer setup unsupported"
-		-- ~ _ -> return ()
-
+glErr :: MonadIO m => m ()
+glErr = liftIO $ glGetError >>= \e -> putStrLn $ "gl error: " ++ show e
 

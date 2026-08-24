@@ -33,22 +33,19 @@ library
                    , Graphics.Farbe.Window
                    , Graphics.Farbe.STL
 
-    other-modules: Graphics.Farbe.Tuple
+--    other-modules:
+                 , Graphics.Farbe.Tuple
                  , Graphics.Farbe.VertexArray
                  , Graphics.Farbe.Array
                  , Graphics.Farbe.Shader
                  , Graphics.Farbe.GL
                  , Graphics.Farbe.Utility
-                 , Graphics.Farbe.State
                  , Graphics.Farbe.Attribute
                  , Graphics.Farbe.Uniform
-                 , Graphics.Farbe.ShaderEnv
-                 , Graphics.Farbe.BuildShader
                  , Graphics.Farbe.Texture
                  , Graphics.Farbe.Expr
                  , Graphics.Farbe.Farbe
                  , Graphics.Farbe.Params
-                 , Graphics.Farbe.Shader2
 
 
     build-depends: base >=4.18 && < 5.0
@@ -82,7 +79,7 @@ test-suite farbe-test
     type:             exitcode-stdio-1.0
 
     hs-source-dirs:   test
-    other-modules:    Shadow
+    other-modules:
 
     main-is:          Main.hs
 
