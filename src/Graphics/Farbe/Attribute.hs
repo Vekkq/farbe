@@ -12,7 +12,8 @@ import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
-import Graphics.Farbe.VertexArray (glBindVertexArray, glGenVertexArray)
+import Graphics.Farbe.VertexArray
+import Graphics.GL.Ext.OES.VertexArrayObject
 
 import Foreign hiding (void)
 import Graphics.GL.Embedded20
@@ -25,6 +26,12 @@ import Control.Monad.State.Strict
 
 #define bottom undefined
 
+
+glGenVertexArray :: MonadIO m => m GLuint
+glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
+
+glBindVertexArray :: MonadIO m => GLuint -> m ()
+glBindVertexArray = glBindVertexArrayOES
 
 
 type VaoId = GLuint

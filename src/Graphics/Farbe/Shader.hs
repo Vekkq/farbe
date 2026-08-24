@@ -99,6 +99,7 @@ setUniform i f = do
 		liftIO $ print l
 		return $ \m -> if l >= 0 then applyF g $ uniformUpload l m else g
 
+setIdShader :: (MonadIO m, Shader m f g, Uniform a0 a) => Int -> (a -> f) -> m Int
 setIdShader i f = idShader $ f $ snd $ uniformExpr i bottom
 
 instance (Attribute a b, Uniform u1 e1, HandTex m, AppliableF m (m Bool))
@@ -131,6 +132,34 @@ instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4
 	mkShader = setUniform 4
 	idShader = setIdShader 4
 
+instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
+	, Uniform u5 e5
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(e5 -> e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 5
+	idShader = setIdShader 5
+
+instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
+	, Uniform u5 e5, Uniform u6 e6
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 6
+	idShader = setIdShader 6
+
+instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
+	, Uniform u5 e5, Uniform u6 e6, Uniform u7 e7
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(e7 -> e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(u7 -> u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 7
+	idShader = setIdShader 7
+
+
 
 instance (Attribute a b)
 	=> Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) ([VArray a] -> m Bool) where
@@ -147,16 +176,20 @@ instance (Attribute a b)
 		compileSubShader Fragment
 		liftIO sp
 		return $ \vs -> do
-			glUseProgram s
-			glBindVertexArray vaoId
-			drawArrays vs
-			return True -- determine from separate id check
+			b <- isProgramCompiled s
+			when b $ do
+				glUseProgram s
+				glBindVertexArray vaoId
+				drawArrays vs
+			return b
 
 	idShader f = do
 		(_, expr, _) <- setAttributes 0 (bottom :: a)
 		return $ hash $ f expr
 
-
+isProgramCompiled :: MonadIO m => ShaderId -> m Bool
+isProgramCompiled i = fmap (==GL_TRUE) $ withPtr_ $ \p -> glGetProgramiv i GL_LINK_STATUS p
+			-- add checks for loaded components
 
 isShaderCompiled :: f -> m Bool
 isShaderCompiled = undefined
@@ -188,6 +221,8 @@ saveShader f g = undefined
 
 optimizeExpressions :: ShaderEnv m => m ()
 optimizeExpressions = return () -- undefined
+
+
 
 
 handleTransfers :: ShaderEnv m => m ()

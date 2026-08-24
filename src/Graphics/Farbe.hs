@@ -107,7 +107,8 @@ runFarbeT s d = W.runWindowT s d . runFarbeT'
 
 runFarbeT' :: MonadIO m => S.FarbeT m a -> m a
 runFarbeT' f = fmap fst . S.runFarbeT $ do
-	glClearColor 0.1 0.1 0.1 1
+	(V4 r g b a) <- getsConfig backgroundColor
+	glClearColor r g b a
 	glEnable GL_DEPTH_TEST
 	glPixelStorei GL_UNPACK_ALIGNMENT 1
 	a <- f
@@ -166,7 +167,7 @@ glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: "
 
 runDelayed :: (W.MonadWindow m, Farbe m, MonadIO m) => m ()
 runDelayed = do
-	glerrcheck
+	-- ~ glerrcheck
 	liftIO $ performGC
 	work -- get at least one piece done per frame
 	isEmpty <- join $ (liftIO . isEmptyMVar) <$> getsFarbe delayed

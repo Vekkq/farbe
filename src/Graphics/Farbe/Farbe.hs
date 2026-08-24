@@ -7,6 +7,7 @@
 
 module Graphics.Farbe.Farbe where
 
+import Graphics.Farbe.Vec
 import Graphics.Farbe.Window
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Shader
@@ -96,16 +97,14 @@ data FarbeState = FarbeState
 	}
 
 data Config = Config
-	{ debugMode :: Bool
-	, devDebugMode :: Bool
-	, workTime :: Double
+	{ workTime :: Double
+	, backgroundColor :: V4 Float
 	}
 
 defaultConfig :: Config
 defaultConfig = Config
-	{ debugMode = False
-	, devDebugMode = False
-	, workTime = 1/50
+	{ workTime = 1/50
+	, backgroundColor = V4 0.1 0.1 0.1 1
 	}
 
 emptyFarbeState :: MonadIO m => m FarbeState
@@ -158,11 +157,11 @@ printOn f s = do
 	b <- getsConfig f
 	when b $ liftIO $ putStrLn s
 
-debug :: (Farbe m, MonadIO m) => String -> m ()
-debug = printOn debugMode
+-- ~ debug :: (Farbe m, MonadIO m) => String -> m ()
+-- ~ debug = printOn debugMode
 
-devDebug :: (Farbe m, MonadIO m) => String -> m ()
-devDebug = printOn devDebugMode
+-- ~ devDebug :: (Farbe m, MonadIO m) => String -> m ()
+-- ~ devDebug = printOn devDebugMode
 
 logTime :: (MonadWindow m, Farbe m, MonadIO m) => m ()
 logTime = do
