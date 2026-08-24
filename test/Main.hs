@@ -34,11 +34,11 @@ colorful' r v = let
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
 	modifyConfig $ \f -> f { devDebugMode = True }
+	-- ~ f <- compileShader colorful'
 	fix $ \loop -> processEvents $ \es -> do
 		va <- newVArray frame
 		r <- rotationFromMouse33
-		-- ~ liftIO $ print r
 		runShader colorful' r [va]
+		-- ~ f r [va]
 		loop
-
 

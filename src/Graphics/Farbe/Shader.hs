@@ -253,9 +253,9 @@ compileSubShader t = do
 		i <- glCreateShader $ shaderTypeGLEnum t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
+		glAttachShader sp i
 		err <- checkShaderError i
 		maybe (return ()) (putStrLn . (str++)) err
-		glAttachShader sp i
 		when (t == Fragment) $ glLinkProgram sp
 	where
 		checkShaderError :: GLuint -> IO (Maybe String)
@@ -346,7 +346,7 @@ type Header = String
 
 emptyShaderData :: MonadIO m => m ShaderData
 emptyShaderData = do
-	i<- glCreateProgram
+	i <- glCreateProgram
 	return $ ShaderData
 		{ counter = 0
 		, shaderId = i
