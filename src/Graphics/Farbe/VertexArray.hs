@@ -258,9 +258,3 @@ frame =
 
 floorFrame = map (pitch (pi/2)) frame
 
-
--- ~ frame :: HandVBO m => m (VArray (V3 Float))
--- ~ frame = newVArray $
-  -- ~ [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
-  -- ~ , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
-  -- ~ ]

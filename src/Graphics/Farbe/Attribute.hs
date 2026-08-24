@@ -12,14 +12,11 @@ import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
--- ~ import Graphics.Farbe.State
--- ~ import Graphics.Farbe.ShaderEnv
--- ~ import Graphics.Farbe.BuildShader
+import Graphics.Farbe.VertexArray (glBindVertexArray, glGenVertexArray)
 
 import Foreign hiding (void)
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
-import Graphics.GL.Ext.OES.VertexArrayObject
 
 import Control.Monad
 import Control.Monad.Reader
@@ -28,14 +25,6 @@ import Control.Monad.State.Strict
 
 #define bottom undefined
 
-
--- VAO -----------------------------------------------------------------------------------
-
-glGenVertexArray :: MonadIO m => m GLuint
-glGenVertexArray = liftIO $ withPtr_ $ glGenVertexArraysOES 1
-
-glBindVertexArray :: MonadIO m => GLuint -> m ()
-glBindVertexArray = glBindVertexArrayOES
 
 
 type VaoId = GLuint
@@ -48,6 +37,7 @@ data BuildDataVAO = BuildDataVAO
 	, postShader :: IO ()
 	}
 
+emptyBuildVao :: ShaderId -> Int -> BuildDataVAO
 emptyBuildVao i s = BuildDataVAO
 		{ vshaderId = i
 		, byteCount = 0
@@ -61,9 +51,6 @@ newtype BuildDataVAOT m a = BuildDataVAOT { unBuildVAOT :: StateT BuildDataVAO m
 
 instance MonadTrans BuildDataVAOT where
 	lift = BuildDataVAOT . lift
-
--- ~ instance MonadState s m => MonadState s (BuildDataVAOT m) where
-	-- ~ state = lift . state
 
 
 runAttribute :: MonadIO m => ShaderId -> Int -> BuildDataVAOT m a -> m a
@@ -95,10 +82,12 @@ nameVao a = do
 	b <- getsVao byteCount
 	return $ "a" ++ show b ++ glShortName a
 
+
+
 -- Make VAO ------------------------------------------------------------------------------
 
 setAttributes :: (Attribute a b, MonadIO m) => ShaderId -> a -> m (VaoId, b, IO ())
-setAttributes i a = runAttribute i (sizeOf a) $ do
+setAttributes s a = runAttribute s (sizeOf a) $ do
 	i <- glGenVertexArray
 	glBindVertexArray i
 	e <- setAttribute a
@@ -127,16 +116,14 @@ setupAttribute1 a = do
 		-- ~ liftIO $ putStrLn $ "sl pos: " ++ show p ++ "\t arr pos: " ++ show o ++ "\t stride: " ++ (show $ itoi $ maxSize - sizeOf a) ++ "\t components: " ++ (show $ glComponents a)
 	return $ Expr $ ExprI n (toTypeS a) [] RegisterVertex
 
------------
+
 
 class Storable a => Attribute a b | a -> b, b -> a where
 	setAttribute :: (BuildVAO m, MonadIO m) => a -> m b
 
-
 instance Attribute Bool (Expr V Bool) where setAttribute = setupAttribute1
 instance Attribute Int32 (Expr V Int32) where setAttribute = setupAttribute1
 instance Attribute Float (Expr V Float) where setAttribute = setupAttribute1
-
 
 instance (Attribute a c, Attribute b d) => Attribute (a,b) (c,d) where
 	setAttribute _ = liftM2 (,) (setAttribute (bottom :: a)) (setAttribute (bottom :: b))
@@ -155,6 +142,7 @@ instance (Attribute a x, Attribute b y, Attribute c z, Attribute d w) =>
 		(setAttribute (bottom :: c))
 		(setAttribute (bottom :: d))
 
+-- would require more Storable instances
 -- ~ instance (Attribute a x, Attribute b y, Attribute c z, Attribute d w, Attribute e v) =>
 	-- ~ Attribute (a,b,c,d,e) (x,y,z,w,v) where
 	-- ~ setAttribute _ = liftM4 (,,,,)
