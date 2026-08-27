@@ -572,11 +572,6 @@ reflectionM3 l@(V3 lx ly lz) = 1 / (vlength l ** 2) *|| V3
 
 
 
-fmap2 :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
-fmap2 = fmap . fmap
-
-
-
 translateM (V3 x y z) = V4
 	(V4 1 0 0 x)
 	(V4 0 1 0 y)

@@ -36,6 +36,9 @@ data Register = RegisterNone | RegisterVarying | RegisterUniform | RegisterVerte
 data F
 data V
 
+class Env a
+instance Env F
+instance Env V
 
 liftExpr :: forall a e . GLtype a => String -> [ExprI] -> Expr e a
 liftExpr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p RegisterNone

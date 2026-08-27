@@ -20,24 +20,39 @@ import Data.Function
 
 
 
-colorful'
+frameShader :: Expr F Texture -> (V2 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
+frameShader t (V2 x y) = (V4 x y 0.1 1, texture t (down fragCoord / 256))
+
+
+renderFrame :: (MonadWindow m, Farbe m) => m ()
+renderFrame = do
+	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
+	t <- loadImage "test-resources/fish_red.jpg"
+	fix $ \loop -> processEvents $ \es -> do
+		runShader frameShader t [frame]
+		anyMouseClick es renderColorful
+		loop
+
+colorful
 	:: Mat V3 V3 (Expr V Float)
 	-> (V3 (Expr V Float))
 	-> (V4 (Expr V Float), V4 (Expr F Float))
-colorful' r v = let
+colorful r v = let
 	v' = r **| v
 	n' = transferFrag v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
+
+renderColorful = do
+	va <- newVArray frame
+	fix $ \loop -> processEvents $ \es -> do
+		r <- rotationFromMouse33
+		runShader colorful r [va]
+		anyMouseClick es renderFrame
+		loop
 
 
 
 main :: IO ()
 main = runFarbeT "" (InWindow (1000,800)) $ do
-	-- ~ f <- compileShader colorful'
-	fix $ \loop -> processEvents $ \es -> do
-		va <- newVArray frame
-		r <- rotationFromMouse33
-		runShader colorful' r [va]
-		-- ~ f r [va]
-		loop
+	renderFrame
 

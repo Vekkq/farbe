@@ -219,16 +219,49 @@ saveShader :: (Shader m f g, HandShdr m) => f -> g -> m ()
 saveShader f g = undefined
 
 
+
+fmap3 :: (Functor f1, Functor f2, Functor f3) => (a -> b) -> f1 (f2 (f3 a)) -> f1 (f2 (f3 b))
+fmap3 = fmap . fmap . fmap
+
+
 optimizeExpressions :: ShaderEnv m => m ()
-optimizeExpressions = return () -- undefined
+optimizeExpressions = modifyShader $ \s -> s { exprs = fmap3 optVectors $ exprs s }
+
+optVectors :: ExprI -> ExprI
+optVectors e@(ExprI n _ ps _)
+	| "vec" `isPrefixOf` n
+	, and $ for ps $ \p -> same $ fnName p
+	, Just (ExprI fn t _ r) <- listToMaybe ps -- sample of the shared op
+	= optVectors $ ExprI fn (tVec (length ps) t) vec RegisterNone
+	| otherwise = e { fnAst = map optVectors $ fnAst e }
+	where
+		foo = map fnAst ps :: [[ExprI]] -- [[p1,p2],[q1,q2]]
+		vec = for (transpose foo) $ \ps' -> ExprI n TNone ps' RegisterNone
+
+-- ~ gl_Position = vec4((((0.0+(u1m3[0][0]*a0v3[0]))+(u1m3[0][1]*a0v3[1]))+(u1m3[0][2]*a0v3[2])), (((0.0+(u1m3[1][0]*a0v3[0]))+(u1m3[1][1]*a0v3[1]))+(u1m3[1][2]*a0v3[2])), (((0.0+(u1m3[2][0]*a0v3[0]))+(u1m3[2][1]*a0v3[1]))+(u1m3[2][2]*a0v3[2])), 1.0);
 
 
+-- ~ optMatMult = undefined
+
+-- ~ substitute :: ExprI -> ([ExprI] -> ExprI) -> ([ExprI] -> ExprI) -> ExprI
+-- ~ substitute e e2 = undefined
+
+-- ~ vec2substituteFloat :: ExprI -> ExprI
+-- ~ vec2substituteFloat e = substitute e
+	-- ~ (\[e2,e3] -> unExpr $ exprMat ((Expr e2 *|| Expr e3) :: V2 (Expr V Float)))
+	-- ~ (\ps -> unExpr $ exprMat $ Expr $ ExprI "*" (TVec2 TFloat) ps RegisterNone)
+
+
+same :: Eq a => [a] -> Bool
+same [] = True
+same (x:xs) = same' x xs
+	where
+		same' _ [] = True
+		same' y (x:xs) = y == x && same' x xs
 
 
 handleTransfers :: ShaderEnv m => m ()
 handleTransfers = do
-	-- TODO run mapExpr in stateT instead
-	-- take all exprs
 	exps <- stateShader $ \s -> (exprs s, s { exprs = [] })
 	-- cut all exprs at transferfn and add the exprs after transferfn
 	exps' <- sequence $ for exps $ \(t,(s,e)) -> fmap (\e -> (t,(s,e))) $ mapExpr f e

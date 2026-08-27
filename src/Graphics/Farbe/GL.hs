@@ -19,8 +19,13 @@ import Graphics.GL.Types
 
 -- GL type information -------------------------------------------------------------------
 
-data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex
+data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex | TNone
 	deriving (Eq, Ord, Read, Show, Generic)
+
+tVec :: Int -> TypeS -> TypeS
+tVec 2 = TVec2
+tVec 3 = TVec3
+tVec 4 = TVec4
 
 slNameFromTypeS t = case t of
 	TBool -> "bool"

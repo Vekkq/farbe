@@ -16,20 +16,19 @@ module Graphics.Farbe
 	, Event (..)
 	, Key (..)
 	, KeyState (..)
+	, anyMouseClick
+	, rotationFromMouse33
+	, viewMat
 	-- * Shader definition
-	-- ~ , isShaderCompiled
+	, Expr
+	, V
+	, F
 	, module Graphics.Farbe.Vec
 	-- * Vertex array
 	, VArray (..)
 	, newVArray
 	, frame
 	, floorFrame
-	-- * Shader's Expr type
-	, Expr
-	, V
-	, rotationFromMouse33
-	, viewMat
-	, F
 	, fragCoord
 	, windowDim
 	, napier
@@ -183,6 +182,10 @@ runDelayed = do
 			d <- getsFarbe delayed
 			join $ fmap (liftFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
 
+
+anyMouseClick es f = case es of
+	[(EventMouseKey _ _ Down, _)] -> f
+	_ -> return ()
 
 drawOver :: MonadIO m => m a1 -> m a2 -> m ()
 drawOver a b = do
