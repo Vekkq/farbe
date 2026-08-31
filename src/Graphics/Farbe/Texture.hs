@@ -141,27 +141,29 @@ newTexture t p ptr = do
 
 texUpload :: (MonadIO m, HandTex m) => GLint -> Texture -> m ()
 texUpload l (Texture t) = do
-		tb@(TextureBase i u _ _) <- liftIO $ readMVar t
-		-- ~ (TextureBase _ i mu _ _ _) <- liftIO $ readIORef ioreftb
-		TexState u' ts <- getTex
-		i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
-		if (i /= i') then do
-			-- ~ liftIO $ putStrLn $ "assigned to unit " ++ show u'
-			glActiveTexture $ GL_TEXTURE0 + u'
-			glBindTexture GL_TEXTURE_2D i
-			glUniform1i l $ itoi u'
-			liftIO $ catchMVarBlocked 7 $ swapMVar t $ tb { texLastUnit = u'}
-			liftIO $ writeArray ts u' i
-			u'' <- succU ts u'
-			setTex $ TexState u'' ts
-		else glUniform1i l $ itoi u
-		where
-		succU ts x = do
-			let x' = succ x -- TODO replace with modulo?
-			(a,b) <- liftIO $ getBounds ts
-			return $ if x' >= b then a else x'
+		tb <- liftIO $ tryReadMVar t
+		maybe' (return ()) tb $ \ tb'@(TextureBase i u _ _) -> do
+			TexState u' ts <- getTex
+			i' <- if (u == 0) then return 0 else liftIO $ readArray ts u
+			if (i /= i') then do
+				-- ~ liftIO $ putStrLn $ "assigned to unit " ++ show u'
+				glActiveTexture $ GL_TEXTURE0 + u'
+				glBindTexture GL_TEXTURE_2D i
+				glUniform1i l $ itoi u'
+				liftIO $ catchMVarBlocked 7 $ swapMVar t $ tb' { texLastUnit = u'}
+				liftIO $ writeArray ts u' i
+				u'' <- succU ts u'
+				setTex $ TexState u'' ts
+			else glUniform1i l $ itoi u
+	where
+	succU ts x = do
+		let x' = succ x -- TODO replace with modulo?
+		(a,b) <- liftIO $ getBounds ts
+		return $ if x' >= b then a else x'
 
 isTextureLoaded :: MonadIO m => Texture -> m Bool
 isTextureLoaded (Texture t) = liftIO $ fmap not $ isEmptyMVar t
 
+
+maybe' l f m = maybe l m f
 

@@ -90,79 +90,42 @@ class Shader m f g | m f -> g, g -> f, g -> m where
 	mkShader :: MonadIO m => f -> ShaderEnvT m g
 	idShader :: MonadIO m => f -> m Int
 
-setUniform :: (MonadIO m, Uniform u1 e1, HandTex m, AppliableF m g, Shader m f g) => Int -> (e1 -> f) -> ShaderEnvT m (u1 -> g)
+setUniform :: (MonadIO m, Uniform u, HandTex m, AppliableF m g, Shader m f g) => Int -> (Var u -> f) -> ShaderEnvT m (u -> g)
 setUniform i f = do
 		s <- getsShader shaderId
-		let (vname,expr) = uniformExpr i bottom
+		let expr = uniformVar i bottom
 		g <- mkShader $ f expr
-		l <- withString vname $ glGetUniformLocation s
+		l <- withString (varName expr) $ glGetUniformLocation s
 		liftIO $ print l
-		return $ \m -> if l >= 0 then applyF g $ uniformUpload l m else g
+		return $ \m -> if l >= 0 then applyF g $ upload l m else g
 
-setIdShader :: (MonadIO m, Shader m f g, Uniform a0 a) => Int -> (a -> f) -> m Int
-setIdShader i f = idShader $ f $ snd $ uniformExpr i bottom
+setIdShader :: (MonadIO m, Shader m f g, Uniform a) => Int -> (Var a -> f) -> m Int
+setIdShader i f = idShader $ f $ uniformVar i bottom
 
-instance (Attribute a b, Uniform u1 e1, HandTex m, AppliableF m (m Bool))
+instance (Attribute a b, Uniform u1, HandTex m, AppliableF m (m Bool))
 	=> Shader m
-		(e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(Var u1 -> b -> SResult)
 		(u1 -> [VArray a] -> m Bool) where
 	mkShader = setUniform 1
 	idShader = setIdShader 1
 
-instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, HandTex m, AppliableF m (m Bool))
+instance (Attribute a b, Uniform u1, Uniform u2, HandTex m, AppliableF m (m Bool))
 	=> Shader m
-		(e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(Var u2 -> Var u1 -> b -> SResult)
 		(u2 -> u1 -> [VArray a] -> m Bool) where
 	mkShader = setUniform 2
 	idShader = setIdShader 2
 
-instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3
-	, HandTex m, AppliableF m (m Bool))
+instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, HandTex m, AppliableF m (m Bool))
 	=> Shader m
-		(e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
+		(Var u3 -> Var u2 -> Var u1 -> b -> SResult)
 		(u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
 	mkShader = setUniform 3
 	idShader = setIdShader 3
 
-instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
-	, HandTex m, AppliableF m (m Bool))
-	=> Shader m
-		(e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
-		(u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 4
-	idShader = setIdShader 4
-
-instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
-	, Uniform u5 e5
-	, HandTex m, AppliableF m (m Bool))
-	=> Shader m
-		(e5 -> e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
-		(u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 5
-	idShader = setIdShader 5
-
-instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
-	, Uniform u5 e5, Uniform u6 e6
-	, HandTex m, AppliableF m (m Bool))
-	=> Shader m
-		(e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
-		(u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 6
-	idShader = setIdShader 6
-
-instance (Attribute a b, Uniform u1 e1, Uniform u2 e2, Uniform u3 e3, Uniform u4 e4
-	, Uniform u5 e5, Uniform u6 e6, Uniform u7 e7
-	, HandTex m, AppliableF m (m Bool))
-	=> Shader m
-		(e7 -> e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> b -> (V4 (Expr V Float), V4 (Expr F Float)))
-		(u7 -> u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 7
-	idShader = setIdShader 7
-
-
 
 instance (Attribute a b)
-	=> Shader m (b -> (V4 (Expr V Float), V4 (Expr F Float))) ([VArray a] -> m Bool) where
+	=> Shader m (b -> SResult) ([VArray a] -> m Bool) where
 	mkShader f = do
 		s <- getsShader shaderId
 		(vaoId, expr, sp) <- setAttributes s (bottom :: a)
@@ -206,6 +169,9 @@ runShader' f = do
 runShader :: (MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => f -> g
 runShader = joinF . runShader'
 
+
+runShader'' :: (UseFun h f, MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => h -> g
+runShader'' f = runShader $ useFun f
 
 compileShader :: (MonadIO m, Shader m f g, HandShdr m, Typeable g) => f -> m g
 compileShader f = do

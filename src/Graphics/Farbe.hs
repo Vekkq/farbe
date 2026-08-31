@@ -183,6 +183,7 @@ runDelayed = do
 			join $ fmap (liftFarbe . fromMaybe (return ())) $ liftIO $ tryTakeMVar d
 
 
+anyMouseClick :: Monad m => [(W.Event, W.EventContext)] -> m () -> m ()
 anyMouseClick es f = case es of
 	[(EventMouseKey _ _ Down, _)] -> f
 	_ -> return ()

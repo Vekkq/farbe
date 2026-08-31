@@ -7,6 +7,7 @@ module Main (main) where
 import Graphics.Farbe
 -- ~ import Graphics.Farbe.Window
 import Graphics.Farbe.Shader
+import Graphics.Farbe.Uniform
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.STL
@@ -17,20 +18,26 @@ import Control.Monad
 
 import Data.Maybe
 import Data.Function
+import Data.Typeable
 
 
 
-frameShader :: Expr F Texture -> (V2 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
-frameShader t (V2 x y) = (V4 x y 0.1 1, texture t (down fragCoord / 256))
+-- ~ frameShader :: Expr F Texture -> (V2 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
+-- ~ frameShader t (V2 x y) = (V4 x y 0.1 1, texture t (down fragCoord / 256))
 
 
-renderFrame :: (MonadWindow m, Farbe m) => m ()
+frameShader' :: Var Texture -> (V2 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
+frameShader' t (V2 x y) | t' <- use t
+	= (V4 x y 0.1 1, texture t' (down fragCoord / 256))
+
+
+renderFrame :: (MonadWindow m, Farbe m, Typeable m) => m ()
 renderFrame = do
 	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
 	t <- loadImage "test-resources/fish_red.jpg"
 	fix $ \loop -> processEvents $ \es -> do
-		runShader frameShader t [frame]
-		anyMouseClick es renderColorful
+		runShader frameShader' t [frame]
+		-- ~ anyMouseClick es renderColorful
 		loop
 
 colorful
@@ -42,13 +49,13 @@ colorful r v = let
 	n' = transferFrag v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
-renderColorful = do
-	va <- newVArray frame
-	fix $ \loop -> processEvents $ \es -> do
-		r <- rotationFromMouse33
-		runShader colorful r [va]
-		anyMouseClick es renderFrame
-		loop
+-- ~ renderColorful = do
+	-- ~ va <- newVArray frame
+	-- ~ fix $ \loop -> processEvents $ \es -> do
+		-- ~ r <- rotationFromMouse33
+		-- ~ runShader colorful r [va]
+		-- ~ anyMouseClick es renderFrame
+		-- ~ loop
 
 
 
