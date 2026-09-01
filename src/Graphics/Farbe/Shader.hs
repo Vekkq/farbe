@@ -19,12 +19,7 @@ import Graphics.Farbe.Attribute
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Uniform
 import Graphics.Farbe.Texture
--- ~ import Graphics.Farbe.Farbe
--- ~ import Graphics.Farbe.State
--- ~ import Graphics.Farbe.BuildShader
--- ~ import Graphics.Farbe.ShaderEnv
 import Graphics.Farbe.Utility
--- ~ import Graphics.Farbe.Expr
 
 import Data.Char
 import Data.List
@@ -33,41 +28,37 @@ import Data.Foldable
 import Data.Hashable
 import Foreign hiding (void)
 import Foreign.C
-import qualified Data.Sequence as Seq
-import Data.Sequence ((|>))
 import qualified Data.IntMap as M
 import qualified Data.Set as S
 
 import Data.Dynamic
-import Numeric
 
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
-import Graphics.GL.Ext.OES.VertexArrayObject
 
 import Control.Exception
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 
-import Debug.Trace
 
 #define bottom undefined
 
 
---- ShdrState - Saving global shaders ----------------------------------------------------
+--- ShdrState - Saving global shader functions -------------------------------------------
 
 data ShdrState = ShdrState
 	{ shdrMap :: M.IntMap Dynamic
 	, shdrCompState :: M.IntMap [String] -- list of unfinished things, were null means done
 	}
 
+initShdrState :: ShdrState
 initShdrState = ShdrState M.empty M.empty
+
 
 class Monad m => HandShdr m where
 	stateShdr :: (ShdrState -> (a, ShdrState)) -> m a
 
-	-- ~ delayShdr :: m ((ShdrState -> ShdrState) -> IO ())
 
 getShdr :: HandShdr m => m ShdrState
 getShdr = stateShdr (\s -> (s, s))
@@ -116,12 +107,56 @@ instance (Attribute a b, Uniform u1, Uniform u2, HandTex m, AppliableF m (m Bool
 	mkShader = setUniform 2
 	idShader = setIdShader 2
 
-instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, HandTex m, AppliableF m (m Bool))
+instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3
+	, HandTex m, AppliableF m (m Bool))
 	=> Shader m
 		(Var u3 -> Var u2 -> Var u1 -> b -> SResult)
 		(u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
 	mkShader = setUniform 3
 	idShader = setIdShader 3
+
+instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
+		(u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 4
+	idShader = setIdShader 4
+
+instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4, Uniform u5
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
+		(u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 4
+	idShader = setIdShader 4
+
+instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
+	, Uniform u5, Uniform u6
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(Var u6 -> Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
+		(u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 4
+	idShader = setIdShader 4
+
+instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
+	, Uniform u5, Uniform u6, Uniform u7
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(Var u7 -> Var u6 -> Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
+		(u7 -> u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 4
+	idShader = setIdShader 4
+
+instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
+	, Uniform u5, Uniform u6, Uniform u7, Uniform u8
+	, HandTex m, AppliableF m (m Bool))
+	=> Shader m
+		(Var u8 -> Var u7 -> Var u6 -> Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
+		(u8 -> u7 -> u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
+	mkShader = setUniform 4
+	idShader = setIdShader 4
 
 
 instance (Attribute a b)
@@ -160,18 +195,19 @@ isShaderCompiled = undefined
 shaderCompileProgress :: f -> m [(String, Bool)] -- should i have this?
 shaderCompileProgress = undefined
 
-runShader' :: (MonadIO m, Shader m f g, HandShdr m, Typeable g) => f -> m g
-runShader' f = do
+runShaderV' :: (MonadIO m, Shader m f g, HandShdr m, Typeable g) => f -> m g
+runShaderV' f = do
 	sm <- getShdrMap
 	fid <- idShader f
 	maybe (compileShader f) return $ join $ fmap fromDynamic $ M.lookup fid sm
 
-runShader :: (MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => f -> g
-runShader = joinF . runShader'
+-- | Run shader function, with its parameters as @Var@. Var are accessible through @use@ within all shader spaces. @runShaderV@ runs with functional dependencies and can be used to look up the generated function definition.
+runShaderV :: (MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => f -> g
+runShaderV = joinF . runShaderV'
 
-
-runShader'' :: (UseFun h f, MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => h -> g
-runShader'' f = runShader $ useFun f
+-- | Run shader function, with accessible parameters.
+runShader :: (UseFun h f, MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => h -> g
+runShader f = runShaderV $ useFun f
 
 compileShader :: (MonadIO m, Shader m f g, HandShdr m, Typeable g) => f -> m g
 compileShader f = do
@@ -181,8 +217,6 @@ compileShader f = do
 	modifyShdrMap $ M.insert fid (toDyn g)
 	return g
 
-saveShader :: (Shader m f g, HandShdr m) => f -> g -> m ()
-saveShader f g = undefined
 
 
 
@@ -197,25 +231,13 @@ optVectors :: ExprI -> ExprI
 optVectors e@(ExprI n _ ps _)
 	| "vec" `isPrefixOf` n
 	, and $ for ps $ \p -> same $ fnName p
-	, Just (ExprI fn t _ r) <- listToMaybe ps -- sample of the shared op
+	, Just (ExprI fn t _ _) <- listToMaybe ps -- sample of the shared op
 	= optVectors $ ExprI fn (tVec (length ps) t) vec RegisterNone
 	| otherwise = e { fnAst = map optVectors $ fnAst e }
 	where
 		foo = map fnAst ps :: [[ExprI]] -- [[p1,p2],[q1,q2]]
 		vec = for (transpose foo) $ \ps' -> ExprI n TNone ps' RegisterNone
 
--- ~ gl_Position = vec4((((0.0+(u1m3[0][0]*a0v3[0]))+(u1m3[0][1]*a0v3[1]))+(u1m3[0][2]*a0v3[2])), (((0.0+(u1m3[1][0]*a0v3[0]))+(u1m3[1][1]*a0v3[1]))+(u1m3[1][2]*a0v3[2])), (((0.0+(u1m3[2][0]*a0v3[0]))+(u1m3[2][1]*a0v3[1]))+(u1m3[2][2]*a0v3[2])), 1.0);
-
-
--- ~ optMatMult = undefined
-
--- ~ substitute :: ExprI -> ([ExprI] -> ExprI) -> ([ExprI] -> ExprI) -> ExprI
--- ~ substitute e e2 = undefined
-
--- ~ vec2substituteFloat :: ExprI -> ExprI
--- ~ vec2substituteFloat e = substitute e
-	-- ~ (\[e2,e3] -> unExpr $ exprMat ((Expr e2 *|| Expr e3) :: V2 (Expr V Float)))
-	-- ~ (\ps -> unExpr $ exprMat $ Expr $ ExprI "*" (TVec2 TFloat) ps RegisterNone)
 
 
 same :: Eq a => [a] -> Bool
@@ -223,21 +245,21 @@ same [] = True
 same (x:xs) = same' x xs
 	where
 		same' _ [] = True
-		same' y (x:xs) = y == x && same' x xs
+		same' y (z:zs) = y == z && same' z zs
 
 
 handleTransfers :: ShaderEnv m => m ()
 handleTransfers = do
 	exps <- stateShader $ \s -> (exprs s, s { exprs = [] })
 	-- cut all exprs at transferfn and add the exprs after transferfn
-	exps' <- sequence $ for exps $ \(t,(s,e)) -> fmap (\e -> (t,(s,e))) $ mapExpr f e
+	exps' <- sequence $ for exps $ \(t,(s,e)) -> fmap (\e' -> (t,(s,e'))) $ mapExpr f e
 	-- add all back up
 	newexprs <- stateShader $ \s -> (exprs s, s { exprs = exps' ++ exprs s })
 	forM_ newexprs $ \(t,(s,e)) -> addVaryingOutputHeader s t e
 
 	where
 	f :: ShaderEnv m => ExprI -> m ExprI
-	f (ExprI "transferFrag" t [p] r) = do
+	f (ExprI "transferFrag" t [p] _) = do
 		c <- stateShader $ \case s | c <- succ $ counter s -> (c, s { counter = c })
 		let name = "t" ++ show c ++ slNameFromTypeS t
 		addExpr Vertex name p
@@ -249,13 +271,13 @@ handleTransfers = do
 
 collectHeaders :: ShaderEnv m => m ()
 collectHeaders = do
-	exps <- getsShader exprs
-	forM_ exps $ \(e, (s, exp)) -> sequence_ $ crawl (addInputHeader e) exp
+	ex <- getsShader exprs
+	forM_ ex $ \(e, (_, exps)) -> sequence_ $ crawl (addInputHeader e) exps
 -- vertexes, unicodes, transfers
 
 
 addInputHeader :: ShaderEnv m => ShaderType -> ExprI -> m ()
-addInputHeader e (ExprI n a ps r) = do
+addInputHeader e (ExprI n a _ r) = do
 	let i = case r of
 		RegisterUniform -> "uniform"
 		RegisterVertex -> "attribute"

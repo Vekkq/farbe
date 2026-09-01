@@ -36,8 +36,8 @@ renderFrame = do
 	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
 	t <- loadImage "test-resources/fish_red.jpg"
 	fix $ \loop -> processEvents $ \es -> do
-		runShader frameShader' t [frame]
-		-- ~ anyMouseClick es renderColorful
+		runShaderV frameShader' t [frame]
+		anyMouseClick es renderColorful
 		loop
 
 colorful
@@ -49,13 +49,15 @@ colorful r v = let
 	n' = transferFrag v
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
--- ~ renderColorful = do
-	-- ~ va <- newVArray frame
-	-- ~ fix $ \loop -> processEvents $ \es -> do
-		-- ~ r <- rotationFromMouse33
-		-- ~ runShader colorful r [va]
-		-- ~ anyMouseClick es renderFrame
-		-- ~ loop
+
+renderColorful :: (MonadWindow m, Farbe m, Typeable m) => m ()
+renderColorful = do
+	va <- newVArray frame
+	fix $ \loop -> processEvents $ \es -> do
+		r <- rotationFromMouse33
+		runShader colorful r [va]
+		anyMouseClick es renderFrame
+		loop
 
 
 

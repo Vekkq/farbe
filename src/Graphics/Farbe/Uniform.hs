@@ -11,8 +11,6 @@ module Graphics.Farbe.Uniform where
 import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
-import Graphics.Farbe.Utility
-import Graphics.Farbe.Array
 import Graphics.Farbe.Texture
 
 
@@ -20,11 +18,7 @@ import Foreign hiding (void)
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
-import Control.Concurrent.MVar
-
-import Control.Monad
 import Control.Monad.Reader
-import GHC.TypeNats
 
 #define bottom undefined
 
@@ -91,8 +85,8 @@ nameUniform i a = "u" ++ show i ++ glShortName a
 uniformVar :: GLtype a => Int -> a -> Var a
 uniformVar i a = Var $ ExprI (nameUniform i a) (toTypeS a) [] RegisterUniform
 
+varName :: Var a -> String
 varName (Var e) = fnName e
-
 
 
 class Use a r | r -> a where
@@ -142,36 +136,67 @@ instance Use (Var (V4 Float)) (V4 (Expr F Float)) where use = usePartsVec
 instance Use (Var (V4 Int32)) (V4 (Expr F Int32)) where use = usePartsVec
 instance Use (Var (V4 Bool)) (V4 (Expr F Bool)) where use = usePartsVec
 
-instance Use (Var (V2 (V2 Float))) (V2 (V2 (Expr F Float))) where use = usePartsMat
-instance Use (Var (V3 (V3 Float))) (V3 (V3 (Expr F Float))) where use = usePartsMat
-instance Use (Var (V4 (V4 Float))) (V4 (V4 (Expr F Float))) where use = usePartsMat
+instance Use (Var (V2 (V2 Float))) (Mat V2 V2 (Expr F Float)) where use = usePartsMat
+instance Use (Var (V3 (V3 Float))) (Mat V3 V3 (Expr F Float)) where use = usePartsMat
+instance Use (Var (V4 (V4 Float))) (Mat V4 V4 (Expr F Float)) where use = usePartsMat
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 
 
 
 
-class UseFun f r where
+class UseFun f r | f -> r where
 	useFun :: f -> r
 
 
--- ~ instance UseFun SResult SResult where
-	-- ~ useFun = id
+instance UseFun (a -> SResult) (a -> SResult) where useFun f a = f a
+
+-- ~ instance (Use v e, UseFun f g) => UseFun
+	-- ~ (e -> f)
+	-- ~ (v -> g) where
+	-- ~ useFun f v = useFun $ f (use v)
 
 instance (Use v e) => UseFun
-	(e -> SResult)
-	(v -> SResult) where
-	useFun f v = f (use v)
+	(e -> a -> SResult)
+	(v -> a -> SResult) where
+	useFun f v a = f (use v) a
 
 instance (Use v1 e1, Use v2 e2) => UseFun
-	(e2 -> e1 -> SResult)
-	(v2 -> v1 -> SResult) where
-	useFun f v2 v1 = f (use v2) (use v1)
+	(e2 -> e1 -> a -> SResult)
+	(v2 -> v1 -> a -> SResult) where
+	useFun f v2 v1 a = f (use v2) (use v1) a
 
+instance (Use v1 e1, Use v2 e2, Use v3 e3) => UseFun
+	(e3 -> e2 -> e1 -> a -> SResult)
+	(v3 -> v2 -> v1 -> a -> SResult) where
+	useFun f v3 v2 v1 a = f (use v3) (use v2) (use v1) a
 
--- ~ foo :: (Expr V Float -> SResult) -> Var Float -> SResult
--- ~ foo = useFun
+instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4) => UseFun
+	(e4 -> e3 -> e2 -> e1 -> a -> SResult)
+	(v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	useFun f v4 v3 v2 v1 a = f (use v4) (use v3) (use v2) (use v1) a
 
--- ~ instance (Use a r, Use a2 r2) => UseFun (a2 -> a -> SResult) (r2 -> r -> SResult) where
-	-- ~ useFun f a b = f (use a) (use b)
+instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5) => UseFun
+	(e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
+	(v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	useFun f v5 v4 v3 v2 v1 a =
+		f (use v5) (use v4) (use v3) (use v2) (use v1) a
 
+instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5, Use v6 e6) => UseFun
+	(e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
+	(v6 -> v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	useFun f v6 v5 v4 v3 v2 v1 a =
+		f (use v6) (use v5) (use v4) (use v3) (use v2) (use v1) a
+
+instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5, Use v6 e6, Use v7 e7) => UseFun
+	(e7 -> e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
+	(v7 -> v6 -> v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	useFun f v7 v6 v5 v4 v3 v2 v1 a =
+		f (use v7) (use v6) (use v5) (use v4) (use v3) (use v2) (use v1) a
+
+instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5, Use v6 e6, Use v7 e7, Use v8 e8) => UseFun
+	(e8 -> e7 -> e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
+	(v8 -> v7 -> v6 -> v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	useFun f v8 v7 v6 v5 v4 v3 v2 v1 a =
+		f (use v8) (use v7) (use v6) (use v5)
+		  (use v4) (use v3) (use v2) (use v1) a

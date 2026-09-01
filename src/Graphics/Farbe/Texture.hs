@@ -91,6 +91,7 @@ formatRGB = TextureFormat GL_RGB GL_RGB GL_UNSIGNED_BYTE
 formatRGBA = TextureFormat GL_RGBA GL_RGBA GL_UNSIGNED_BYTE
 formatD = TextureFormat GL_DEPTH_COMPONENT GL_DEPTH_COMPONENT GL_UNSIGNED_BYTE
 
+defaultL, defaultLA, defaultRGB, defaultRGBA, defaultD :: TextureFormat
 defaultL = formatL setMipmap
 defaultLA = formatLA setMipmap
 defaultRGB = formatRGB setMipmap
@@ -164,6 +165,6 @@ texUpload l (Texture t) = do
 isTextureLoaded :: MonadIO m => Texture -> m Bool
 isTextureLoaded (Texture t) = liftIO $ fmap not $ isEmptyMVar t
 
-
+maybe' :: t -> Maybe a -> (a -> t) -> t
 maybe' l f m = maybe l m f
 

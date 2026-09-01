@@ -12,7 +12,6 @@ import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Utility
-import Graphics.Farbe.VertexArray
 import Graphics.GL.Ext.OES.VertexArrayObject
 
 import Foreign hiding (void)
@@ -119,7 +118,7 @@ setupAttribute1 a = do
 				(itoi $ maxSize)
 				(intPtrToPtr $ IntPtr o)
 			glEnableVertexAttribArray p
-	modifyVao $ \s -> s { postShader = postShader s >> ps }
+	modifyVao $ \s' -> s' { postShader = postShader s' >> ps }
 		-- ~ liftIO $ putStrLn $ "sl pos: " ++ show p ++ "\t arr pos: " ++ show o ++ "\t stride: " ++ (show $ itoi $ maxSize - sizeOf a) ++ "\t components: " ++ (show $ glComponents a)
 	return $ Expr $ ExprI n (toTypeS a) [] RegisterVertex
 

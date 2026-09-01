@@ -8,6 +8,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+
 module Graphics.Farbe
 	( runFarbeT
 	, Display (..)
