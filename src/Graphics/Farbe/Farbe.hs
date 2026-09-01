@@ -77,6 +77,23 @@ instance MonadIO m => Farbe (FarbeT m) where
 	stateFarbe = FarbeT . state
 
 
+instance (Monad m, Farbe m) => HandVBO m where
+	stateVBO f = do
+		stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
+	delayVBO = do
+		d <- getsFarbe delayed
+		return $ \f -> catchMVarBlocked 22 . putMVar d $ stateVBO' f
+
+instance (Monad m, Farbe m) => HandTex m where
+	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
+
+	getDelayFun :: MonadIO m => m (IO () -> IO ())
+	getDelayFun = delayFun
+
+instance (Monad m, Farbe m) => HandShdr m where
+	stateShdr f = stateFarbe (\s -> let (a,s') = f $ shdrState s in (a, s{ shdrState = s' } ))
+
+
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
@@ -187,3 +204,5 @@ getThisLine = case reverse $ getCallStack callStack of
 glErr :: MonadIO m => m ()
 glErr = liftIO $ glGetError >>= \e -> putStrLn $ "gl error: " ++ show e
 
+
+class GLWindow a

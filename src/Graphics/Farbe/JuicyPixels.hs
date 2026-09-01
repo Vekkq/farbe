@@ -8,9 +8,7 @@ module Graphics.Farbe.JuicyPixels where
 import Codec.Picture
 import Codec.Picture.Types
 
-import Graphics.Farbe
 import Graphics.Farbe.Farbe
--- ~ import Graphics.Farbe.State
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
@@ -27,6 +25,8 @@ import Graphics.GL.Types
 import Data.Either
 import Control.Monad
 import Control.Monad.IO.Class
+
+
 
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
 loadImage = loadImage' Nothing
@@ -75,16 +75,14 @@ mapRight (Left a) _ = pure (Left a)
 					-- ~ return b1
 			-- ~ return vname
 
+-- ~ sani :: [Char] -> [Char]
+-- ~ sani = ("t_"++)
+	-- ~ . filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])
+	-- ~ . replace (\a -> if elem a "\\/.-" then '_' else a)
 
-sani :: [Char] -> [Char]
-sani = ("t_"++)
-	. filter (\x -> elem x $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_'])
-	. replace (\a -> if elem a "\\/.-" then '_' else a)
-
-
-replace :: (a -> b) -> [a] -> [b]
-replace _ [] = []
-replace f xs = foldr (\a ys -> f a : ys) [] xs
+-- ~ replace :: (a -> b) -> [a] -> [b]
+-- ~ replace _ [] = []
+-- ~ replace f xs = foldr (\a ys -> f a : ys) [] xs
 
 
 toGLImage :: DynamicImage -> (TextureFormat, (V2 GLsizei, Ptr ()))

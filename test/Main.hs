@@ -34,7 +34,7 @@ frameShader' t (V2 x y) | t' <- use t
 renderFrame :: (MonadWindow m, Farbe m, Typeable m) => m ()
 renderFrame = do
 	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
-	t <- loadImage "test-resources/fish_red.jpg"
+	t <- loadImage "test-resources/fish_red1.jpg"
 	fix $ \loop -> processEvents $ \es -> do
 		runShaderV frameShader' t [frame]
 		anyMouseClick es renderColorful

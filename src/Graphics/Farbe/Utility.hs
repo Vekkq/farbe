@@ -15,6 +15,7 @@ import Control.Exception
 import Control.Monad.IO.Class ()
 
 
+
 withString :: MonadIO m => String -> (CString -> IO a) -> m a
 withString n f = liftIO $ bracket (newCAString n) free f
 

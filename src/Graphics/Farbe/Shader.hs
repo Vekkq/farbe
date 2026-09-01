@@ -87,7 +87,6 @@ setUniform i f = do
 		let expr = uniformVar i bottom
 		g <- mkShader $ f expr
 		l <- withString (varName expr) $ glGetUniformLocation s
-		liftIO $ print l
 		return $ \m -> if l >= 0 then applyF g $ upload l m else g
 
 setIdShader :: (MonadIO m, Shader m f g, Uniform a) => Int -> (Var a -> f) -> m Int
@@ -223,9 +222,9 @@ compileShader f = do
 fmap3 :: (Functor f1, Functor f2, Functor f3) => (a -> b) -> f1 (f2 (f3 a)) -> f1 (f2 (f3 b))
 fmap3 = fmap . fmap . fmap
 
-
 optimizeExpressions :: ShaderEnv m => m ()
-optimizeExpressions = modifyShader $ \s -> s { exprs = fmap3 optVectors $ exprs s }
+optimizeExpressions = return ()
+-- ~ optimizeExpressions = modifyShader $ \s -> s { exprs = fmap3 optVectors $ exprs s }
 
 optVectors :: ExprI -> ExprI
 optVectors e@(ExprI n _ ps _)
@@ -304,7 +303,7 @@ compileSubShader t = do
 		++ (toCStatements $ pickForShader $ exprs st)
 		++ "}"
 	sp <- getsShader shaderId
-	liftIO $ putStrLn str
+	-- ~ liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader $ shaderTypeGLEnum t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
@@ -380,7 +379,7 @@ instance Applicative m => AppliableF m (m a) where
 
 
 
-
+(.:) :: (b -> c)-> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 
 

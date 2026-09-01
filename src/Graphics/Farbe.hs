@@ -26,7 +26,7 @@ module Graphics.Farbe
 	, F
 	, module Graphics.Farbe.Vec
 	-- * Vertex array
-	, VArray (..)
+	, VArray
 	, newVArray
 	, frame
 	, floorFrame
@@ -82,17 +82,12 @@ import Control.Monad.IO.Class ()
 import Data.Maybe
 import Data.Set (member)
 import System.Mem
-import Graphics.Farbe.Params
 
 import Foreign.Ptr
 import Data.Bits
 import Graphics.GL
 import Control.Concurrent
--- ~ import Control.Concurrent.MVar
 
-import qualified Graphics.Farbe.Shader as S
-
-class GLWindow a
 
 instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
 	stateFarbe = lift . stateFarbe
@@ -111,28 +106,12 @@ runFarbeT' f = fmap fst . S.runFarbeT $ do
 	glClearColor r g b a
 	glEnable GL_DEPTH_TEST
 	glPixelStorei GL_UNPACK_ALIGNMENT 1
-	a <- f
+	glPixelStorei GL_PACK_ALIGNMENT 1 -- for textures coming from gpu
+	r' <- f
 	-- ~ liftIO $ yield
 	-- ~ runDelayed
-	return a
+	return r'
 
-
-
-instance (Monad m, Farbe m) => HandVBO m where
-	stateVBO f = do
-		stateFarbe (\s -> let (a,s') = f $ vboState s in (a, s{ vboState = s' } ))
-	delayVBO = do
-		d <- getsFarbe delayed
-		return $ \f -> catchMVarBlocked 22 . putMVar d $ stateVBO' f
-
-instance (Monad m, Farbe m) => HandTex m where
-	stateTex f = stateFarbe (\s -> let (a,s') = f $ texState s in (a, s{ texState = s' } ))
-
-	getDelayFun :: MonadIO m => m (IO () -> IO ())
-	getDelayFun = delayFun
-
-instance (Monad m, Farbe m) => HandShdr m where
-	stateShdr f = stateFarbe (\s -> let (a,s') = f $ shdrState s in (a, s{ shdrState = s' } ))
 
 -- | @processEvents@ obtains the events and sends it to a provided function. The function is called, when the program isn't asked to quit. This function also controls the render pipeline (swap buffers).
 processEvents :: (W.MonadWindow m, Farbe m)
