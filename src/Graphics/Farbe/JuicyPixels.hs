@@ -12,18 +12,13 @@ import Graphics.Farbe.Farbe
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Tuple
-import Graphics.Farbe.Utility
-import Graphics.Farbe.GL
 import Data.Vector.Storable (unsafeToForeignPtr)
 
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
 
-import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
-import Data.Either
-import Control.Monad
 import Control.Monad.IO.Class
 
 
@@ -39,8 +34,8 @@ loadImage' mt s = loadTexture $ do
 				let (format, (dim,ptr)) = toGLImage i
 				let format' = maybe format (\t -> format { texSetup = t }) mt
 				return (format', dim, ptr)
-			Left s -> do
-				putStrLn s
+			Left str -> do
+				putStrLn str
 				let (_, (dim,ptr)) = toGLImage $ ImageRGB8 errorTexture
 				return (errFormat, dim, ptr)
 	where

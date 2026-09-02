@@ -26,9 +26,8 @@ import Control.Monad.RWS
 import GHC.Stack
 
 
-import qualified Data.IntMap.Strict as M
+-- ~ import Graphics.GL.Embedded20
 
-import Graphics.GL.Embedded20
 
 
 
@@ -200,9 +199,6 @@ getThisLine :: HasCallStack => Int
 getThisLine = case reverse $ getCallStack callStack of
 	(_,cs):_ -> srcLocStartLine cs
 	_ -> 0
-
-glErr :: MonadIO m => m ()
-glErr = liftIO $ glGetError >>= \e -> putStrLn $ "gl error: " ++ show e
 
 
 class GLWindow a

@@ -59,10 +59,10 @@ instance MonadTrans BuildDataVAOT where
 	lift = BuildDataVAOT . lift
 
 
-runAttribute :: MonadIO m => ShaderId -> Int -> BuildDataVAOT m a -> m a
+runAttribute :: Monad m => ShaderId -> Int -> BuildDataVAOT m a -> m a
 runAttribute s b (BuildDataVAOT m) = evalStateT m $ emptyBuildVao s b
 
-class (Functor m) => BuildVAO m where
+class (Monad m) => BuildVAO m where
 	stateVao :: (BuildDataVAO -> (a, BuildDataVAO)) -> m a
 
 instance Monad m => BuildVAO (BuildDataVAOT m) where
@@ -100,6 +100,9 @@ setAttributes s a = runAttribute s (sizeOf a) $ do
 	ps <- getsVao postShader
 	return (i, e, ps)
 
+attributesNoReg :: Monad m => Attribute a b => a -> m b
+attributesNoReg a = runAttribute 0 (sizeOf a) $ setAttribute a
+
 
 setupAttribute1
 	:: (BuildVAO m, Monad m, GLtype a, Storable a) => a -> m (Expr V a)
@@ -125,7 +128,7 @@ setupAttribute1 a = do
 
 
 class Storable a => Attribute a b | a -> b, b -> a where
-	setAttribute :: (BuildVAO m, MonadIO m) => a -> m b
+	setAttribute :: (BuildVAO m) => a -> m b
 
 instance Attribute Bool (Expr V Bool) where setAttribute = setupAttribute1
 instance Attribute Int32 (Expr V Int32) where setAttribute = setupAttribute1
@@ -167,7 +170,6 @@ attribPartsVec a = vecParts <$> setupAttribute1 a
 instance Attribute (V2 Float) (V2 (Expr V Float)) where setAttribute = attribPartsVec
 instance Attribute (V2 Int32) (V2 (Expr V Int32)) where setAttribute = attribPartsVec
 instance Attribute (V2 Bool)  (V2 (Expr V Bool)) where setAttribute = attribPartsVec
-
 
 instance Attribute (V3 Float) (V3 (Expr V Float)) where setAttribute = attribPartsVec
 instance Attribute (V3 Int32) (V3 (Expr V Int32)) where setAttribute = attribPartsVec

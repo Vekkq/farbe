@@ -28,6 +28,7 @@ module Graphics.Farbe
 	-- * Vertex array
 	, VArray
 	, newVArray
+	, SResult
 	, frame
 	, floorFrame
 	, fragCoord
@@ -70,7 +71,6 @@ import Graphics.Farbe.Farbe hiding (runFarbeT, runFarbeT')
 import qualified Graphics.Farbe.Window as W
 import Graphics.Farbe.Window hiding (processEvents)
 import Graphics.Farbe.Expr
-import Graphics.Farbe.Shader
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Utility
@@ -146,7 +146,7 @@ glerrcheck = liftIO $ glGetError >>= \e -> when (e/=0) $ putStrLn $ "gl error: "
 
 runDelayed :: (W.MonadWindow m, Farbe m, MonadIO m) => m ()
 runDelayed = do
-	-- ~ glerrcheck
+	glerrcheck
 	liftIO $ performGC
 	work -- get at least one piece done per frame
 	isEmpty <- join $ (liftIO . isEmptyMVar) <$> getsFarbe delayed

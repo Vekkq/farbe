@@ -14,6 +14,7 @@ import Control.Exception
 
 import Control.Monad.IO.Class ()
 
+import Graphics.GL
 
 
 withString :: MonadIO m => String -> (CString -> IO a) -> m a
@@ -22,6 +23,10 @@ withString n f = liftIO $ bracket (newCAString n) free f
 
 catchMVarBlocked :: Int -> IO a -> IO a
 catchMVarBlocked i = handle (\BlockedIndefinitelyOnMVar -> error (show i))
+
+
+glErr :: MonadIO m => m ()
+glErr = liftIO $ glGetError >>= \e -> putStrLn $ "gl error: " ++ show e
 
 
 

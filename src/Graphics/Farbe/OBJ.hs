@@ -6,11 +6,7 @@
 module Graphics.Farbe.OBJ where
 
 import Graphics.Farbe.Farbe
-import Graphics.Farbe.Attribute
 import Graphics.Farbe.Vec
-import Control.Monad
-import Foreign.Storable
-import Foreign.Ptr
 
 import Codec.Wavefront
 import Data.Vector ((!?))

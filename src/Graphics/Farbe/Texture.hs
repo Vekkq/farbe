@@ -58,8 +58,7 @@ getTexId (Texture tb) = liftIO $ texId <$> readMVar tb
 -- readonly Texture format
 data TextureBase = TextureBase
 	{ texId :: GLuint
-	, texLastUnit :: GLenum
-	-- ~ , changeTokenT :: Int
+	, texLastUnit :: GLenum -- only stat that changes
 	, format :: TextureFormat
 	, path :: String
 	}

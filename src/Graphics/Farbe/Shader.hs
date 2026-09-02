@@ -50,7 +50,7 @@ import Control.Monad.State.Strict
 data ShdrState = ShdrState
 	{ shdrMap :: M.IntMap Dynamic
 	, shdrCompState :: M.IntMap [String] -- list of unfinished things, were null means done
-	}
+	} deriving (Show)
 
 initShdrState :: ShdrState
 initShdrState = ShdrState M.empty M.empty
@@ -87,7 +87,9 @@ setUniform i f = do
 		let expr = uniformVar i bottom
 		g <- mkShader $ f expr
 		l <- withString (varName expr) $ glGetUniformLocation s
-		return $ \m -> if l >= 0 then applyF g $ upload l m else g
+		-- ~ return $ \m -> if l >= 0 then applyF g $ upload l m else g
+		return $ \m -> if l >= 0 then applyF g $ glUseProgram s >> upload l m else g
+		-- dumb uniforms need the shader to be bound ...
 
 setIdShader :: (MonadIO m, Shader m f g, Uniform a) => Int -> (Var a -> f) -> m Int
 setIdShader i f = idShader $ f $ uniformVar i bottom
@@ -127,8 +129,8 @@ instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4, Uniform
 	=> Shader m
 		(Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
 		(u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 4
-	idShader = setIdShader 4
+	mkShader = setUniform 5
+	idShader = setIdShader 5
 
 instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
 	, Uniform u5, Uniform u6
@@ -136,8 +138,8 @@ instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
 	=> Shader m
 		(Var u6 -> Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
 		(u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 4
-	idShader = setIdShader 4
+	mkShader = setUniform 6
+	idShader = setIdShader 6
 
 instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
 	, Uniform u5, Uniform u6, Uniform u7
@@ -145,8 +147,8 @@ instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
 	=> Shader m
 		(Var u7 -> Var u6 -> Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
 		(u7 -> u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 4
-	idShader = setIdShader 4
+	mkShader = setUniform 7
+	idShader = setIdShader 7
 
 instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
 	, Uniform u5, Uniform u6, Uniform u7, Uniform u8
@@ -154,8 +156,8 @@ instance (Attribute a b, Uniform u1, Uniform u2, Uniform u3, Uniform u4
 	=> Shader m
 		(Var u8 -> Var u7 -> Var u6 -> Var u5 -> Var u4 -> Var u3 -> Var u2 -> Var u1 -> b -> SResult)
 		(u8 -> u7 -> u6 -> u5 -> u4 -> u3 -> u2 -> u1 -> [VArray a] -> m Bool) where
-	mkShader = setUniform 4
-	idShader = setIdShader 4
+	mkShader = setUniform 8
+	idShader = setIdShader 8
 
 
 instance (Attribute a b)
@@ -175,21 +177,21 @@ instance (Attribute a b)
 		return $ \vs -> do
 			b <- isProgramCompiled s
 			when b $ do
-				glUseProgram s
 				glBindVertexArray vaoId
+				glUseProgram s
 				drawArrays vs
 			return b
 
 	idShader f = do
-		(_, expr, _) <- setAttributes 0 (bottom :: a)
-		return $ hash $ f expr
+		b <- attributesNoReg (bottom :: a)
+		return $ hash $ f b
+
+
 
 isProgramCompiled :: MonadIO m => ShaderId -> m Bool
 isProgramCompiled i = fmap (==GL_TRUE) $ withPtr_ $ \p -> glGetProgramiv i GL_LINK_STATUS p
-			-- add checks for loaded components
+	-- add checks for loaded components
 
-isShaderCompiled :: f -> m Bool
-isShaderCompiled = undefined
 
 shaderCompileProgress :: f -> m [(String, Bool)] -- should i have this?
 shaderCompileProgress = undefined
@@ -208,9 +210,18 @@ runShaderV = joinF . runShaderV'
 runShader :: (UseFun h f, MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => h -> g
 runShader f = runShaderV $ useFun f
 
+-- ~ useProgram :: (MonadIO m) => f -> ShaderEnvT m f
+-- ~ useProgram f = do
+	-- ~ s <- getsShader shaderId
+	-- ~ return $ applyF f $ glUseProgram s
+-- this function is for binding the shader before uniforms are uploaded.
+-- this is a requirement of gles2.
+
+
 compileShader :: (MonadIO m, Shader m f g, HandShdr m, Typeable g) => f -> m g
 compileShader f = do
 	g <- evalShaderEnvT $ mkShader f
+	-- ~ g <- evalShaderEnvT $ useProgram f >>= mkShader
 	-- save shader inside state
 	fid <- idShader f
 	modifyShdrMap $ M.insert fid (toDyn g)
@@ -394,7 +405,7 @@ data ShaderData = ShaderData
 	, shaderId :: ShaderId
 	, headers :: S.Set (ShaderType, Header)
 	, exprs :: [(ShaderType, (String, ExprI))]
-	-- ~ , preRender :: IO ()
+	, preRender :: IO ()
 	}
 
 type Header = String
@@ -407,7 +418,7 @@ emptyShaderData = do
 		, shaderId = i
 		, headers = S.empty
 		, exprs = []
-		-- ~ , preRender = return ()
+		, preRender = return ()
 		}
 
 newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: StateT ShaderData m a }
@@ -449,7 +460,6 @@ evalShaderEnvT = fmap fst . runShaderEnvT
 addExpr :: ShaderEnv m => ShaderType -> String -> ExprI -> m ()
 addExpr e n expri = do
 	modifyShader $ \s -> s { exprs = (e,(n,expri)) : exprs s }
-
 
 
 

@@ -122,7 +122,6 @@ emod = liftE2 "mod"
 vecParts :: (GLtype a, Vector v) => Expr e (v a) -> v (Expr e a)
 vecParts e = fromListFill bottom $ map (\i -> arrV e i) $ map literal [0..]
 
--- working?
 matParts :: (GLtype a, GLtype (v a), Vector v) => Expr e (v (v a)) -> v (v (Expr e a))
 matParts = fmap vecParts . vecParts
 
@@ -140,7 +139,6 @@ literal :: (Show b, GLtype a) => b -> Expr e a
 literal x = liftE0 $ show x
 
 
--- TODO add non-component-wise vector and matrix functions
 
 fragCoord :: V4 (Expr F Float)
 fragCoord = vecParts $ liftE0 "gl_FragCoord"

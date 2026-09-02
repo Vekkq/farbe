@@ -20,6 +20,7 @@ import Graphics.GL.Types
 
 import Control.Monad.Reader
 
+
 #define bottom undefined
 
 
@@ -60,10 +61,10 @@ instance Uniform (Mat V2 V2 Float) where
 	upload l = (\(V2 (V2 a b) (V2 c d)) -> glUniform4f l a b c d)
 
 instance Uniform (Mat V3 V3 Float) where
-	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix3fv l 1 GL_FALSE p
+	upload l m = withArray' (toList2 m) $ glUniformMatrix3fv l 1 GL_FALSE
 
 instance Uniform (Mat V4 V4 Float) where
-	upload l m = withArray' (toList2 m) $ \p -> glUniformMatrix4fv l 1 GL_FALSE p
+	upload l m = withArray' (toList2 m) $ glUniformMatrix4fv l 1 GL_FALSE
 
 instance Uniform Texture where
 	upload = texUpload

@@ -22,22 +22,26 @@ import Data.Typeable
 
 
 
--- ~ frameShader :: Expr F Texture -> (V2 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
--- ~ frameShader t (V2 x y) = (V4 x y 0.1 1, texture t (down fragCoord / 256))
+main :: IO ()
+main = runFarbeT "" (InWindow (1000,800)) $ do
+	renderColorful
 
 
-frameShader' :: Var Texture -> (V2 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
-frameShader' t (V2 x y) | t' <- use t
-	= (V4 x y 0.1 1, texture t' (down fragCoord / 256))
+
+frameShader
+	:: Expr F Texture -- | single texture parameter
+	-> (V2 (Expr V Float)) -- | vertex array attribute
+	-> (V4 (Expr V Float), V4 (Expr F Float)) -- | shader result tuple - alias SResult
+frameShader t (V2 x y) = (V4 x y 0.1 1, texture t (down fragCoord / 256))
 
 
 renderFrame :: (MonadWindow m, Farbe m, Typeable m) => m ()
 renderFrame = do
 	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
-	t <- loadImage "test-resources/fish_red1.jpg"
+	t <- loadImage "test-resources/fish_red.jpg"
 	fix $ \loop -> processEvents $ \es -> do
-		runShaderV frameShader' t [frame]
-		anyMouseClick es renderColorful
+		runShader frameShader t [frame]
+		anyMouseClick es renderobj
 		loop
 
 colorful
@@ -60,8 +64,23 @@ renderColorful = do
 		loop
 
 
+shaderobj
+	:: Expr F Texture -> Mat V3 V3 (Expr V Float)
+	-> (V3 (Expr V Float), V3 (Expr V Float), V3 (Expr V Float))
+	-> SResult
+shaderobj tex r (v, t, n) = let
+		v' = r **| v
+		t' = transferFrag $ down t
+	in (up 1 v', texture tex t')
 
-main :: IO ()
-main = runFarbeT "" (InWindow (1000,800)) $ do
-	renderFrame
+renderobj :: (MonadWindow m, Farbe m, Typeable m) => m ()
+renderobj = do
+	t <- loadImage "test-resources/fish_red.jpg"
+	fishv <- loadOBJ "test-resources/fish_red.obj"
+	fish <- newVArray $ map (\(OBJPoint v t n) -> (0.1 * v, t, n)) fishv
+	fix $ \loop -> processEvents $ \es -> do
+		r <- rotationFromMouse33
+		runShader shaderobj t r [fish]
+		anyMouseClick es $ renderColorful
+		loop
 
