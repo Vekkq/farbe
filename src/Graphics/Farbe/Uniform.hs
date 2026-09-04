@@ -91,7 +91,7 @@ varName (Var e) = fnName e
 
 
 class Use a r | r -> a where
-	use :: a -> r
+	use :: Var a -> r
 
 usePartsMat :: (Vector v, GLtype a, GLtype (v a)) => Var (v (v a)) -> v (v (Expr e a))
 usePartsMat v = vecParts <$> vecParts (Expr $ varExpr v)
@@ -99,47 +99,47 @@ usePartsMat v = vecParts <$> vecParts (Expr $ varExpr v)
 usePartsVec :: (Vector v, GLtype a) => Var (v a) -> v (Expr e a)
 usePartsVec = vecParts . Expr . varExpr
 
-instance Use (Var Float) (Expr V Float) where use = Expr . varExpr
-instance Use (Var Int32) (Expr V Int32) where use = Expr . varExpr
-instance Use (Var Bool) (Expr V Bool) where use = Expr . varExpr
-instance Use (Var Texture) (Expr V Texture) where use = Expr . varExpr
+instance Use Float (Expr V Float) where use = Expr . varExpr
+instance Use Int32 (Expr V Int32) where use = Expr . varExpr
+instance Use Bool (Expr V Bool) where use = Expr . varExpr
+instance Use Texture (Expr V Texture) where use = Expr . varExpr
 
 
-instance Use (Var (V2 Float)) (V2 (Expr V Float)) where use = usePartsVec
-instance Use (Var (V2 Int32)) (V2 (Expr V Int32)) where use = usePartsVec
-instance Use (Var (V2 Bool)) (V2 (Expr V Bool)) where use = usePartsVec
-instance Use (Var (V3 Float)) (V3 (Expr V Float)) where use = usePartsVec
-instance Use (Var (V3 Int32)) (V3 (Expr V Int32)) where use = usePartsVec
-instance Use (Var (V3 Bool)) (V3 (Expr V Bool)) where use = usePartsVec
-instance Use (Var (V4 Float)) (V4 (Expr V Float)) where use = usePartsVec
-instance Use (Var (V4 Int32)) (V4 (Expr V Int32)) where use = usePartsVec
-instance Use (Var (V4 Bool)) (V4 (Expr V Bool)) where use = usePartsVec
+instance Use (V2 Float) (V2 (Expr V Float)) where use = usePartsVec
+instance Use (V2 Int32) (V2 (Expr V Int32)) where use = usePartsVec
+instance Use (V2 Bool) (V2 (Expr V Bool)) where use = usePartsVec
+instance Use (V3 Float) (V3 (Expr V Float)) where use = usePartsVec
+instance Use (V3 Int32) (V3 (Expr V Int32)) where use = usePartsVec
+instance Use (V3 Bool) (V3 (Expr V Bool)) where use = usePartsVec
+instance Use (V4 Float) (V4 (Expr V Float)) where use = usePartsVec
+instance Use (V4 Int32) (V4 (Expr V Int32)) where use = usePartsVec
+instance Use (V4 Bool) (V4 (Expr V Bool)) where use = usePartsVec
 
 
-instance Use (Var (V2 (V2 Float))) (V2 (V2 (Expr V Float))) where use = usePartsMat
-instance Use (Var (V3 (V3 Float))) (V3 (V3 (Expr V Float))) where use = usePartsMat
-instance Use (Var (V4 (V4 Float))) (V4 (V4 (Expr V Float))) where use = usePartsMat
+instance Use (V2 (V2 Float)) (V2 (V2 (Expr V Float))) where use = usePartsMat
+instance Use (V3 (V3 Float)) (V3 (V3 (Expr V Float))) where use = usePartsMat
+instance Use (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where use = usePartsMat
 
 
-instance Use (Var Float) (Expr F Float) where use = Expr . varExpr
-instance Use (Var Int32) (Expr F Int32) where use = Expr . varExpr
-instance Use (Var Bool) (Expr F Bool) where use = Expr . varExpr
-instance Use (Var Texture) (Expr F Texture) where use = Expr . varExpr
+instance Use Float (Expr F Float) where use = Expr . varExpr
+instance Use Int32 (Expr F Int32) where use = Expr . varExpr
+instance Use Bool (Expr F Bool) where use = Expr . varExpr
+instance Use Texture (Expr F Texture) where use = Expr . varExpr
 
 
-instance Use (Var (V2 Float)) (V2 (Expr F Float)) where use = usePartsVec
-instance Use (Var (V2 Int32)) (V2 (Expr F Int32)) where use = usePartsVec
-instance Use (Var (V2 Bool)) (V2 (Expr F Bool)) where use = usePartsVec
-instance Use (Var (V3 Float)) (V3 (Expr F Float)) where use = usePartsVec
-instance Use (Var (V3 Int32)) (V3 (Expr F Int32)) where use = usePartsVec
-instance Use (Var (V3 Bool)) (V3 (Expr F Bool)) where use = usePartsVec
-instance Use (Var (V4 Float)) (V4 (Expr F Float)) where use = usePartsVec
-instance Use (Var (V4 Int32)) (V4 (Expr F Int32)) where use = usePartsVec
-instance Use (Var (V4 Bool)) (V4 (Expr F Bool)) where use = usePartsVec
+instance Use (V2 Float) (V2 (Expr F Float)) where use = usePartsVec
+instance Use (V2 Int32) (V2 (Expr F Int32)) where use = usePartsVec
+instance Use (V2 Bool) (V2 (Expr F Bool)) where use = usePartsVec
+instance Use (V3 Float) (V3 (Expr F Float)) where use = usePartsVec
+instance Use (V3 Int32) (V3 (Expr F Int32)) where use = usePartsVec
+instance Use (V3 Bool) (V3 (Expr F Bool)) where use = usePartsVec
+instance Use (V4 Float) (V4 (Expr F Float)) where use = usePartsVec
+instance Use (V4 Int32) (V4 (Expr F Int32)) where use = usePartsVec
+instance Use (V4 Bool) (V4 (Expr F Bool)) where use = usePartsVec
 
-instance Use (Var (V2 (V2 Float))) (Mat V2 V2 (Expr F Float)) where use = usePartsMat
-instance Use (Var (V3 (V3 Float))) (Mat V3 V3 (Expr F Float)) where use = usePartsMat
-instance Use (Var (V4 (V4 Float))) (Mat V4 V4 (Expr F Float)) where use = usePartsMat
+instance Use (V2 (V2 Float)) (Mat V2 V2 (Expr F Float)) where use = usePartsMat
+instance Use (V3 (V3 Float)) (Mat V3 V3 (Expr F Float)) where use = usePartsMat
+instance Use (V4 (V4 Float)) (Mat V4 V4 (Expr F Float)) where use = usePartsMat
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 
@@ -159,45 +159,45 @@ instance UseFun (a -> SResult) (a -> SResult) where useFun f a = f a
 
 instance (Use v e) => UseFun
 	(e -> a -> SResult)
-	(v -> a -> SResult) where
+	(Var v -> a -> SResult) where
 	useFun f v a = f (use v) a
 
 instance (Use v1 e1, Use v2 e2) => UseFun
 	(e2 -> e1 -> a -> SResult)
-	(v2 -> v1 -> a -> SResult) where
+	(Var v2 -> Var v1 -> a -> SResult) where
 	useFun f v2 v1 a = f (use v2) (use v1) a
 
 instance (Use v1 e1, Use v2 e2, Use v3 e3) => UseFun
 	(e3 -> e2 -> e1 -> a -> SResult)
-	(v3 -> v2 -> v1 -> a -> SResult) where
+	(Var v3 -> Var v2 -> Var v1 -> a -> SResult) where
 	useFun f v3 v2 v1 a = f (use v3) (use v2) (use v1) a
 
 instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4) => UseFun
 	(e4 -> e3 -> e2 -> e1 -> a -> SResult)
-	(v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	(Var v4 -> Var v3 -> Var v2 -> Var v1 -> a -> SResult) where
 	useFun f v4 v3 v2 v1 a = f (use v4) (use v3) (use v2) (use v1) a
 
 instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5) => UseFun
 	(e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
-	(v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	(Var v5 -> Var v4 -> Var v3 -> Var v2 -> Var v1 -> a -> SResult) where
 	useFun f v5 v4 v3 v2 v1 a =
 		f (use v5) (use v4) (use v3) (use v2) (use v1) a
 
 instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5, Use v6 e6) => UseFun
 	(e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
-	(v6 -> v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	(Var v6 -> Var v5 -> Var v4 -> Var v3 -> Var v2 -> Var v1 -> a -> SResult) where
 	useFun f v6 v5 v4 v3 v2 v1 a =
 		f (use v6) (use v5) (use v4) (use v3) (use v2) (use v1) a
 
 instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5, Use v6 e6, Use v7 e7) => UseFun
 	(e7 -> e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
-	(v7 -> v6 -> v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	(Var v7 -> Var v6 -> Var v5 -> Var v4 -> Var v3 -> Var v2 -> Var v1 -> a -> SResult) where
 	useFun f v7 v6 v5 v4 v3 v2 v1 a =
 		f (use v7) (use v6) (use v5) (use v4) (use v3) (use v2) (use v1) a
 
 instance (Use v1 e1, Use v2 e2, Use v3 e3, Use v4 e4, Use v5 e5, Use v6 e6, Use v7 e7, Use v8 e8) => UseFun
 	(e8 -> e7 -> e6 -> e5 -> e4 -> e3 -> e2 -> e1 -> a -> SResult)
-	(v8 -> v7 -> v6 -> v5 -> v4 -> v3 -> v2 -> v1 -> a -> SResult) where
+	(Var v8 -> Var v7 -> Var v6 -> Var v5 -> Var v4 -> Var v3 -> Var v2 -> Var v1 -> a -> SResult) where
 	useFun f v8 v7 v6 v5 v4 v3 v2 v1 a =
 		f (use v8) (use v7) (use v6) (use v5)
 		  (use v4) (use v3) (use v2) (use v1) a

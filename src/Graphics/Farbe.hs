@@ -9,30 +9,33 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
--- | A OpenGL ES 2 Rendering library. GLES2 is ancient, but good enough for your future~
+-- | A OpenGL ES 2 rendering library. GLES2 is ancient, but good enough for your future~
 --
 -- A sample program:
 --
 -- @
+-- import Graphics.Farbe
+-- import Data.Function (fix)
+--
 -- main :: IO ()
 -- main = runFarbeT "Window title" (InWindow (1000,800)) $ renderColorful
 --
 -- renderColorful :: (MonadWindow m, Farbe m) => m ()
 -- renderColorful = do
--- 	va <- newVArray frame
--- 	fix $ \loop -> processEvents $ \es -> do
--- 		r <- rotationFromMouse33
--- 		runShader colorful r [va]
--- 		loop
+--   va <- newVArray frame
+--   fix $ \loop -> processEvents $ \es -> do
+--     r <- rotationFromMouse33
+--     runShader colorful r [va]
+--     loop
 --
 -- colorful
--- 	:: Mat V3 V3 (Expr V Float)               -- rotation parameter
--- 	-> (V3 (Expr V Float))                    -- vertex array parameter
--- 	-> (V4 (Expr V Float), V4 (Expr F Float)) -- shader result
+--   :: Mat V3 V3 (Expr V Float)               -- rotation matrix parameter
+--   -> (V3 (Expr V Float))                    -- vertex array attribute parameter
+--   -> (V4 (Expr V Float), V4 (Expr F Float)) -- shader result
 -- colorful r v = let
--- 	v' = r **| v
--- 	n' = transferFrag v
--- 	in (up 1 v', up 1 n' * 0.5 + 0.2)
+--   v' = r **| v
+--   n' = transferFrag v
+--   in (up 1 v', up 1 n' * 0.5 + 0.2)
 --
 -- @
 
@@ -48,19 +51,62 @@ module Graphics.Farbe
 	, rotationFromMouse33
 	, viewMat
 	-- * Shader definition
+	-- | A shader function is defined by a number of Uniform variables, one Attribute variable and a result.
+	--
+	-- Uniforms are defined by their `Use` class and convert values as follows:
+	--
+	-- +-------------------------+----------------------------+
+	-- | Real space              | Shader space               |
+	-- +=========================+============================+
+	-- | @Float@                 | @(Expr e Float)@           |
+	-- +-------------------------+----------------------------+
+	-- | @Int32@                 | @(Expr e Int32)@           |
+	-- +-------------------------+----------------------------+
+	-- | @Bool@                  | @(Expr e Bool)@            |
+	-- +-------------------------+----------------------------+
+	-- | @Texture@               | @(Expr e Texture)@         |
+	-- +-------------------------+----------------------------+
+	-- | @(V2 Float)@            | @(V2 (Expr e Float))@      |
+	-- +-------------------------+----------------------------+
+	-- | @(V2 Int32)@            | @(V2 (Expr e Int32))@      |
+	-- +-------------------------+----------------------------+
+	-- | @(V2 Bool)@             | @(V2 (Expr e Bool))@       |
+	-- +-------------------------+----------------------------+
+	-- | @(V3 Float)@            | @(V3 (Expr e Float))@      |
+	-- +-------------------------+----------------------------+
+	-- | @(V3 Int32)@            | @(V3 (Expr e Int32))@      |
+	-- +-------------------------+----------------------------+
+	-- | @(V3 Bool)@             | @(V3 (Expr e Bool))@       |
+	-- +-------------------------+----------------------------+
+	-- | @(V4 Float)@            | @(V4 (Expr e Float))@      |
+	-- +-------------------------+----------------------------+
+	-- | @(V4 Int32)@            | @(V4 (Expr e Int32))@      |
+	-- +-------------------------+----------------------------+
+	-- | @(V4 Bool)@             | @(V4 (Expr e Bool))@       |
+	-- +-------------------------+----------------------------+
+	-- | @(V2 (V2 Float))@       | @(V2 (V2 (Expr e Float)))@ |
+	-- +-------------------------+----------------------------+
+	-- | @(V3 (V3 Float))@       | @(V3 (V3 (Expr e Float)))@ |
+	-- +-------------------------+----------------------------+
+	-- | @(V4 (V4 Float))@       | @(V4 (V4 (Expr e Float)))@ |
+	-- +-------------------------+----------------------------+
+	--
+	-- Attributes are defined by `Attribute` in a scheme similar to Uniforms.
+	--
+	-- The result of a shader is a 2-tuple of:
+	--
+	-- * @(V4 (Expr V Float))@ determines the position of a vertex of a triangle in a
+	--   render of coordinates -1 to 1 on x,y and z . w as homogeneous coordinate.
+	--
+	-- * @(V4 (Expr F Float))@ determines the color in rgb for every rendered pixel.
+	, SResult
 	, runShader
 	, runShaderV
+	-- | "Graphics.Farbe.Vec" is the default math module for Farbe.
+	, module Graphics.Farbe.Vec
 	, Expr
 	, V
 	, F
-	, module Graphics.Farbe.Vec
-	-- * Vertex array
-	, VArray
-	, newVArray
-	, Attribute
-	, SResult
-	, frame
-	, floorFrame
 	, fragCoord
 	, windowDim
 	, napier
@@ -72,6 +118,12 @@ module Graphics.Farbe
 	, emod
 	, transferFrag
 	, texture
+	-- * Vertex array
+	, VArray
+	, newVArray
+	, Attribute
+	, frame
+	, floorFrame
 	-- * Textures on shaders
 	, Texture
 	, loadImage
@@ -85,6 +137,7 @@ module Graphics.Farbe
 	, modifyConfig
 	, Config (..)
 	-- * Miscellaneous
+	, Use
 	, FarbeT
 	, Farbe
 	, runFarbeT'
@@ -105,6 +158,7 @@ import Graphics.Farbe.Utility
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Attribute
 import Graphics.Farbe.Shader
+import Graphics.Farbe.Uniform
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.IO.Class ()

@@ -116,7 +116,7 @@ log2 = liftE2 "log2"
 efloor :: Expr e Float -> Expr e Float
 efloor = liftE1 "floor"
 
--- | Identical to quot, but in Expr space.
+-- | Expression space equivalent.
 equot, erem, ediv, emod :: Expr e Int32 -> Expr e Int32 -> Expr e Int32
 equot = liftE2 "/"
 erem = liftE2 "rem"
