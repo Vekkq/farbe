@@ -42,6 +42,7 @@
 * try alternative window creation, if creation fails.
 	see ContextCreationAPI - GLFW_OSMESA_CONTEXT_API
 
+* save arbitrary shader functions without typeable
 
 # DONE
 
