@@ -97,6 +97,7 @@ defaultRGB = formatRGB setMipmap
 defaultRGBA = formatRGBA setMipmap
 defaultD = formatL $ return ()
 
+
 loadTexture :: forall m a . (MonadIO m, HandTex m)
 	=> IO (TextureFormat, V2 GLsizei, Ptr a) -> m Texture
 loadTexture io = do

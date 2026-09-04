@@ -18,6 +18,7 @@ module Graphics.Farbe.VertexArray
 
 import Graphics.Farbe.Vec
 import Graphics.Farbe.Utility
+import Graphics.Farbe.Attribute
 
 import qualified Data.Map as M
 import Data.List
@@ -237,9 +238,10 @@ removeVArrayF (VArrayF _ i) = updatePager $ return . (,()) . calcRemove i
 
 -- VArray --------------------------------------------------------------------------------
 
+-- | Vertex array, saving model data for shaders on the GPU.
 newtype VArray a = VArray { unVArray :: (MVar (VArrayF a)) }
 
-newVArray :: (MonadIO m, HandVBO m, Storable a, Foldable f) => f a -> m (VArray a)
+newVArray :: (MonadIO m, HandVBO m, Storable a, Foldable f, Attribute a b) => f a -> m (VArray a)
 newVArray xs = do
 	va <- newVArrayF xs
 	mva <- liftIO $ newMVar va
@@ -253,7 +255,7 @@ drawArrays xs = do
 	ys <- liftIO $ mapM (readMVar . unVArray) xs
 	drawArraysF ys
 
--- Coordinates of two triangles covering the visible front
+-- | A plane covering the entire view with two triangles covering the visible front.
 frame :: [V3 Float]
 frame =
   [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
@@ -262,10 +264,3 @@ frame =
 
 floorFrame :: [V3 Float]
 floorFrame = map (pitch (pi/2)) frame
-
-
--- ~ frame :: HandVBO m => m (VArray (V3 Float))
--- ~ frame = newVArray $
-  -- ~ [ (V3 1 1 0), (V3 1 (-1) 0), (V3 (-1) (-1) 0)
-  -- ~ , (V3 (-1) (-1) 0), (V3 (-1) 1 0), (V3 1 1 0)
-  -- ~ ]

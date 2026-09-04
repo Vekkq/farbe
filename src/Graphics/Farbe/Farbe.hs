@@ -94,6 +94,10 @@ instance (Monad m, Farbe m) => HandShdr m where
 	stateShdr f = stateFarbe (\s -> let (a,s') = f $ shdrState s in (a, s{ shdrState = s' } ))
 
 
+instance (Farbe m, Monad m) => Farbe (WindowT m) where
+	stateFarbe = lift . stateFarbe
+
+
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
 instance (cn m, Monad m, Typeable m, Typeable r) => cn (ReaderT r m) where { fn = lift op fn }            ;\

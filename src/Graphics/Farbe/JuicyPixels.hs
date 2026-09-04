@@ -22,10 +22,11 @@ import Graphics.GL.Types
 import Control.Monad.IO.Class
 
 
-
+-- Load an image file as texture. Supported are juicypixels formats.
 loadImage :: (MonadIO m, Farbe m) => String -> m Texture
 loadImage = loadImage' Nothing
 
+-- Variant with optional settings to apply to the texture.
 loadImage' :: (MonadIO m, Farbe m) => Maybe TextureSettings -> String -> m Texture
 loadImage' mt s = loadTexture $ do
 		ei <- readImage s
@@ -40,6 +41,10 @@ loadImage' mt s = loadTexture $ do
 				return (errFormat, dim, ptr)
 	where
 		errFormat = formatRGB setPixelated
+
+-- Load image without linear interpolation of pixels.
+loadImagePixellated :: (MonadIO m, Farbe m) => String -> m Texture
+loadImagePixellated = loadImage' (Just setPixelated)
 
 
 errorTexture :: Image PixelRGB8

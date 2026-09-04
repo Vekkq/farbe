@@ -39,8 +39,6 @@ module Graphics.Farbe.Window
 	-- ** GLFW re-export
 	, W.Key (..)
 	, W.MouseButton (..)
-	-- * Error handling
-	, WindowErr (..)
 	-- * Utility
 	, getTime
 	, fbSize
@@ -203,6 +201,7 @@ toErr (e,s) = case e of
 
 -- EVENTS ----------------------------------------------------------------------
 
+-- | The event context provides all keys that are currently pressed.
 type EventContext = S.Set (Either W.MouseButton W.Key)
 
 eventContextFromGLFW :: MonadWindow m => m EventContext
@@ -358,10 +357,9 @@ data CursorMode = CursorNormal | CursorHidden | CursorLocked
 	deriving (Read, Show, Eq)
 
 -- | Set cursor input mode.
---   When locked, the mouse cursor is hidden and can't leave the window.
---   Mouse move and clicks will give locked variants of events instead.
---   Unlike normal mouse position info from events,
---   locked mouse move gives relative position since last event processing.
+--   In locked mode, the mouse cursor is hidden and can't leave the window.
+--   Locked mouse move will give a relative position since last event processing
+--   via special events.
 setCursorMode :: MonadWindow m => CursorMode -> m ()
 setCursorMode t = do
 	w <- glfwWindow

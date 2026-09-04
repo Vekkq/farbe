@@ -9,6 +9,33 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
+-- | A OpenGL ES 2 Rendering library. GLES2 is ancient, but good enough for your future~
+--
+-- A sample program:
+--
+-- @
+-- main :: IO ()
+-- main = runFarbeT "Window title" (InWindow (1000,800)) $ renderColorful
+--
+-- renderColorful :: (MonadWindow m, Farbe m) => m ()
+-- renderColorful = do
+-- 	va <- newVArray frame
+-- 	fix $ \loop -> processEvents $ \es -> do
+-- 		r <- rotationFromMouse33
+-- 		runShader colorful r [va]
+-- 		loop
+--
+-- colorful
+-- 	:: Mat V3 V3 (Expr V Float)               -- rotation parameter
+-- 	-> (V3 (Expr V Float))                    -- vertex array parameter
+-- 	-> (V4 (Expr V Float), V4 (Expr F Float)) -- shader result
+-- colorful r v = let
+-- 	v' = r **| v
+-- 	n' = transferFrag v
+-- 	in (up 1 v', up 1 n' * 0.5 + 0.2)
+--
+-- @
+
 module Graphics.Farbe
 	( runFarbeT
 	, Display (..)
@@ -21,6 +48,8 @@ module Graphics.Farbe
 	, rotationFromMouse33
 	, viewMat
 	-- * Shader definition
+	, runShader
+	, runShaderV
 	, Expr
 	, V
 	, F
@@ -28,6 +57,7 @@ module Graphics.Farbe
 	-- * Vertex array
 	, VArray
 	, newVArray
+	, Attribute
 	, SResult
 	, frame
 	, floorFrame
@@ -41,14 +71,12 @@ module Graphics.Farbe
 	, ediv
 	, emod
 	, transferFrag
-	-- * Make mutable shared variables for shaders
-
-	, Texture
 	, texture
-	, texture'
-	, loadTexture
-	, Attribute
-	-- * Rendering control
+	-- * Textures on shaders
+	, Texture
+	, loadImage
+	, loadImagePixellated
+	-- * Rendering control - likely all broken
 	, drawOver
 	, drawTexture
 	, drawDepth
@@ -56,13 +84,13 @@ module Graphics.Farbe
 	-- * Configuration options
 	, modifyConfig
 	, Config (..)
-	, MonadIO (..)
 	-- * Miscellaneous
 	, FarbeT
 	, Farbe
 	, runFarbeT'
 	, MonadWindow
-	, glErr
+	, MonadIO (..)
+	-- ~ , glErr
 	) where
 
 
@@ -76,6 +104,7 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.Utility
 import Graphics.Farbe.VertexArray
 import Graphics.Farbe.Attribute
+import Graphics.Farbe.Shader
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.IO.Class ()
@@ -90,9 +119,7 @@ import Control.Concurrent
 
 import Data.Typeable
 
-
-instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
-	stateFarbe = lift . stateFarbe
+import Graphics.Farbe.JuicyPixels
 
 
 
@@ -115,7 +142,7 @@ runFarbeT' f = fmap fst . S.runFarbeT $ do
 	return r'
 
 
--- | @processEvents@ obtains the events and sends it to a provided function. The function is called, when the program isn't asked to quit. This function also controls the render pipeline (swap buffers).
+-- | @processEvents@ Sends window events to a provided function. The function is always called, as long as the program isn't asked to quit. This function also controls the render pipeline - swapping buffers, clear screen, etc.
 processEvents :: (W.MonadWindow m, Farbe m)
 	=> ([(W.Event, W.EventContext)] -> m ()) -> m ()
 processEvents f = do
@@ -301,7 +328,7 @@ viewMat = do
 	V2 x y <- lastCoord
 	return $ perspective 1 1 0.01 100 **** translateM (V3 0 0 (-3)) **** rotationMatrix4 0 (y*0.01) (-x*0.01)
 
-
+-- Window dimensions.
 windowDim :: MonadWindow m => m (V2 Float)
 windowDim = do
 	w <- glfwWindow

@@ -202,11 +202,11 @@ runShaderV' f = do
 	fid <- idShader f
 	maybe (compileShader f) return $ join $ fmap fromDynamic $ M.lookup fid sm
 
--- | Run shader function, with its parameters as @Var@. Var are accessible through @use@ within all shader spaces. @runShaderV@ runs with functional dependencies and can be used to look up the generated function definition.
+-- | Run shader function with its parameters as @Var@. Var are accessible through @use@ within all shader spaces. @runShaderV@ runs with functional dependencies and can be used to look up the generated function definition.
 runShaderV :: (MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => f -> g
 runShaderV = joinF . runShaderV'
 
--- | Run shader function, with accessible parameters.
+-- | Run shader function with accessible parameters.
 runShader :: (UseFun h f, MonadIO m, Shader m f g, JoinF m g, HandShdr m, Typeable g) => h -> g
 runShader f = runShaderV $ useFun f
 

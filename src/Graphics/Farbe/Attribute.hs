@@ -126,6 +126,7 @@ setupAttribute1 a = do
 	return $ Expr $ ExprI n (toTypeS a) [] RegisterVertex
 
 
+-- Values usable for VArrays.
 
 class Storable a => Attribute a b | a -> b, b -> a where
 	setAttribute :: (BuildVAO m) => a -> m b

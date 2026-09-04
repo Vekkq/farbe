@@ -24,6 +24,7 @@ import Foreign hiding (void)
 
 -- Expr ----------------------------------------------------------------------------------
 
+-- | Expression type to define shader definitions.
 data Expr e a = Expr { unExpr :: ExprI } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 data ExprI = ExprI
@@ -36,6 +37,7 @@ data Register = RegisterNone | RegisterVarying | RegisterUniform | RegisterVerte
 data F
 data V
 
+-- Shader result types. Results for Vertex & Fragment shader respectively.
 type SResult = (V4 (Expr V Float), V4 (Expr F Float))
 
 liftExpr :: forall a e . GLtype a => String -> [ExprI] -> Expr e a
@@ -78,6 +80,7 @@ instance (GLtype a, Fractional a) => Fractional (Expr e a) where
 	fromRational = liftE0 . ($ "") . showFFloat Nothing . fromRat
 	(/) = liftE2 "/"
 
+-- | e
 napier :: Fractional a => a
 napier = fromRational 2.718281828459045235360287471352
 
@@ -104,14 +107,16 @@ instance (GLtype a, Floating a) => Floating (Expr e a) where
 ln :: Floating a => a -> a
 ln = logBase napier
 
+-- | modulo on float.
 modf, log2 :: Expr e Float -> Expr e Float -> Expr e Float
 modf = liftE2 "mod"
+
 log2 = liftE2 "log2"
 
 efloor :: Expr e Float -> Expr e Float
 efloor = liftE1 "floor"
 
-
+-- | Identical to quot, but in Expr space.
 equot, erem, ediv, emod :: Expr e Int32 -> Expr e Int32 -> Expr e Int32
 equot = liftE2 "/"
 erem = liftE2 "rem"
@@ -139,7 +144,7 @@ literal :: (Show b, GLtype a) => b -> Expr e a
 literal x = liftE0 $ show x
 
 
-
+-- | position coordinate in Fragment shader.
 fragCoord :: V4 (Expr F Float)
 fragCoord = vecParts $ liftE0 "gl_FragCoord"
 
@@ -161,9 +166,11 @@ arr e' n = liftE2 "[]" e' $ (literal n :: Expr e Int32)
 arr' :: GLtype a => Expr e (Arr s a) -> Expr e Int32 -> Expr e a
 arr' = liftE2 "[]"
 
+-- | Expr space @if@.
 if' :: GLtype a => Expr e Bool -> Expr e a -> Expr e a -> Expr e a
 if' = liftE3 "if"
 
+-- | Transmitting values from vertex to fragment shader. If a value is transferred from the rendered vertex array directly, they are interpolated to their coordinate in fragment space.
 class Transfer a b | a -> b, b -> a where
 	transferFrag :: a -> b
 
