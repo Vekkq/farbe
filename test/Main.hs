@@ -35,7 +35,7 @@ frameShader
 frameShader t (V2 x y) = (V4 x y 0.1 1, texture t (down fragCoord / 256))
 
 
-renderFrame :: (MonadWindow m, Farbe m, Typeable m) => m ()
+renderFrame :: (MonadWindow m, Farbe m) => m ()
 renderFrame = do
 	frame <- newVArray $ [V2 (-1) 1, V2 1 1, V2 1 (-1), V2 (-1) 1, V2 (-1) (-1), V2 1 (-1)]
 	t <- loadImage "test-resources/fish_red.jpg"
@@ -54,7 +54,7 @@ colorful r v = let
 	in (up 1 v', up 1 n' * 0.5 + 0.2)
 
 
-renderColorful :: (MonadWindow m, Farbe m, Typeable m) => m ()
+renderColorful :: (MonadWindow m, Farbe m) => m ()
 renderColorful = do
 	va <- newVArray frame
 	fix $ \loop -> processEvents $ \es -> do
@@ -73,7 +73,7 @@ shaderobj tex r (v, t, n) = let
 		t' = transferFrag $ down t
 	in (up 1 v', texture tex t')
 
-renderobj :: (MonadWindow m, Farbe m, Typeable m) => m ()
+renderobj :: (MonadWindow m, Farbe m) => m ()
 renderobj = do
 	t <- loadImage "test-resources/fish_red.jpg"
 	fishv <- loadOBJ "test-resources/fish_red.obj"

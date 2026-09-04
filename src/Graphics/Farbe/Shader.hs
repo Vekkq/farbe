@@ -369,16 +369,6 @@ instance Monad m => JoinF m (m a) where
 	joinF = join
 
 
-class LiftF nm f g | f nm -> g, g nm -> f where
-	liftF :: nm -> f -> g
-
-instance {-# INCOHERENT #-} LiftF nm f g => LiftF nm (a -> f) (a -> g) where
-	liftF nm f = \a -> liftF nm (f a)
-
-instance LiftF (n -> m) n m where
-	liftF nm n = nm n
-
-
 class AppliableF m f | f -> m where
 	applyF :: f -> m a -> f
 
@@ -389,10 +379,8 @@ instance Applicative m => AppliableF m (m a) where
 	applyF f m = m *> f
 
 
-
 (.:) :: (b -> c)-> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
-
 
 ------------------------------------------------------------------------------------------
 
@@ -421,17 +409,6 @@ emptyShaderData = do
 		, preRender = return ()
 		}
 
-newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: StateT ShaderData m a }
-	deriving
-		(Functor, Applicative, Monad, MonadIO)
-
-instance MonadTrans ShaderEnvT where
-	lift = ShaderEnvT . lift
-
-instance MonadState s m => MonadState s (ShaderEnvT m) where
-	state = lift . state
-
-
 class (Monad m) => ShaderEnv m where
 	stateShader :: (ShaderData -> (a, ShaderData)) -> m a
 
@@ -446,6 +423,17 @@ getShader = stateShader (\s -> (s, s))
 
 putShader :: ShaderEnv m => ShaderData -> m ()
 putShader s = stateShader (\_ -> ((),s))
+
+
+newtype ShaderEnvT m a = ShaderEnvT { unShaderEnvT :: StateT ShaderData m a }
+	deriving
+		(Functor, Applicative, Monad, MonadIO)
+
+instance MonadTrans ShaderEnvT where
+	lift = ShaderEnvT . lift
+
+instance MonadState s m => MonadState s (ShaderEnvT m) where
+	state = lift . state
 
 
 instance Monad m => ShaderEnv (ShaderEnvT m) where

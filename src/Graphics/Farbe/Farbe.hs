@@ -25,6 +25,7 @@ import Control.Monad.Except
 import Control.Monad.RWS
 import GHC.Stack
 
+import Data.Typeable
 
 -- ~ import Graphics.GL.Embedded20
 
@@ -57,7 +58,7 @@ liftFarbe m = do
 	putFarbe fd'
 	return a
 
-class MonadIO m => Farbe m where
+class (MonadIO m, Typeable m) => Farbe m where
 	stateFarbe :: (FarbeState -> (a, FarbeState)) -> m a
 
 	getsFarbe :: (FarbeState -> a) -> m a
@@ -72,7 +73,7 @@ class MonadIO m => Farbe m where
 	modifyFarbe :: (FarbeState -> FarbeState) -> m ()
 	modifyFarbe f = stateFarbe $ (\s -> ((), f s))
 
-instance MonadIO m => Farbe (FarbeT m) where
+instance (MonadIO m, Typeable m) => Farbe (FarbeT m) where
 	stateFarbe = FarbeT . state
 
 
@@ -95,11 +96,11 @@ instance (Monad m, Farbe m) => HandShdr m where
 
 
 #define SIMPLEFUNCTION_CLASSINSTANCES(fn,cn,op)                                    \
-instance (cn m, Monad m) => cn (ReaderT r m) where { fn = lift op fn }            ;\
-instance (cn m, Monad m, Monoid w) => cn (WriterT w m) where { fn = lift op fn }  ;\
-instance (cn m, Monad m) => cn (StateT r m) where { fn = lift op fn }             ;\
-instance (cn m, Monad m, Monoid w) => cn (RWST r w s m) where { fn = lift op fn } ;\
-instance (cn m, Monad m) => cn (ExceptT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Typeable m, Typeable r) => cn (ReaderT r m) where { fn = lift op fn }            ;\
+instance (cn m, Monad m, Monoid w, Typeable m, Typeable w) => cn (WriterT w m) where { fn = lift op fn }  ;\
+instance (cn m, Monad m, Typeable m, Typeable r) => cn (StateT r m) where { fn = lift op fn }             ;\
+instance (cn m, Monad m, Monoid w, Typeable m, Typeable r, Typeable w, Typeable s) => cn (RWST r w s m) where { fn = lift op fn } ;\
+instance (cn m, Monad m, Typeable m, Typeable r) => cn (ExceptT r m) where { fn = lift op fn }            ;\
 
 SIMPLEFUNCTION_CLASSINSTANCES(stateFarbe,Farbe,.)
 

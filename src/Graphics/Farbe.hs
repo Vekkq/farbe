@@ -88,6 +88,8 @@ import Data.Bits
 import Graphics.GL
 import Control.Concurrent
 
+import Data.Typeable
+
 
 instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
 	stateFarbe = lift . stateFarbe
@@ -96,11 +98,11 @@ instance (Farbe m, Monad m) => Farbe (W.WindowT m) where
 
 -- | The environment to do draw operations.
 --   It spawns a window with the render context.
-runFarbeT :: MonadIO m => String -> W.Display -> S.FarbeT (W.WindowT m) a -> m a
+runFarbeT :: (MonadIO m, Typeable m) => String -> W.Display -> S.FarbeT (W.WindowT m) a -> m a
 runFarbeT s d = W.runWindowT s d . runFarbeT'
 
 
-runFarbeT' :: MonadIO m => S.FarbeT m a -> m a
+runFarbeT' :: (MonadIO m, Typeable m) => S.FarbeT m a -> m a
 runFarbeT' f = fmap fst . S.runFarbeT $ do
 	(V4 r g b a) <- getsConfig backgroundColor
 	glClearColor r g b a
