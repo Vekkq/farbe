@@ -12,7 +12,9 @@ import Graphics.Farbe.Expr
 import Graphics.Farbe.Vec
 import Graphics.Farbe.GL
 import Graphics.Farbe.Texture
+import Graphics.Farbe.Array
 
+import Data.Array.Storable
 
 import Foreign hiding (void)
 import Graphics.GL.Embedded20
@@ -20,6 +22,7 @@ import Graphics.GL.Types
 
 import Control.Monad.Reader
 
+import GHC.TypeNats
 
 #define bottom undefined
 
@@ -69,6 +72,9 @@ instance Uniform (Mat V4 V4 Float) where
 instance Uniform Texture where
 	upload = texUpload
 
+instance KnownNat n => Uniform (Arr n Float) where
+	upload l a = liftIO $ withStorableArray (unArr a) $ \p -> glUniform1fv l (sizeArr a) p
+
 withArray' :: (MonadIO m, Storable a) => [a] -> (Ptr a -> IO b) -> m b
 withArray' = liftIO .: withArray
 
@@ -79,6 +85,12 @@ instance GLtype Texture where
 	glPrecision _ = ""
 	glShortName _ = "t"
 
+instance Uniform a => GLtype (Arr n a) where
+	slName _ = slName (undefined :: a) ++ "[]"
+	toTypeS _ = TArr (toTypeS a)
+	glType _ = GL_FLOAT
+	glPrecision _ = "highp"
+	glShortName _ = "arr"
 
 nameUniform :: GLtype a => Int -> a -> String
 nameUniform i a = "u" ++ show i ++ glShortName a
@@ -99,47 +111,30 @@ usePartsMat v = vecParts <$> vecParts (Expr $ varExpr v)
 usePartsVec :: (Vector v, GLtype a) => Var (v a) -> v (Expr e a)
 usePartsVec = vecParts . Expr . varExpr
 
-instance Use Float (Expr V Float) where use = Expr . varExpr
-instance Use Int32 (Expr V Int32) where use = Expr . varExpr
-instance Use Bool (Expr V Bool) where use = Expr . varExpr
-instance Use Texture (Expr V Texture) where use = Expr . varExpr
+instance Use Float (Expr e Float) where use = Expr . varExpr
+instance Use Int32 (Expr e Int32) where use = Expr . varExpr
+instance Use Bool (Expr e Bool) where use = Expr . varExpr
+instance Use Texture (Expr e Texture) where use = Expr . varExpr
 
 
-instance Use (V2 Float) (V2 (Expr V Float)) where use = usePartsVec
-instance Use (V2 Int32) (V2 (Expr V Int32)) where use = usePartsVec
-instance Use (V2 Bool) (V2 (Expr V Bool)) where use = usePartsVec
-instance Use (V3 Float) (V3 (Expr V Float)) where use = usePartsVec
-instance Use (V3 Int32) (V3 (Expr V Int32)) where use = usePartsVec
-instance Use (V3 Bool) (V3 (Expr V Bool)) where use = usePartsVec
-instance Use (V4 Float) (V4 (Expr V Float)) where use = usePartsVec
-instance Use (V4 Int32) (V4 (Expr V Int32)) where use = usePartsVec
-instance Use (V4 Bool) (V4 (Expr V Bool)) where use = usePartsVec
+instance Use (V2 Float) (V2 (Expr e Float)) where use = usePartsVec
+instance Use (V2 Int32) (V2 (Expr e Int32)) where use = usePartsVec
+instance Use (V2 Bool) (V2 (Expr e Bool)) where use = usePartsVec
+instance Use (V3 Float) (V3 (Expr e Float)) where use = usePartsVec
+instance Use (V3 Int32) (V3 (Expr e Int32)) where use = usePartsVec
+instance Use (V3 Bool) (V3 (Expr e Bool)) where use = usePartsVec
+instance Use (V4 Float) (V4 (Expr e Float)) where use = usePartsVec
+instance Use (V4 Int32) (V4 (Expr e Int32)) where use = usePartsVec
+instance Use (V4 Bool) (V4 (Expr e Bool)) where use = usePartsVec
 
 
-instance Use (V2 (V2 Float)) (V2 (V2 (Expr V Float))) where use = usePartsMat
-instance Use (V3 (V3 Float)) (V3 (V3 (Expr V Float))) where use = usePartsMat
-instance Use (V4 (V4 Float)) (V4 (V4 (Expr V Float))) where use = usePartsMat
+instance Use (V2 (V2 Float)) (V2 (V2 (Expr e Float))) where use = usePartsMat
+instance Use (V3 (V3 Float)) (V3 (V3 (Expr e Float))) where use = usePartsMat
+instance Use (V4 (V4 Float)) (V4 (V4 (Expr e Float))) where use = usePartsMat
 
+instance (KnownNat s, GLtype a, Use a b) => Use (Arr s a) (Expr e (Arr s b)) where
+	use = Expr . varExpr
 
-instance Use Float (Expr F Float) where use = Expr . varExpr
-instance Use Int32 (Expr F Int32) where use = Expr . varExpr
-instance Use Bool (Expr F Bool) where use = Expr . varExpr
-instance Use Texture (Expr F Texture) where use = Expr . varExpr
-
-
-instance Use (V2 Float) (V2 (Expr F Float)) where use = usePartsVec
-instance Use (V2 Int32) (V2 (Expr F Int32)) where use = usePartsVec
-instance Use (V2 Bool) (V2 (Expr F Bool)) where use = usePartsVec
-instance Use (V3 Float) (V3 (Expr F Float)) where use = usePartsVec
-instance Use (V3 Int32) (V3 (Expr F Int32)) where use = usePartsVec
-instance Use (V3 Bool) (V3 (Expr F Bool)) where use = usePartsVec
-instance Use (V4 Float) (V4 (Expr F Float)) where use = usePartsVec
-instance Use (V4 Int32) (V4 (Expr F Int32)) where use = usePartsVec
-instance Use (V4 Bool) (V4 (Expr F Bool)) where use = usePartsVec
-
-instance Use (V2 (V2 Float)) (Mat V2 V2 (Expr F Float)) where use = usePartsMat
-instance Use (V3 (V3 Float)) (Mat V3 V3 (Expr F Float)) where use = usePartsMat
-instance Use (V4 (V4 Float)) (Mat V4 V4 (Expr F Float)) where use = usePartsMat
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)
 

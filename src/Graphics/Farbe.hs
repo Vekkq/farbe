@@ -9,7 +9,9 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
--- | A OpenGL ES 2 rendering library. GLES2 is ancient, but good enough for most things~
+-- | A OpenGL ES 2 rendering library.
+--
+-- GLES2 is ancient, but good enough for most things~
 --
 -- A sample program:
 --

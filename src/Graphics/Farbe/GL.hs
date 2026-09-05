@@ -19,7 +19,10 @@ import Graphics.GL.Types
 
 -- GL type information -------------------------------------------------------------------
 
-data TypeS = TBool | TInt | TFloat | TVec2 TypeS | TVec3 TypeS | TVec4 TypeS | TTex | TNone
+data TypeS
+	= TBool | TInt | TFloat
+	| TVec2 TypeS | TVec3 TypeS | TVec4 TypeS
+	| TTex | TArr TypeS | TNone
 	deriving (Eq, Ord, Read, Show, Generic)
 
 tVec :: Int -> TypeS -> TypeS

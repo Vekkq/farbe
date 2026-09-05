@@ -27,7 +27,6 @@ import GHC.Stack
 
 import Data.Typeable
 
--- ~ import Graphics.GL.Embedded20
 
 
 
@@ -207,4 +206,5 @@ getThisLine = case reverse $ getCallStack callStack of
 	_ -> 0
 
 
-class GLWindow a
+class GLWindow e w
+-- TODO write this class to provide an event type and window controls.
