@@ -86,8 +86,8 @@ instance GLtype Texture where
 	glShortName _ = "t"
 
 instance Uniform a => GLtype (Arr n a) where
-	slName _ = slName (undefined :: a) ++ "[]"
-	toTypeS _ = TArr (toTypeS a)
+	slName _ = slName (bottom :: a) ++ "[]"
+	toTypeS _ = TArr (toTypeS (bottom :: a))
 	glType _ = GL_FLOAT
 	glPrecision _ = "highp"
 	glShortName _ = "arr"

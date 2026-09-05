@@ -25,7 +25,7 @@
 -- renderColorful :: (MonadWindow m, Farbe m) => m ()
 -- renderColorful = do
 --   va <- newVArray frame
---   fix $ \loop -> processEvents $ \es -> do
+--   fix $ \\loop -> processEvents $ \\es -> do
 --     r <- rotationFromMouse33
 --     runShader colorful r [va]
 --     loop
