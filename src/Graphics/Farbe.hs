@@ -9,7 +9,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 
--- | A OpenGL ES 2 rendering library. GLES2 is ancient, but good enough~
+-- | A OpenGL ES 2 rendering library. GLES2 is ancient, but good enough for most things~
 --
 -- A sample program:
 --
@@ -40,9 +40,10 @@
 -- @
 
 module Graphics.Farbe
+	-- * Farbe
 	( runFarbeT
 	, Display (..)
-	-- * Event handling
+	-- ** Event handling
 	, processEvents
 	, Event (..)
 	, Key (..)
@@ -50,10 +51,26 @@ module Graphics.Farbe
 	, anyMouseClick
 	, rotationFromMouse33
 	, viewMat
-	-- * Shader definition
-	-- | A shader function is defined by a number of Uniform variables, one Attribute variable and a result.
+	-- ** Shader definition
+	-- | Example:
 	--
-	-- Uniforms are defined by their `Use` class and convert values as follows:
+	-- @
+	-- foo :: Farbe m => V3 (V3 Float) -> [VArray (V3 Float)] -> m Bool
+	-- foo = runShader colorful
+	--
+	-- colorful :: Mat V3 V3 (Expr V Float) -> (V3 (Expr V Float)) -> (V4 (Expr V Float), V4 (Expr F Float))
+	-- colorful = undefined
+	-- @
+	--
+	-- A shader function is defined by
+	--
+	-- * a number of Uniform parameters
+	--
+	-- * one Attribute parameter
+	--
+	-- * a result
+	--
+	-- Uniforms are defined by the `Use` class and convert values as follows:
 	--
 	-- +-------------------------+----------------------------+
 	-- | Real space              | Shader space               |
@@ -96,7 +113,7 @@ module Graphics.Farbe
 	-- The result of a shader is a 2-tuple of:
 	--
 	-- * @(V4 (Expr V Float))@ determines the position of a vertex of a triangle in a
-	--   render of coordinates -1 to 1 on x,y and z . w as homogeneous coordinate.
+	--   render of coordinates -1 to 1 on x, y and z . w as homogeneous coordinate.
 	--
 	-- * @(V4 (Expr F Float))@ determines the color in rgb for every rendered pixel.
 	, SResult
@@ -118,25 +135,28 @@ module Graphics.Farbe
 	, emod
 	, transferFrag
 	, texture
-	-- * Vertex array
+	-- ** Vertex array
 	, VArray
 	, newVArray
 	, Attribute
 	, frame
 	, floorFrame
-	-- * Textures on shaders
+	-- ** Textures on shaders
 	, Texture
 	, loadImage
 	, loadImagePixellated
-	-- * Rendering control - likely all broken
+	-- ** Render control
+	-- | These functions are for combining multiple renders, using mostly stencils internally.
+	--
+	-- WIP likely broken functions.
 	, drawOver
 	, drawTexture
 	, drawDepth
 	, drawInto
-	-- * Configuration options
+	-- ** Configuration options
 	, modifyConfig
 	, Config (..)
-	-- * Miscellaneous
+	-- ** Miscellaneous
 	, Use
 	, FarbeT
 	, Farbe

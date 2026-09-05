@@ -48,6 +48,7 @@ runFarbeT (FarbeT m) = do
 	fs <- emptyFarbeState
 	runStateT m fs
 
+-- | run Farbe without window and render context.
 runFarbeT' :: FarbeState -> FarbeT m a -> m (a, FarbeState)
 runFarbeT' fs (FarbeT m) = runStateT m fs
 
