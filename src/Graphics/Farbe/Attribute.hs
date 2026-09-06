@@ -123,7 +123,7 @@ setupAttribute1 a = do
 			glEnableVertexAttribArray p
 	modifyVao $ \s' -> s' { postShader = postShader s' >> ps }
 		-- ~ liftIO $ putStrLn $ "sl pos: " ++ show p ++ "\t arr pos: " ++ show o ++ "\t stride: " ++ (show $ itoi $ maxSize - sizeOf a) ++ "\t components: " ++ (show $ glComponents a)
-	return $ Expr $ ExprI n (toTypeS a) [] RegisterVertex
+	return $ Expr $ ExprI n (toTypeS a) [] RegisterAttribute
 
 
 -- Values usable for VArrays.

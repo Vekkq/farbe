@@ -31,7 +31,7 @@ data ExprI = ExprI
 	{ fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
 	deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-data Register = RegisterNone | RegisterVarying | RegisterUniform | RegisterVertex
+data Register = RegisterNone | RegisterVarying | RegisterUniform | RegisterAttribute
 	deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 data F

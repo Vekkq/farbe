@@ -290,7 +290,7 @@ addInputHeader :: ShaderEnv m => ShaderType -> ExprI -> m ()
 addInputHeader e (ExprI n a _ r) = do
 	let i = case r of
 		RegisterUniform -> "uniform"
-		RegisterVertex -> "attribute"
+		RegisterAttribute -> "attribute"
 		RegisterVarying -> "varying"
 		RegisterNone -> ""
 	let str = unwords [i, slNameWithPrecTypeS a, n, ";"]
