@@ -18,6 +18,8 @@ import Foreign hiding (void)
 import Graphics.GL.Embedded20
 import Graphics.GL.Types
 
+import Data.Hashable
+
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
@@ -123,7 +125,7 @@ setupAttribute1 a = do
 			glEnableVertexAttribArray p
 	modifyVao $ \s' -> s' { postShader = postShader s' >> ps }
 		-- ~ liftIO $ putStrLn $ "sl pos: " ++ show p ++ "\t arr pos: " ++ show o ++ "\t stride: " ++ (show $ itoi $ maxSize - sizeOf a) ++ "\t components: " ++ (show $ glComponents a)
-	return $ Expr $ ExprI n (toTypeS a) [] RegisterAttribute
+	return $ Expr $ ExprI n (toTypeS a) [] (hash n) RegisterAttribute
 
 
 -- Values usable for VArrays.

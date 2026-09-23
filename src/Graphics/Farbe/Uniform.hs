@@ -15,6 +15,7 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.Array
 
 import Data.Array.Storable
+import Data.Hashable
 
 import Foreign hiding (void)
 import Graphics.GL.Embedded20
@@ -96,7 +97,10 @@ nameUniform :: GLtype a => Int -> a -> String
 nameUniform i a = "u" ++ show i ++ glShortName a
 
 uniformVar :: GLtype a => Int -> a -> Var a
-uniformVar i a = Var $ ExprI (nameUniform i a) (toTypeS a) [] RegisterUniform
+uniformVar i a = Var $ ExprI n (toTypeS a) [] h RegisterUniform
+	where
+		n = nameUniform i a
+		h = hash n
 
 varName :: Var a -> String
 varName (Var e) = fnName e

@@ -23,8 +23,7 @@ import Data.Typeable
 
 
 main :: IO ()
-main = runFarbeT "" (InWindow (1000,800)) $ do
-	renderColorful
+main = runFarbeT "" (InWindow (1000,800)) $ renderFrame
 
 
 

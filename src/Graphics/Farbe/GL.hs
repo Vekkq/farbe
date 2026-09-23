@@ -47,6 +47,7 @@ slNameFromTypeS t = case t of
 	TVec3 (TVec3 TFloat) -> "mat3"
 	TVec4 (TVec4 TFloat) -> "mat4"
 	TTex -> "sampler2D"
+	_ -> "fuck"
 
 slNameWithPrecTypeS TTex = slNameFromTypeS TTex
 slNameWithPrecTypeS a = "highp " ++ slNameFromTypeS a

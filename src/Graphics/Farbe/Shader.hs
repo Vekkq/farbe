@@ -21,11 +21,11 @@ import Graphics.Farbe.Uniform
 import Graphics.Farbe.Texture
 import Graphics.Farbe.Utility
 
-import Data.Char
 import Data.List
 import Data.Maybe
 import Data.Foldable
 import Data.Hashable
+import Text.Read (readMaybe)
 import Foreign hiding (void)
 import Foreign.C
 import qualified Data.IntMap as M
@@ -41,6 +41,7 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 
+import Debug.Trace
 
 #define bottom undefined
 
@@ -234,20 +235,26 @@ fmap3 :: (Functor f1, Functor f2, Functor f3) => (a -> b) -> f1 (f2 (f3 a)) -> f
 fmap3 = fmap . fmap . fmap
 
 optimizeExpressions :: ShaderEnv m => m ()
-optimizeExpressions = return ()
--- ~ optimizeExpressions = modifyShader $ \s -> s { exprs = fmap3 optVectors $ exprs s }
+optimizeExpressions = do
+	modifyShader $ \s -> s { exprs = fmap3 (crawlI optVecArr) $ exprs s }
+-- add substitution function to clear * ops
+-- add replace overlapping hashs with additional exprs
 
-optVectors :: ExprI -> ExprI
-optVectors e@(ExprI n _ ps _)
+-- clear vec-building ops on array access on same operation
+optVecArr :: ExprI -> ExprI
+optVecArr e@(ExprI n _ ps _ _)
 	| "vec" `isPrefixOf` n
-	, and $ for ps $ \p -> same $ fnName p
-	, Just (ExprI fn t _ _) <- listToMaybe ps -- sample of the shared op
-	= optVectors $ ExprI fn (tVec (length ps) t) vec RegisterNone
-	| otherwise = e { fnAst = map optVectors $ fnAst e }
-	where
-		foo = map fnAst ps :: [[ExprI]] -- [[p1,p2],[q1,q2]]
-		vec = for (transpose foo) $ \ps' -> ExprI n TNone ps' RegisterNone
+	-- ~ | ('v':'e':'c':ns) <- n
+	-- ~ , Just (num :: Int) <- readMaybe ns
+	, Just es <- forM ps $ \p -> if fnName p == "[]"
+			then listToMaybe $ fnAst p
+			else Nothing
+	, same $ map fnHash es
+	, (e':_) <- es = e'
+	| otherwise = e
 
+traceExprId :: ExprI -> ExprI
+traceExprId e = traceShow (toCExpr e) e
 
 
 same :: Eq a => [a] -> Bool
@@ -261,19 +268,18 @@ same (x:xs) = same' x xs
 handleTransfers :: ShaderEnv m => m ()
 handleTransfers = do
 	exps <- stateShader $ \s -> (exprs s, s { exprs = [] })
-	-- cut all exprs at transferfn and add the exprs after transferfn
+	-- cut all exprs at transferfrag and add the exprs after transferfn
 	exps' <- sequence $ for exps $ \(t,(s,e)) -> fmap (\e' -> (t,(s,e'))) $ mapExpr f e
 	-- add all back up
 	newexprs <- stateShader $ \s -> (exprs s, s { exprs = exps' ++ exprs s })
 	forM_ newexprs $ \(t,(s,e)) -> addVaryingOutputHeader s t e
-
 	where
 	f :: ShaderEnv m => ExprI -> m ExprI
-	f (ExprI "transferFrag" t [p] _) = do
+	f (ExprI "transferFrag" t [p] _ _) = do
 		c <- stateShader $ \case s | c <- succ $ counter s -> (c, s { counter = c })
 		let name = "t" ++ show c ++ slNameFromTypeS t
 		addExpr Vertex name p
-		return $ ExprI name t [] RegisterVarying
+		return $ ExprI name t [] (hash name) RegisterVarying
 	f e = return e
 
 -- ~ mapExpr :: Monad m => (ExprI -> m ExprI) -> ExprI -> m ExprI
@@ -287,7 +293,7 @@ collectHeaders = do
 
 
 addInputHeader :: ShaderEnv m => ShaderType -> ExprI -> m ()
-addInputHeader e (ExprI n a _ r) = do
+addInputHeader e (ExprI n a _ _ r) = do
 	let i = case r of
 		RegisterUniform -> "uniform"
 		RegisterAttribute -> "attribute"
@@ -299,7 +305,7 @@ addInputHeader e (ExprI n a _ r) = do
 	when b $ modifyShader $ \s -> s { headers = S.insert (e,str) $ headers s }
 
 addVaryingOutputHeader :: ShaderEnv m => String -> ShaderType -> ExprI -> m ()
-addVaryingOutputHeader n e (ExprI _ a _ _) = let
+addVaryingOutputHeader n e (ExprI _ a _ _ _) = let
 		str = unwords ["varying", slNameWithPrecTypeS a, n, ";"]
 	in modifyShader $ \s -> s { headers = S.insert (e,str) $ headers s }
 
@@ -314,14 +320,14 @@ compileSubShader t = do
 		++ (toCStatements $ pickForShader $ exprs st)
 		++ "}"
 	sp <- getsShader shaderId
-	-- ~ liftIO $ putStrLn str
+	liftIO $ putStrLn str
 	liftIO $ bracket (newCAString str) free $ \cs -> do
 		i <- glCreateShader $ shaderTypeGLEnum t
 		with cs $ \p -> glShaderSource i 1 p nullPtr
 		glCompileShader i
 		glAttachShader sp i
 		err <- checkShaderError i
-		maybe (return ()) (putStrLn . (str++)) err
+		-- ~ maybe (return ()) (putStrLn . (str++)) err
 		when (t == Fragment) $ glLinkProgram sp
 	where
 		checkShaderError :: GLuint -> IO (Maybe String)
@@ -341,22 +347,6 @@ compileSubShader t = do
 
 		toCStatements :: [(String, ExprI)] -> String
 		toCStatements xs = unlines $ reverse $ for xs $ \(s,e) -> s ++ " = " ++ toCExpr e ++";"
-
-
-toCExpr :: ExprI -> String
-toCExpr e = case e of
-	ExprI s _ [] _ -> s
-	ExprI "[]" _ (p1:p2:[]) _ -> toCExpr p1 ++ "[" ++ toCExpr p2 ++ "]"
-	ExprI s _ (p1:p2:[]) _ | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p2
-	ExprI "if" _ (p1:p2:p3:[]) _ -> par $ toCExpr p1 ++ "?" ++ toCExpr p2 ++ ":" ++ toCExpr p3
-	ExprI s _ as _ -> (s++) $ par $ intercalate ", " $ map toCExpr as
-	where
-		isOp :: String -> Bool
-		isOp (x:_) = not $ isAlpha x
-		isOp [] = False
-
-		par :: String -> String
-		par s = "(" ++ s ++ ")"
 
 
 class JoinF m f where

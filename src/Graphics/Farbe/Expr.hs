@@ -14,6 +14,8 @@ import Graphics.Farbe.Texture
 import Graphics.Farbe.Array
 import Data.Foldable
 import Data.Hashable
+import Data.Char
+import Data.List
 import GHC.Generics (Generic)
 -- ~ import Graphics.Farbe.BuildShader
 
@@ -28,7 +30,11 @@ import Foreign hiding (void)
 data Expr e a = Expr { unExpr :: ExprI } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 data ExprI = ExprI
-	{ fnName :: String, rtype :: TypeS, fnAst :: [ExprI], exprSetup :: Register }
+	{ fnName :: String
+	, rtype :: TypeS
+	, fnAst :: [ExprI]
+	, fnHash :: Int
+	, exprSetup :: Register }
 	deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 data Register = RegisterNone | RegisterVarying | RegisterUniform | RegisterAttribute
@@ -41,7 +47,8 @@ data V
 type SResult = (V4 (Expr V Float), V4 (Expr F Float))
 
 liftExpr :: forall a e . GLtype a => String -> [ExprI] -> Expr e a
-liftExpr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p RegisterNone
+liftExpr s p = Expr $ ExprI s (toTypeS (bottom :: a)) p h RegisterNone
+	where h = hashWithSalt (hash s) $ map fnHash p
 
 liftE0 :: GLtype a => String -> Expr e a
 liftE0 s = liftExpr s []
@@ -59,7 +66,10 @@ liftE3 s (Expr a) (Expr b) (Expr c) = liftExpr s [a,b,c]
 -- ~ freeEnv (Expr e) = (Expr e)
 
 crawl :: (ExprI -> a) -> ExprI -> [a]
-crawl f e@(ExprI _ _ ps _) = f e : concatMap (crawl f) ps
+crawl f e@(ExprI _ _ ps _ _) = f e : concatMap (crawl f) ps
+
+crawlI :: (ExprI -> ExprI) -> ExprI -> ExprI
+crawlI f e | e' <- f e = e' { fnAst = map (crawlI f) $ fnAst e' }
 
 mapExpr :: Monad m => (ExprI -> m ExprI) -> ExprI -> m ExprI
 mapExpr f e = do
@@ -175,13 +185,13 @@ class Transfer a b | a -> b, b -> a where
 	transferFrag :: a -> b
 
 instance Transfer (Expr V Float) (Expr F Float) where
-	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TFloat [e] RegisterVarying
+	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TFloat [e] (fnHash e) RegisterVarying
 
 instance Transfer (Expr V Int) (Expr F Int) where
-	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TInt [e] RegisterVarying
+	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TInt [e] (fnHash e) RegisterVarying
 
 instance Transfer (Expr V Bool) (Expr F Bool) where
-	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TBool [e] RegisterVarying
+	transferFrag (Expr e) = Expr $ ExprI "transferFrag" TBool [e] (fnHash e) RegisterVarying
 
 instance (Transfer a b) => Transfer (V2 a) (V2 b) where
 	transferFrag = fmap transferFrag
@@ -191,4 +201,20 @@ instance (Transfer a b) => Transfer (V3 a) (V3 b) where
 
 instance (Transfer a b) => Transfer (V4 a) (V4 b) where
 	transferFrag = fmap transferFrag
+
+
+toCExpr :: ExprI -> String
+toCExpr e = case e of
+	ExprI s _ [] _ _ -> s
+	ExprI "[]" _ (p1:p2:[]) _ _ -> toCExpr p1 ++ "[" ++ toCExpr p2 ++ "]"
+	ExprI s _ (p1:p2:[]) _ _ | isOp s -> par $ toCExpr p1 ++ s ++ toCExpr p2
+	ExprI "if" _ (p1:p2:p3:[]) _ _ -> par $ toCExpr p1 ++ "?" ++ toCExpr p2 ++ ":" ++ toCExpr p3
+	ExprI s _ as _ _ -> (s++) $ par $ intercalate ", " $ map toCExpr as
+	where
+		isOp :: String -> Bool
+		isOp (x:_) = not $ isAlpha x
+		isOp [] = False
+
+		par :: String -> String
+		par s = "(" ++ s ++ ")"
 
